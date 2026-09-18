@@ -1,0 +1,165 @@
+@import "tailwindcss";
+
+/*
+  BCare design tokens — แนวคิด "อู่ซ่อมรถ/เวิร์คช็อป" โทนแดง-ขาว-ดำ
+  - asphalt: สีพื้นเข้ม ใช้กับ navbar/footer
+  - concrete: สีพื้นอ่อน ใช้กับพื้นหลังหน้าเว็บ
+  - safety: สีแดง ใช้เป็นสีเน้นหลัก ปุ่ม, สถานะ active
+  - steel: สีเทาเข้ม ใช้เป็นสีเน้นรอง
+  - signal: สีเขียวสัญญาณ ใช้บอกสถานะ "ว่าง/พร้อม"
+  - hazard: สีแดงเตือน ใช้บอกสถานะ "เต็ม/ผิดพลาด"
+*/
+
+@theme {
+  --color-asphalt: #16181a;
+  --color-asphalt-2: #212427;
+  --color-concrete: #f6f6f5;
+  --color-concrete-2: #ececea;
+  --color-ink: #17181a;
+  --color-safety: #d8232a;
+  --color-safety-dim: #b81e24;
+  --color-steel: #2b2f33;
+  --color-signal: #1f7a4d;
+  --color-hazard: #d8232a;
+
+  --font-display: var(--font-chakra-petch), "Segoe UI", sans-serif;
+  --font-body: var(--font-plex-thai), "Segoe UI", sans-serif;
+}
+
+/*
+  ตัวแปรชื่อเดิมที่หน้าอื่นๆ ในโปรเจกต์ (เกือบ 30 ไฟล์) อ้างอิงอยู่ผ่าน
+  var(--brand), var(--line) ฯลฯ — คงชื่อไว้เหมือนเดิมแต่แก้ "ค่า" ให้เป็น
+  โทนสีใหม่ ทำให้ธีมใหม่กระจายไปทั่วทั้งเว็บโดยไม่ต้องแก้ทุกไฟล์
+*/
+:root {
+  color-scheme: light;
+  --background: var(--color-concrete);
+  --foreground: var(--color-ink);
+  --muted: #5b6167;
+  --line: #d8dbd4;
+  --brand: var(--color-safety);
+  --brand-strong: var(--color-safety-dim);
+  --accent: var(--color-steel);
+}
+
+/*
+  สำคัญมาก: ต้องห่อ base styles ทั้งหมดด้วย @layer base
+  ไม่งั้น Tailwind v4 จะถือว่ากฎเหล่านี้อยู่ "นอก layer" ซึ่งมีความสำคัญ
+  สูงกว่า utility class ทุกตัวเสมอ (ไม่ว่า class นั้นจะ specificity สูงแค่ไหน)
+  ทำให้ class อย่าง text-[#f6f6f5] แพ้กฎ a { color: inherit } ด้านล่าง
+  จนตัวหนังสือเมนูมองไม่เห็น (บั๊กที่เจอไปก่อนหน้านี้)
+*/
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    min-height: 100%;
+    background: var(--color-concrete);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+    color: var(--color-ink);
+    background: var(--color-concrete);
+    font-family: var(--font-body);
+    line-height: 1.6;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* ปุ่ม/ลิงก์/การ์ดทุกตัวขยับนุ่มนวลขึ้นเวลา hover แทนที่จะเปลี่ยนสีทันที */
+  a,
+  button {
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease,
+      opacity 0.15s ease,
+      transform 0.1s ease,
+      box-shadow 0.15s ease;
+  }
+
+  button:not(:disabled):active {
+    transform: translateY(1px);
+  }
+
+  /* วงแหวน focus สีแดงของแบรนด์ ใช้แทน outline ปกติของเบราว์เซอร์ ทุกที่ */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  /* กรอบ input/select/textarea เริ่มต้นให้ดูเรียบร้อยตั้งแต่แรก แม้บางหน้าจะไม่ได้
+     ใส่ class เองครบ (ปุ่ม/ช่องกรอกที่มี class ของตัวเองจะทับค่าพวกนี้ตามปกติ) */
+  input,
+  textarea,
+  select {
+    border-radius: 0.5rem;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted);
+    opacity: 0.7;
+  }
+
+  /* scrollbar บางและเข้าธีม แทนที่ scrollbar เริ่มต้นของเบราว์เซอร์ (เฉพาะ WebKit) */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-concrete-2);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #c7c9c4;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted);
+  }
+}
+
+/* ลายเส้นเตือนนิรภัย (hazard stripe) ใช้เป็นเส้นแบ่งส่วนที่มีเอกลักษณ์ */
+.hazard-stripe {
+  height: 6px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-safety),
+    var(--color-safety) 10px,
+    var(--color-ink) 10px,
+    var(--color-ink) 20px
+  );
+}
