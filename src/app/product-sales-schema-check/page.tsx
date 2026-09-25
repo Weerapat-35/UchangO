@@ -212,7 +212,7 @@ export default function ProductSalesSchemaCheckPage() {
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-          BCare Step 12 Part 0
+          อู่ช่างโอ Step 12 Part 0
         </p>
         <h1 className="mt-2 text-3xl font-bold text-[var(--foreground)]">
           Product Sales Schema Check

@@ -1,10 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { AppNav } from "@/components/app-nav";
 import { createClient } from "@/lib/supabase/browser";
 import {
   createProductOrderFromCart,
@@ -14,6 +14,12 @@ import {
   type CheckoutResult,
 } from "@/features/products";
 import { ProductImageThumb } from "./product-image-thumb";
+import type { ReverseAddressDetails } from "./location-map";
+const LocationMap = dynamic(
+  () => import("./location-map").then((module) => module.LocationMap),
+  { ssr: false },
+);
+import { emptyThaiAddress, ThaiAddressForm, type ThaiAddressValue } from "./thai-address-form";
 
 type AuthState =
   | { status: "loading"; user: null; error: null }
@@ -63,12 +69,79 @@ export function CheckoutPanel() {
   const [deliveryMethod, setDeliveryMethod] =
     useState<CheckoutDeliveryMethod>("pickup");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+  const [thaiAddress, setThaiAddress] = useState<ThaiAddressValue>(emptyThaiAddress());
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [showMap, setShowMap] = useState(false);
+  const [location, setLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    address: string;
+  } | null>(null);
   const [note, setNote] = useState("");
   const [checkoutState, setCheckoutState] = useState<CheckoutState>({
     error: null,
     result: null,
     status: "idle",
   });
+
+  async function syncThaiAddressFromMap(details: ReverseAddressDetails) {
+    const next = { ...thaiAddress };
+
+    if (details.houseNumber) next.houseNumber = details.houseNumber;
+    if (details.road) next.road = details.road;
+    if (details.soi) next.soi = details.soi;
+    if (details.postalCode) next.postalCode = details.postalCode;
+
+    const normalize = (text: string) => text
+      .replace(/^(จังหวัด|จ\.)\s*/i, "")
+      .replace(/^(อำเภอ|อ\.|เขต)\s*/i, "")
+      .replace(/^(ตำบล|ต\.|แขวง)\s*/i, "")
+      .trim();
+
+    try {
+      const base = "https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest";
+      const provinceRes = await fetch(`${base}/province.json`);
+      if (!provinceRes.ok) throw new Error("province lookup failed");
+      const provinces = (await provinceRes.json()) as Array<{ id: number; name_th: string }>;
+      const provinceName = normalize(details.province ?? "");
+      const province = provinces.find((p) => normalize(p.name_th) === provinceName);
+
+      if (province) {
+        next.provinceId = String(province.id);
+        next.province = province.name_th;
+
+        const districtRes = await fetch(`${base}/district.json`);
+        if (!districtRes.ok) throw new Error("district lookup failed");
+        const districts = (await districtRes.json()) as Array<{ id: number; province_id: number; name_th: string }>;
+        const provinceDistricts = districts.filter((d) => d.province_id === province.id);
+        const districtName = normalize(details.district ?? "");
+        const district = provinceDistricts.find((d) => normalize(d.name_th) === districtName);
+
+        if (district) {
+          next.districtId = String(district.id);
+          next.district = district.name_th;
+
+          const subRes = await fetch(`${base}/sub_district.json`);
+          if (!subRes.ok) throw new Error("subdistrict lookup failed");
+          const subdistricts = (await subRes.json()) as Array<{ id: number; district_id: number; zip_code: number | string; name_th: string }>;
+          const districtSubs = subdistricts.filter((s) => s.district_id === district.id);
+          const subdistrictName = normalize(details.subdistrict ?? "");
+          const subdistrict = districtSubs.find((s) => normalize(s.name_th) === subdistrictName);
+
+          if (subdistrict) {
+            next.subdistrictId = String(subdistrict.id);
+            next.subdistrict = subdistrict.name_th;
+            if (!details.postalCode) next.postalCode = String(subdistrict.zip_code);
+          }
+        }
+      }
+    } catch {
+      // Keep the map pin even if the Thai address dataset cannot be reached.
+    }
+
+    setThaiAddress(next);
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -197,12 +270,83 @@ export function CheckoutPanel() {
     });
 
     const supabase = createClient();
+
+    if (deliveryMethod === "delivery") {
+      if (!recipientName.trim() || !phoneNumber.trim()) {
+        setCheckoutState({
+          error: "กรุณากรอกชื่อผู้รับและเบอร์โทรศัพท์",
+          result: null,
+          status: "error",
+        });
+        return;
+      }
+      if (
+        !thaiAddress.houseNumber.trim() ||
+        !thaiAddress.provinceId ||
+        !thaiAddress.districtId ||
+        !thaiAddress.subdistrictId ||
+        !thaiAddress.postalCode ||
+        !location
+      ) {
+        setCheckoutState({
+          error: "กรุณากรอกบ้านเลขที่ และเลือกจังหวัด อำเภอ ตำบลให้ครบ พร้อมปักหมุดแผนที่",
+          result: null,
+          status: "error",
+        });
+        return;
+      }
+
+      const formattedAddress = [
+        thaiAddress.houseNumber && `บ้านเลขที่ ${thaiAddress.houseNumber}`,
+        thaiAddress.moo && `หมู่ ${thaiAddress.moo}`,
+        thaiAddress.soi && `ซอย${thaiAddress.soi}`,
+        thaiAddress.road && `ถนน${thaiAddress.road}`,
+        thaiAddress.subdistrict && `ตำบล${thaiAddress.subdistrict}`,
+        thaiAddress.district && `อำเภอ${thaiAddress.district}`,
+        thaiAddress.province && `จังหวัด${thaiAddress.province}`,
+        thaiAddress.postalCode,
+      ].filter(Boolean).join(" ");
+
+      setDeliveryAddress(formattedAddress);
+
+      const { error: addressError } = await (supabase as any)
+        .from("delivery_addresses")
+        .insert({
+          customer_id: authState.user.id,
+          recipient_name: recipientName.trim(),
+          phone_number: phoneNumber.trim(),
+          address_line: formattedAddress,
+          house_number: thaiAddress.houseNumber.trim(),
+          moo: thaiAddress.moo.trim() || null,
+          soi: thaiAddress.soi.trim() || null,
+          road: thaiAddress.road.trim() || null,
+          subdistrict: thaiAddress.subdistrict,
+          district: thaiAddress.district,
+          province: thaiAddress.province,
+          postal_code: thaiAddress.postalCode,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          place_id: null,
+        });
+
+      if (addressError) {
+        setCheckoutState({
+          error: `บันทึกที่อยู่ไม่สำเร็จ: ${addressError.message}`,
+          result: null,
+          status: "error",
+        });
+        return;
+      }
+    }
+
     const { data, error } = await createProductOrderFromCart(
       supabase,
       authState.user.id,
       {
         deliveryAddress:
-          deliveryMethod === "delivery" ? deliveryAddress.trim() : null,
+          deliveryMethod === "delivery"
+            ? `${recipientName.trim()} ${phoneNumber.trim()} ${deliveryAddress.trim()}`
+            : null,
         deliveryFee: resolvedDeliveryFee,
         deliveryMethod,
         note: note.trim() || null,
@@ -243,12 +387,6 @@ export function CheckoutPanel() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8">
       <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
-          </p>
-          <AppNav />
-        </div>
         <h1 className="text-3xl font-bold leading-tight text-[var(--foreground)]">
           ยืนยันคำสั่งซื้อสินค้า
         </h1>
@@ -294,7 +432,7 @@ export function CheckoutPanel() {
             onSubmit={handleSubmit}
           >
             {cartState.status === "loading" ? (
-              <div className="rounded-lg border border-[var(--line)] bg-slate-50 p-4 text-sm text-[var(--muted)]">
+              <div className="rounded-lg border border-[var(--line)] bg-[var(--color-concrete-2)] p-4 text-sm text-[var(--muted)]">
                 กำลังโหลดตะกร้า...
               </div>
             ) : null}
@@ -308,7 +446,7 @@ export function CheckoutPanel() {
             {cartState.status === "ready" &&
             cartState.details.items.length === 0 &&
             checkoutState.status !== "success" ? (
-              <div className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50 p-4 text-sm leading-6 text-[var(--muted)]">
+              <div className="rounded-lg border border-dashed border-[var(--line)] bg-[var(--color-concrete-2)] p-4 text-sm leading-6 text-[var(--muted)]">
                 <p className="font-semibold text-[var(--foreground)]">
                   ตะกร้าว่างอยู่
                 </p>
@@ -346,16 +484,57 @@ export function CheckoutPanel() {
             </fieldset>
 
             {deliveryMethod === "delivery" ? (
-              <label className="grid gap-2 text-sm font-medium text-[var(--foreground)]">
-                ที่อยู่จัดส่ง
-                <textarea
-                  className="min-h-28 rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-                  onChange={(event) => setDeliveryAddress(event.target.value)}
-                  placeholder="ชื่อผู้รับ เบอร์โทร และที่อยู่จัดส่ง"
-                  required
-                  value={deliveryAddress}
-                />
-              </label>
+              <section className="space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--color-concrete-2)] p-4 sm:p-5">
+                <div>
+                  <p className="text-base font-bold text-[var(--foreground)]">📍 ที่อยู่จัดส่ง</p>
+                  <p className="mt-1 text-sm text-[var(--muted)]">กรอกข้อมูลผู้รับ แล้วเลือกตำแหน่งจากแผนที่</p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="grid gap-2 text-sm font-medium text-[var(--foreground)]">
+                    ชื่อผู้รับ
+                    <input
+                      className="min-h-11 rounded-xl border border-[var(--line)] bg-white px-3 text-sm outline-none focus:border-[var(--brand)]"
+                      onChange={(event) => setRecipientName(event.target.value)}
+                      placeholder="ชื่อ-นามสกุล"
+                      required
+                      value={recipientName}
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm font-medium text-[var(--foreground)]">
+                    เบอร์โทรศัพท์
+                    <input
+                      className="min-h-11 rounded-xl border border-[var(--line)] bg-white px-3 text-sm outline-none focus:border-[var(--brand)]"
+                      onChange={(event) => setPhoneNumber(event.target.value)}
+                      placeholder="08x-xxx-xxxx"
+                      required
+                      value={phoneNumber}
+                    />
+                  </label>
+                </div>
+
+                <ThaiAddressForm value={thaiAddress} onChange={setThaiAddress} />
+
+                <button
+                  type="button"
+                  onClick={() => setShowMap(true)}
+                  className="flex min-h-12 w-full items-center justify-between rounded-xl border border-[var(--brand)] bg-white px-4 text-left shadow-sm transition hover:bg-red-50"
+                >
+                  <span>
+                    <span className="block text-sm font-bold text-[var(--foreground)]">🗺️ เลือกตำแหน่งจากแผนที่</span>
+                    <span className="mt-1 block text-xs text-[var(--muted)]">
+                      {location ? location.address : "กดเพื่อปักหมุดบ้าน/สถานที่จัดส่ง"}
+                    </span>
+                  </span>
+                  <span className="text-sm font-bold text-[var(--brand)]">เลือก →</span>
+                </button>
+
+                {location ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+                    ✓ เลือกพิกัดแล้ว: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                  </div>
+                ) : null}
+              </section>
             ) : null}
 
             <label className="grid gap-2 text-sm font-medium text-[var(--foreground)]">
@@ -469,6 +648,55 @@ export function CheckoutPanel() {
             </Link>
           </aside>
         </section>
+      ) : null}
+
+      {showMap ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+          <div className="max-h-[92vh] w-full max-w-4xl overflow-auto rounded-3xl bg-white shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--line)] bg-white px-5 py-4">
+              <div>
+                <h2 className="text-lg font-bold text-[var(--foreground)]">เลือกตำแหน่งจัดส่ง</h2>
+                <p className="mt-1 text-xs text-[var(--muted)]">คลิกบนแผนที่ หรือค้นหาสถานที่ แล้วกดยืนยัน</p>
+              </div>
+              <button type="button" onClick={() => setShowMap(false)} className="rounded-full px-3 py-2 text-lg text-[var(--muted)] hover:bg-gray-100">✕</button>
+            </div>
+            <div className="p-5">
+              <LocationMap
+                value={location}
+                onChange={setLocation}
+                onAddressDetails={(details) => {
+                  void syncThaiAddressFromMap(details);
+                }}
+                searchQuery={[
+                  thaiAddress.houseNumber && `บ้านเลขที่ ${thaiAddress.houseNumber}`,
+                  thaiAddress.moo && `หมู่ ${thaiAddress.moo}`,
+                  thaiAddress.soi && `ซอย${thaiAddress.soi}`,
+                  thaiAddress.road && `ถนน${thaiAddress.road}`,
+                  thaiAddress.subdistrict && `ตำบล${thaiAddress.subdistrict}`,
+                  thaiAddress.district && `อำเภอ${thaiAddress.district}`,
+                  thaiAddress.province && `จังหวัด${thaiAddress.province}`,
+                  thaiAddress.postalCode,
+                ].filter(Boolean).join(" ")}
+              />
+              <div className="mt-4 flex justify-end gap-3">
+                <button type="button" onClick={() => setShowMap(false)} className="rounded-xl border border-[var(--line)] px-5 py-3 text-sm font-semibold text-[var(--foreground)]">ยกเลิก</button>
+                <button
+                  type="button"
+                  disabled={!location}
+                  onClick={() => {
+                    if (location) {
+                      setDeliveryAddress(location.address);
+                      setShowMap(false);
+                    }
+                  }}
+                  className="rounded-xl bg-[var(--brand)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  ✓ ใช้ตำแหน่งนี้
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
     </main>
   );

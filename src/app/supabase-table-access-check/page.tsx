@@ -57,13 +57,13 @@ export default function SupabaseTableAccessCheckPage() {
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-          BCare
+          อู่ช่างโอ
         </p>
         <h1 className="mt-2 text-3xl font-bold text-[var(--foreground)]">
           Core Table Access Check
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--muted)]">
-          Check which core BCare tables are readable with the current Supabase
+          Check which core อู่ช่างโอ tables are readable with the current Supabase
           public client. This is for setup review before feature UI work begins.
         </p>
       </header>

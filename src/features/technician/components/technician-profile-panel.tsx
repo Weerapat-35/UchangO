@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { AppNav } from "@/components/app-nav";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getTechnicianProfile,
   updateTechnicianProfile,
@@ -39,6 +38,9 @@ export function TechnicianProfilePanel() {
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [technicianSpecialty, setTechnicianSpecialty] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedSkillIds, setSelectedSkillIds] = useState<string[]>([]);
   const [saveState, setSaveState] = useState<SaveState>({
     error: null,
@@ -110,6 +112,7 @@ export function TechnicianProfilePanel() {
         setFullName(data.profile.full_name);
         setPhoneNumber(data.profile.phone_number);
         setTechnicianSpecialty(data.profile.technician_specialty ?? "");
+        setAvatarUrl((data.profile as any).avatar_url ?? null);
       }
 
       setSelectedSkillIds(data?.selectedSkillIds ?? []);
@@ -152,6 +155,35 @@ export function TechnicianProfilePanel() {
         ? currentSkillIds.filter((currentSkillId) => currentSkillId !== skillId)
         : [...currentSkillIds, skillId],
     );
+  }
+
+
+  async function uploadAvatar(file: File) {
+    if (loadState.status !== "ready" || !loadState.userId) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setSaveState({ error: "รองรับเฉพาะ JPG, PNG และ WebP", message: null, status: "error" });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveState({ error: "รูปภาพต้องมีขนาดไม่เกิน 2 MB", message: null, status: "error" });
+      return;
+    }
+    setUploadingAvatar(true);
+    const supabase = createClient();
+    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `${loadState.userId}/${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { contentType: file.type, cacheControl: "3600" });
+    if (uploadError) {
+      setSaveState({ error: uploadError.message, message: null, status: "error" });
+      setUploadingAvatar(false);
+      return;
+    }
+    const { data: publicData } = supabase.storage.from("avatars").getPublicUrl(path);
+    const avatar = publicData.publicUrl;
+    const { data, error } = await (supabase as any).from("profiles").update({ avatar_url: avatar }).eq("id", loadState.userId).select("*").single();
+    if (error) setSaveState({ error: error.message, message: null, status: "error" });
+    else { setAvatarUrl(avatar); setLoadState({ ...loadState, profile: data }); setSaveState({ error: null, message: "เปลี่ยนรูปโปรไฟล์แล้ว", status: "success" }); }
+    setUploadingAvatar(false);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -207,6 +239,7 @@ export function TechnicianProfilePanel() {
       setFullName(data.profile.full_name);
       setPhoneNumber(data.profile.phone_number);
       setTechnicianSpecialty(data.profile.technician_specialty ?? "");
+      setAvatarUrl((data.profile as any).avatar_url ?? null);
     }
 
     setSelectedSkillIds(data?.selectedSkillIds ?? []);
@@ -224,18 +257,11 @@ export function TechnicianProfilePanel() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
-          </p>
-          <AppNav />
-        </div>
         <h1 className="text-3xl font-bold text-[var(--foreground)]">
-          Technician Profile
+          โปรไฟล์ช่าง
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-          Keep mechanic contact details and repair skills ready for admin
-          assignment.
+          จัดการข้อมูลติดต่อ ความเชี่ยวชาญ และทักษะสำหรับการทำงานในอู่
         </p>
       </header>
 
@@ -285,9 +311,18 @@ export function TechnicianProfilePanel() {
           onSubmit={handleSubmit}
         >
           <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
-            <p className="text-sm font-semibold text-[var(--brand)]">
-              Profile
-            </p>
+            <div className="technician-profile-hero">
+              {avatarUrl ? <img src={avatarUrl} alt="รูปโปรไฟล์ช่าง" className="technician-profile-avatar" /> : <div className="technician-profile-avatar technician-profile-avatar--fallback">{(fullName.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("") || "ช").toUpperCase()}</div>}
+              <div>
+                <p className="text-sm font-semibold text-[var(--brand)]">รูปโปรไฟล์</p>
+                <p className="mt-1 text-xs text-[var(--muted)]">รูปช่างจะแสดงในระบบงานซ่อม</p>
+                <button type="button" className="technician-avatar-button" onClick={() => avatarInputRef.current?.click()} disabled={uploadingAvatar}>{uploadingAvatar ? "กำลังอัปโหลด..." : "เปลี่ยนรูป"}</button>
+                <input ref={avatarInputRef} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadAvatar(file); event.currentTarget.value = ""; }} />
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-[var(--muted)]">รองรับ JPG, PNG, WebP ขนาดไม่เกิน 2 MB</p>
+
+            <p className="mt-5 text-sm font-semibold text-[var(--brand)]">Profile</p>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium text-[var(--foreground)]">

@@ -6,7 +6,6 @@ import Link from "next/link";
 import type { SyntheticEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { AppNav } from "@/components/app-nav";
 import { createClient } from "@/lib/supabase/browser";
 import {
   addProductToCart,
@@ -114,7 +113,7 @@ function ProductCard({
       <div>
         <img
           alt={`รูปสินค้า ${product.name}`}
-          className="h-44 w-full border-b border-[var(--line)] bg-slate-50 object-cover"
+          className="h-44 w-full border-b border-[var(--line)] bg-[var(--color-concrete-2)] object-cover"
           onError={handleProductImageError}
           src={product.image_url || productImagePlaceholder}
         />
@@ -409,6 +408,7 @@ export function ProductStorefront() {
       status: "ready",
       summary: data ?? emptyCartSummary,
     });
+    window.dispatchEvent(new Event("cart-updated"));
     setAddToCartState({
       message: `เพิ่ม ${product.name} ลงตะกร้าแล้ว`,
       productId: product.id,
@@ -419,12 +419,6 @@ export function ProductStorefront() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-6 sm:px-8">
       <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
-          </p>
-          <AppNav />
-        </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold leading-tight text-[var(--foreground)]">
@@ -592,7 +586,7 @@ export function ProductStorefront() {
               className={
                 cartState.summary.itemCount > 0
                   ? "mt-5 flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white"
-                  : "mt-5 flex min-h-11 w-full items-center justify-center rounded-md border border-[var(--line)] bg-slate-50 px-4 text-sm font-semibold text-[var(--muted)]"
+                  : "mt-5 flex min-h-11 w-full items-center justify-center rounded-md border border-[var(--line)] bg-[var(--color-concrete-2)] px-4 text-sm font-semibold text-[var(--muted)]"
               }
               href="/cart"
             >

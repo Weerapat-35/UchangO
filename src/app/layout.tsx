@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Chakra_Petch, IBM_Plex_Sans_Thai } from "next/font/google";
-import { SiteFooter } from "@/components/site-footer";
+import { SiteChrome } from "@/components/site-chrome";
+import { SiteFooterChrome } from "@/components/site-footer-chrome";
 import "./globals.css";
 
 // ฟอนต์หัวเรื่อง: แนวเทคนิค/วิศวกรรม รองรับภาษาไทย เข้ากับธีมอู่ซ่อมรถ
@@ -18,8 +19,8 @@ const plexThai = IBM_Plex_Sans_Thai({
 });
 
 export const metadata: Metadata = {
-  title: "BCare | BigO-RepairCar",
-  description: "Garage booking system for BigO-RepairCar",
+  title: "อู่ช่างโอ",
+  description: "ระบบบริการอู่ซ่อมรถอู่ช่างโอ",
 };
 
 export default function RootLayout({
@@ -30,8 +31,9 @@ export default function RootLayout({
   return (
     <html lang="th" className={`${chakraPetch.variable} ${plexThai.variable}`}>
       <body>
+        <SiteChrome />
         {children}
-        <SiteFooter />
+        <SiteFooterChrome />
       </body>
     </html>
   );

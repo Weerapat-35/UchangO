@@ -264,7 +264,7 @@ export default function ScheduleCapacitySchemaCheckPage() {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-          BCare Step 10 Part 0
+          อู่ช่างโอ Step 10 Part 0
         </p>
         <h1 className="mt-2 text-3xl font-bold text-[var(--foreground)]">
           Schedule / Capacity Schema Check

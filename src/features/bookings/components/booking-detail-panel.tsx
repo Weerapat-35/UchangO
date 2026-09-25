@@ -3,7 +3,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { AppNav } from "@/components/app-nav";
 import {
   cancelCurrentUserBooking,
   getCurrentUserBookingById,
@@ -59,7 +58,7 @@ function getStatusStyle(status: MyBooking["status"]) {
     return "bg-red-50 text-red-700";
   }
 
-  return "bg-slate-100 text-slate-700";
+  return "bg-[var(--color-concrete-2)] text-slate-700";
 }
 
 function getRepairJobStatusStyle(status: NonNullable<MyBooking["repairJob"]>["status"]) {
@@ -106,7 +105,7 @@ function getCancelButtonClass(bookingStatus: MyBooking["status"]) {
     return "min-h-10 rounded-md border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:opacity-60";
   }
 
-  return "min-h-10 rounded-md border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-500 disabled:cursor-not-allowed";
+  return "min-h-10 rounded-md border border-slate-200 bg-[var(--color-concrete-2)] px-4 text-sm font-semibold text-slate-500 disabled:cursor-not-allowed";
 }
 
 function DetailItem({
@@ -287,12 +286,6 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
-          </p>
-          <AppNav />
-        </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
@@ -435,7 +428,7 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
             </dl>
 
             {loadState.booking.note ? (
-              <div className="mt-5 rounded-md bg-slate-50 p-4 text-sm leading-6 text-[var(--muted)]">
+              <div className="mt-5 rounded-md bg-[var(--color-concrete-2)] p-4 text-sm leading-6 text-[var(--muted)]">
                 <p className="font-semibold text-[var(--foreground)]">Note</p>
                 <p className="mt-2">{loadState.booking.note}</p>
               </div>
@@ -496,7 +489,7 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
                   {loadState.booking.repairJob.status}
                 </span>
               ) : (
-                <span className="w-fit rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                <span className="w-fit rounded-md bg-[var(--color-concrete-2)] px-2.5 py-1 text-xs font-semibold text-slate-700">
                   Not created yet
                 </span>
               )}
@@ -533,7 +526,7 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
                 </dl>
 
                 <div className="mt-5 grid gap-3 text-sm md:grid-cols-2">
-                  <div className="rounded-md bg-slate-50 p-4">
+                  <div className="rounded-md bg-[var(--color-concrete-2)] p-4">
                     <p className="font-semibold text-[var(--foreground)]">
                       Diagnosis
                     </p>
@@ -541,7 +534,7 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
                       {loadState.booking.repairJob.diagnosis || "-"}
                     </p>
                   </div>
-                  <div className="rounded-md bg-slate-50 p-4">
+                  <div className="rounded-md bg-[var(--color-concrete-2)] p-4">
                     <p className="font-semibold text-[var(--foreground)]">
                       Repair notes
                     </p>

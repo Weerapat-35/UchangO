@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AppNav } from "@/components/app-nav";
 import { getCurrentUserBookings, type MyBooking } from "@/features/bookings";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -44,7 +43,7 @@ function getStatusStyle(status: MyBooking["status"]) {
     return "bg-red-50 text-red-700";
   }
 
-  return "bg-slate-100 text-slate-700";
+  return "bg-[var(--color-concrete-2)] text-slate-700";
 }
 
 function getRepairJobStatusStyle(status: NonNullable<MyBooking["repairJob"]>["status"]) {
@@ -126,12 +125,12 @@ function BookingCard({ booking }: { booking: MyBooking }) {
       </dl>
 
       {booking.note ? (
-        <div className="mt-4 rounded-md bg-slate-50 p-3 text-sm leading-6 text-[var(--muted)]">
+        <div className="mt-4 rounded-md bg-[var(--color-concrete-2)] p-3 text-sm leading-6 text-[var(--muted)]">
           {booking.note}
         </div>
       ) : null}
 
-      <section className="mt-4 rounded-md border border-[var(--line)] bg-slate-50 p-3 text-sm">
+      <section className="mt-4 rounded-md border border-[var(--line)] bg-[var(--color-concrete-2)] p-3 text-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-semibold text-[var(--foreground)]">
             Work order progress
@@ -145,7 +144,7 @@ function BookingCard({ booking }: { booking: MyBooking }) {
               {booking.repairJob.status}
             </span>
           ) : (
-            <span className="w-fit rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+            <span className="w-fit rounded-md bg-[var(--color-concrete-2)] px-2.5 py-1 text-xs font-semibold text-slate-700">
               Not created yet
             </span>
           )}
@@ -255,12 +254,6 @@ export function MyBookingsPanel() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
-          </p>
-          <AppNav />
-        </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">

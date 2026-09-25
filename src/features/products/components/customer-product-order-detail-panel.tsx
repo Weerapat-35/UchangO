@@ -5,7 +5,6 @@
 import Link from "next/link";
 import type { FormEvent, ReactNode, SyntheticEvent } from "react";
 import { useEffect, useState } from "react";
-import { AppNav } from "@/components/app-nav";
 import {
   getActivePaymentSetting,
   getCustomerProductOrderById,
@@ -16,6 +15,7 @@ import {
 } from "@/features/products";
 import { createClient } from "@/lib/supabase/browser";
 import { ProductImageThumb } from "./product-image-thumb";
+import { OrderStatusStepper } from "@/components/order-status-stepper";
 
 type LoadState =
   | {
@@ -172,7 +172,7 @@ function getPaymentStatusStyle(status: ProductOrderWithItems["payment_status"]) 
     return "bg-red-50 text-red-700";
   }
 
-  return "bg-slate-100 text-slate-700";
+  return "bg-[var(--color-concrete-2)] text-slate-700";
 }
 
 function getVerificationStatusStyle(status: ProductPayment["verification_status"]) {
@@ -188,7 +188,7 @@ function getVerificationStatusStyle(status: ProductPayment["verification_status"
     return "bg-red-50 text-red-700";
   }
 
-  return "bg-slate-100 text-slate-700";
+  return "bg-[var(--color-concrete-2)] text-slate-700";
 }
 
 function formatOrderStatus(status: ProductOrderWithItems["status"]) {
@@ -361,7 +361,7 @@ function getPaymentNotice(
   return {
     message: "แนบสลิปโอนเงินเพื่อให้แอดมินตรวจและยืนยันการชำระเงิน",
     title: "ยังไม่ส่งสลิป",
-    tone: "border-slate-200 bg-slate-50 text-slate-700",
+    tone: "border-slate-200 bg-[var(--color-concrete-2)] text-slate-700",
   };
 }
 
@@ -401,7 +401,7 @@ function PaymentInstructionPanel({
   paymentMethod: "promptpay" | "bank_transfer";
 }) {
   return (
-    <div className="rounded-lg border border-[var(--line)] bg-slate-50 p-4">
+    <div className="rounded-lg border border-[var(--line)] bg-[var(--color-concrete-2)] p-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         {paymentMethod === "promptpay" ? (
           <>
@@ -618,7 +618,7 @@ function PaymentSlipUploadPanel({
           className={`w-fit rounded-md px-2.5 py-1 text-xs font-semibold ${
             latestPayment
               ? getVerificationStatusStyle(latestPayment.verification_status)
-              : "bg-slate-100 text-slate-700"
+              : "bg-[var(--color-concrete-2)] text-slate-700"
           }`}
         >
           {latestPayment
@@ -647,7 +647,7 @@ function PaymentSlipUploadPanel({
       ) : null}
 
       {latestPayment ? (
-        <dl className="mt-4 grid gap-3 rounded-md bg-slate-50 p-4 text-sm sm:grid-cols-2">
+        <dl className="mt-4 grid gap-3 rounded-md bg-[var(--color-concrete-2)] p-4 text-sm sm:grid-cols-2">
           <DetailItem
             label="วิธีชำระ"
             value={formatPaymentMethod(latestPayment.payment_method)}
@@ -786,7 +786,7 @@ function PaymentSlipUploadPanel({
           </button>
         </form>
       ) : (
-        <div className="mt-5 rounded-md bg-slate-50 p-4 text-sm leading-6 text-[var(--muted)]">
+        <div className="mt-5 rounded-md bg-[var(--color-concrete-2)] p-4 text-sm leading-6 text-[var(--muted)]">
           {order.payment_status === "paid"
             ? "ออเดอร์นี้ชำระเงินแล้ว จึงไม่ต้องส่งสลิปเพิ่ม"
             : latestPayment?.verification_status === "submitted"
@@ -938,12 +938,6 @@ export function CustomerProductOrderDetailPanel({
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
-          </p>
-          <AppNav />
-        </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
@@ -1049,6 +1043,10 @@ export function CustomerProductOrderDetailPanel({
                 </div>
               </div>
 
+              <div className="mt-5">
+                <OrderStatusStepper status={loadState.order.status} />
+              </div>
+
               {loadState.order.status === "cancelled" ? (
                 <div className="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
                   <p className="font-semibold">คำสั่งซื้อนี้ถูกยกเลิกแล้ว</p>
@@ -1062,7 +1060,7 @@ export function CustomerProductOrderDetailPanel({
                 {loadState.order.items.length > 0 ? (
                   loadState.order.items.map((item) => (
                     <div
-                      className="grid gap-3 rounded-lg border border-[var(--line)] bg-slate-50 p-4 sm:grid-cols-[minmax(0,1fr)_110px_140px]"
+                      className="grid gap-3 rounded-lg border border-[var(--line)] bg-[var(--color-concrete-2)] p-4 sm:grid-cols-[minmax(0,1fr)_110px_140px]"
                       key={item.id}
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
@@ -1101,14 +1099,14 @@ export function CustomerProductOrderDetailPanel({
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-lg border border-dashed border-[var(--line)] bg-slate-50 p-4 text-sm text-[var(--muted)]">
+                  <div className="rounded-lg border border-dashed border-[var(--line)] bg-[var(--color-concrete-2)] p-4 text-sm text-[var(--muted)]">
                     ไม่พบรายการสินค้าในคำสั่งซื้อนี้
                   </div>
                 )}
               </div>
 
               {loadState.order.note ? (
-                <div className="mt-5 rounded-md bg-slate-50 p-4 text-sm leading-6 text-[var(--muted)]">
+                <div className="mt-5 rounded-md bg-[var(--color-concrete-2)] p-4 text-sm leading-6 text-[var(--muted)]">
                   <p className="font-semibold text-[var(--foreground)]">
                     หมายเหตุ
                   </p>
@@ -1180,7 +1178,7 @@ export function CustomerProductOrderDetailPanel({
             </dl>
 
             {loadState.order.delivery_method === "delivery" ? (
-              <div className="mt-5 rounded-md bg-slate-50 p-4 text-sm leading-6 text-[var(--muted)]">
+              <div className="mt-5 rounded-md bg-[var(--color-concrete-2)] p-4 text-sm leading-6 text-[var(--muted)]">
                 <p className="font-semibold text-[var(--foreground)]">
                   ที่อยู่จัดส่ง
                 </p>

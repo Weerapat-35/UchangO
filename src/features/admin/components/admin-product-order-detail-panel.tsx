@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { AppNav } from "@/components/app-nav";
+import { OrderStatusStepper } from "@/components/order-status-stepper";
 import {
   approveAdminProductPayment,
   checkAdminAccess,
@@ -99,15 +100,21 @@ const currencyFormatter = new Intl.NumberFormat("th-TH", {
   style: "currency",
 });
 
-const editableStatuses: AdminProductOrderStatusAction[] = [
-  "pending",
-  "confirmed",
-  "preparing",
-  "ready_for_pickup",
-  "out_for_delivery",
-  "completed",
-  "cancelled",
-];
+function getAllowedStatusOptions(
+  order: AdminProductOrder,
+): AdminProductOrderStatusAction[] {
+  if (order.status === "pending") return ["pending", "confirmed", "cancelled"];
+  if (order.status === "confirmed") return ["confirmed", "preparing", "cancelled"];
+  if (order.status === "preparing") {
+    return order.delivery_method === "delivery"
+      ? ["preparing", "out_for_delivery", "cancelled"]
+      : ["preparing", "ready_for_pickup", "cancelled"];
+  }
+  if (order.status === "ready_for_pickup" || order.status === "out_for_delivery") {
+    return [order.status, "completed"];
+  }
+  return [order.status];
+}
 
 function getOrderStatusStyle(status: AdminProductOrder["status"]) {
   if (status === "pending") {
@@ -1154,7 +1161,7 @@ export function AdminProductOrderDetailPanel({
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
+            อู่ช่างโอ
           </p>
           <AppNav />
         </div>
@@ -1263,6 +1270,13 @@ export function AdminProductOrderDetailPanel({
               </div>
             </div>
 
+            <div className="mt-5">
+              <p className="mb-3 text-sm font-semibold text-[var(--brand)]">
+                การดำเนินการคำสั่งซื้อ
+              </p>
+              <OrderStatusStepper status={loadState.order.status} />
+            </div>
+
             <div className="mt-5 space-y-4">
               {loadState.order.items.length > 0 ? (
                 loadState.order.items.map((item) => (
@@ -1364,7 +1378,7 @@ export function AdminProductOrderDetailPanel({
                       }
                       value={selectedStatus}
                     >
-                      {editableStatuses.map((status) => (
+                      {getAllowedStatusOptions(loadState.order).map((status) => (
                         <option key={status} value={status}>
                           {formatOrderStatus(status)}
                         </option>

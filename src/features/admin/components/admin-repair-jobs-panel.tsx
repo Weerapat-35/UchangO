@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AppNav } from "@/components/app-nav";
 import {
   checkAdminAccess,
   getAdminMechanics,
@@ -147,7 +146,7 @@ function AdminRepairJobRow({
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
             href={`/admin/bookings/${repairJob.booking.id}`}
           >
-            View booking
+            ดูรายละเอียดการจอง
           </Link>
         ) : null}
       </div>
@@ -178,7 +177,7 @@ function AdminRepairJobRow({
         <div>
           <dt className="text-[var(--muted)]">Mechanic</dt>
           <dd className="mt-1 font-semibold text-[var(--foreground)]">
-            {repairJob.mechanic?.full_name ?? "Unassigned"}
+            {repairJob.mechanic?.full_name ?? "ยังไม่มอบหมาย"}
           </dd>
           <dd className="mt-1 text-xs text-[var(--muted)]">
             {getMechanicSkillsLabel(repairJob.mechanic)}
@@ -198,14 +197,14 @@ function AdminRepairJobRow({
       <section className="mt-4 rounded-md border border-[var(--line)] bg-slate-50 p-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Assign mechanic
+            มอบหมายช่าง
             <select
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)] lg:w-80"
               disabled={isClosed || isSaving || mechanics.length === 0}
               onChange={(event) => setSelectedMechanicId(event.target.value)}
               value={selectedMechanicId}
             >
-              <option value="">Unassigned</option>
+              <option value="">ยังไม่มอบหมาย</option>
               {mechanics.map((mechanic) => (
                 <option key={mechanic.id} value={mechanic.id}>
                   {getMechanicOptionLabel(mechanic)}
@@ -222,19 +221,19 @@ function AdminRepairJobRow({
             }
             type="button"
           >
-            {isSaving ? "Saving..." : "Save mechanic"}
+            {isSaving ? "กำลังบันทึก..." : "บันทึกช่าง"}
           </button>
         </div>
 
         {mechanics.length === 0 ? (
           <p className="mt-2 text-xs font-semibold text-amber-800">
-            No technician profiles found yet.
+            ยังไม่พบบัญชีช่างในระบบ
           </p>
         ) : null}
 
         {isClosed ? (
           <p className="mt-2 text-xs font-semibold text-[var(--muted)]">
-            Closed work orders cannot be reassigned in this MVP step.
+            งานที่ปิดแล้วไม่สามารถเปลี่ยนช่างได้
           </p>
         ) : null}
 
@@ -467,18 +466,16 @@ export function AdminRepairJobsPanel() {
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
+            ระบบจัดการอู่ช่างโอ
           </p>
-          <AppNav />
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin Work Orders
+              จัดการงานซ่อม
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Review repair jobs from the work order table and assign mechanic
-              ownership for confirmed service work.
+              ดูงานซ่อมจากการจองและมอบหมายช่างผู้รับผิดชอบให้กับแต่ละงาน
             </p>
           </div>
           <Link
@@ -570,7 +567,7 @@ export function AdminRepairJobsPanel() {
             </div>
           ) : (
             <div className="mt-5 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              No work orders found in repair_jobs yet.
+              ยังไม่มีงานซ่อมในระบบ
             </div>
           )}
         </section>

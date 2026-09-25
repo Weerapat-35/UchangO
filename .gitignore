@@ -29,3 +29,8 @@ work/
 Thumbs.db
 .vscode/
 .idea/
+
+src.zip
+supabase.zip
+supabase/.temp/
+src/features/auth/components/auth-panel.tsx.bak

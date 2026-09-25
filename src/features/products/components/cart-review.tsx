@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { AppNav } from "@/components/app-nav";
 import { createClient } from "@/lib/supabase/browser";
 import {
   getCartDetails,
@@ -98,7 +97,7 @@ function CartItemRow({
         </div>
 
         <div className="grid gap-3">
-          <div className="rounded-lg bg-slate-50 p-3">
+          <div className="rounded-lg bg-[var(--color-concrete-2)] p-3">
             <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
               ยอดรายการนี้
             </p>
@@ -315,6 +314,7 @@ export function CartReview() {
       error: null,
       status: "ready",
     });
+    window.dispatchEvent(new Event("cart-updated"));
     setActionState({
       itemId: item.id,
       message: "อัปเดตจำนวนสินค้าแล้ว",
@@ -354,6 +354,7 @@ export function CartReview() {
       error: null,
       status: "ready",
     });
+    window.dispatchEvent(new Event("cart-updated"));
     setActionState({
       itemId: null,
       message: "ลบสินค้าออกจากตะกร้าแล้ว",
@@ -364,12 +365,6 @@ export function CartReview() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8">
       <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
-          </p>
-          <AppNav />
-        </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold leading-tight text-[var(--foreground)]">
@@ -507,7 +502,7 @@ export function CartReview() {
               className={
                 cartState.details.items.length > 0
                   ? "mt-5 flex min-h-11 w-full items-center justify-center rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white"
-                  : "mt-5 flex min-h-11 w-full items-center justify-center rounded-md border border-[var(--line)] bg-slate-50 px-4 text-sm font-semibold text-[var(--muted)]"
+                  : "mt-5 flex min-h-11 w-full items-center justify-center rounded-md border border-[var(--line)] bg-[var(--color-concrete-2)] px-4 text-sm font-semibold text-[var(--muted)]"
               }
               href="/checkout"
             >

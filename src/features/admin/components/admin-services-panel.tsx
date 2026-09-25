@@ -70,6 +70,8 @@ type CreateState =
 type StatusFilter = "all" | AdminService["status"];
 
 const statusFilters: StatusFilter[] = ["all", "active", "inactive"];
+const serviceImagesBucket = "service-images";
+const serviceImagePlaceholder = "/service-placeholder.svg";
 
 const currencyFormatter = new Intl.NumberFormat("th-TH", {
   currency: "THB",
@@ -83,6 +85,53 @@ function getStatusStyle(status: AdminService["status"]) {
   }
 
   return "bg-slate-100 text-slate-700";
+}
+
+function getSafeServiceImageExtension(file: File) {
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/webp") return "webp";
+  return "jpg";
+}
+
+async function uploadServiceImage(file: File) {
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+    return { error: "รองรับเฉพาะไฟล์ PNG, JPG หรือ WEBP", publicUrl: null };
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    return { error: "ไฟล์รูปบริการต้องไม่เกิน 2 MB", publicUrl: null };
+  }
+
+  const extension = getSafeServiceImageExtension(file);
+  const uploadPath = `services/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const supabase = createClient();
+  const result = await supabase.storage.from(serviceImagesBucket).upload(uploadPath, file, {
+    cacheControl: "3600",
+    contentType: file.type,
+    upsert: false,
+  });
+
+  if (result.error) {
+    return {
+      error: result.error.message.includes("Bucket not found")
+        ? "ยังไม่มี bucket service-images กรุณารัน migration 20260925_service_images.sql ก่อน"
+        : result.error.message,
+      publicUrl: null,
+    };
+  }
+
+  const { data } = supabase.storage.from(serviceImagesBucket).getPublicUrl(uploadPath);
+  return { error: null, publicUrl: data.publicUrl };
+}
+
+function ServiceImagePreview({ imageUrl, label }: { imageUrl: string | null; label: string }) {
+  return (
+    <img
+      alt={label}
+      className="h-28 w-full rounded-lg border border-[var(--line)] bg-slate-50 object-cover"
+      src={imageUrl || serviceImagePlaceholder}
+    />
+  );
 }
 
 function validateServiceInput(input: AdminServiceUpdateInput) {
@@ -119,7 +168,7 @@ function AddServiceForm({
 }: {
   categories: AdminServiceCategory[];
   createState: CreateState;
-  onCreate: (input: AdminServiceCreateInput) => void;
+  onCreate: (input: AdminServiceCreateInput, imageFile: File | null) => void;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -127,6 +176,7 @@ function AddServiceForm({
   const [basePrice, setBasePrice] = useState("0");
   const [durationMinutes, setDurationMinutes] = useState("30");
   const [status, setStatus] = useState<AdminService["status"]>("active");
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const isCreating = createState.status === "creating";
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -138,7 +188,8 @@ function AddServiceForm({
       name: name.trim(),
       service_category_id: categoryId,
       status,
-    });
+      image_url: null,
+    }, imageFile);
   }
 
   return (
@@ -192,6 +243,19 @@ function AddServiceForm({
             value={description}
           />
         </label>
+
+        <div>
+          <label className="text-sm font-semibold text-[var(--foreground)]">
+            รูปบริการ
+            <input
+              accept="image/png,image/jpeg,image/webp"
+              className="mt-2 block w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm"
+              onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+              type="file"
+            />
+          </label>
+          <p className="mt-1 text-xs text-[var(--muted)]">PNG, JPG, WEBP ไม่เกิน 2 MB</p>
+        </div>
 
         <div className="grid gap-3 md:grid-cols-3 md:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
@@ -263,7 +327,7 @@ function AdminServiceRow({
 }: {
   actionState: ActionState;
   categories: AdminServiceCategory[];
-  onSave: (service: AdminService, input: AdminServiceUpdateInput) => void;
+  onSave: (service: AdminService, input: AdminServiceUpdateInput, imageFile: File | null) => void;
   service: AdminService;
 }) {
   const [categoryId, setCategoryId] = useState(service.service_category_id);
@@ -272,13 +336,15 @@ function AdminServiceRow({
     String(service.estimated_duration_minutes),
   );
   const [status, setStatus] = useState<AdminService["status"]>(service.status);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState(service.image_url);
   const isSaving =
     actionState.status === "saving" && actionState.serviceId === service.id;
   const hasChanges =
     categoryId !== service.service_category_id ||
     Number(basePrice) !== service.base_price ||
     Number(durationMinutes) !== service.estimated_duration_minutes ||
-    status !== service.status;
+    status !== service.status || imageFile !== null;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -286,12 +352,30 @@ function AdminServiceRow({
       base_price: Number(basePrice),
       estimated_duration_minutes: Number(durationMinutes),
       service_category_id: categoryId,
-      status,
-    });
+        status,
+      image_url: service.image_url,
+    }, imageFile);
   }
 
   return (
     <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
+      <div className="mb-4 grid gap-3 md:grid-cols-[180px_1fr]">
+        <ServiceImagePreview imageUrl={imagePreview} label={service.name} />
+        <label className="self-center text-sm font-semibold text-[var(--foreground)]">
+          เปลี่ยนรูปบริการ
+          <input
+            accept="image/png,image/jpeg,image/webp"
+            className="mt-2 block w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm"
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              setImageFile(file);
+              if (file) setImagePreview(URL.createObjectURL(file));
+            }}
+            type="file"
+          />
+          <span className="mt-1 block text-xs font-normal text-[var(--muted)]">PNG, JPG, WEBP ไม่เกิน 2 MB</span>
+        </label>
+      </div>
       <div className="flex flex-col gap-3 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -564,6 +648,7 @@ export function AdminServicesPanel() {
   async function handleSaveService(
     service: AdminService,
     input: AdminServiceUpdateInput,
+    imageFile: File | null,
   ) {
     if (loadState.status !== "ready") {
       return;
@@ -589,10 +674,21 @@ export function AdminServicesPanel() {
     });
 
     const supabase = createClient();
+    let imageUrl = service.image_url;
+
+    if (imageFile) {
+      const upload = await uploadServiceImage(imageFile);
+      if (upload.error || !upload.publicUrl) {
+        setActionState({ error: upload.error ?? "อัปโหลดรูปไม่สำเร็จ", message: null, serviceId: service.id, status: "error" });
+        return;
+      }
+      imageUrl = upload.publicUrl;
+    }
+
     const { data, error } = await updateAdminService(
       supabase,
       service.id,
-      input,
+      { ...input, image_url: imageUrl },
     );
 
     if (error) {
@@ -612,6 +708,7 @@ export function AdminServicesPanel() {
           ? {
               ...currentService,
               base_price: data.base_price,
+              image_url: data.image_url,
               estimated_duration_minutes: data.estimated_duration_minutes,
               service_category_id: data.service_category_id,
               category:
@@ -632,7 +729,7 @@ export function AdminServicesPanel() {
     });
   }
 
-  async function handleCreateService(input: AdminServiceCreateInput) {
+  async function handleCreateService(input: AdminServiceCreateInput, imageFile: File | null) {
     if (loadState.status !== "ready") {
       return;
     }
@@ -655,7 +752,18 @@ export function AdminServicesPanel() {
     });
 
     const supabase = createClient();
-    const { data, error } = await createAdminService(supabase, input);
+    let imageUrl: string | null = null;
+
+    if (imageFile) {
+      const upload = await uploadServiceImage(imageFile);
+      if (upload.error || !upload.publicUrl) {
+        setCreateState({ error: upload.error ?? "อัปโหลดรูปไม่สำเร็จ", message: null, status: "error" });
+        return;
+      }
+      imageUrl = upload.publicUrl;
+    }
+
+    const { data, error } = await createAdminService(supabase, { ...input, image_url: imageUrl });
 
     if (error) {
       setCreateState({
@@ -691,7 +799,7 @@ export function AdminServicesPanel() {
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
+            อู่ช่างโอ
           </p>
           <AppNav />
         </div>

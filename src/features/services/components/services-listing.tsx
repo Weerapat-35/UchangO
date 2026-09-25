@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { AppNav } from "@/components/app-nav";
 import { getCurrentProfile, type Profile } from "@/features/auth";
 import {
   createAuthenticatedBooking,
@@ -25,46 +24,9 @@ type LoadState =
   | { status: "ready"; data: ServiceCategoryWithServices[]; error: null }
   | { status: "error"; data: null; error: string };
 
-function CalendarIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-safety">
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M3 10h18M8 3v4M16 3v4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function ClockIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-safety">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function CarIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-safety">
-      <path d="M4 16v-3l2-5h12l2 5v3" strokeLinejoin="round" />
-      <path d="M4 16h16v2a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H7v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2Z" />
-      <circle cx="7.5" cy="16" r="1.3" fill="currentColor" stroke="none" />
-      <circle cx="16.5" cy="16" r="1.3" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function PhoneIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-safety">
-      <path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 5 5L14 13l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function WrenchIcon() {
   return (
-    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="text-concrete/70">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="text-safety">
       <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6Z" strokeLinejoin="round" />
     </svg>
   );
@@ -299,15 +261,23 @@ function ServiceCard({
     <article
       className={
         isSelected
-          ? "flex flex-col rounded-xl border-2 border-[var(--brand)] bg-white p-5 shadow-sm"
-          : "flex flex-col rounded-xl border border-[var(--line)] bg-white p-5 shadow-sm"
+          ? "flex flex-col rounded-xl border border-[var(--brand)] bg-white p-5 shadow-[var(--shadow-soft)]"
+          : "flex flex-col rounded-xl border border-[var(--line)] bg-white p-5 transition hover:shadow-[var(--shadow-soft)]"
       }
     >
-      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-[var(--concrete-2)] px-3 py-1 text-xs font-bold text-[var(--brand-strong)]">
+      {service.image_url ? (
+        <img
+          src={service.image_url}
+          alt={service.name}
+          className="mb-4 h-44 w-full rounded-lg object-cover"
+        />
+      ) : null}
+
+      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-concrete-2 px-3 py-1 text-xs font-semibold text-[var(--brand-strong)]">
         ราคา {currencyFormatter.format(service.base_price)}
       </span>
 
-      <h3 className="mt-3 font-display text-base font-bold leading-tight text-[var(--brand-strong)]">
+      <h3 className="mt-3 font-display text-base font-bold leading-tight text-[var(--foreground)]">
         {service.name}
       </h3>
 
@@ -499,7 +469,7 @@ function BookingForm({
 
   if (authState.status === "loading") {
     return (
-      <div className="mt-5 rounded-lg border border-[var(--line)] bg-slate-50 p-4 text-sm text-[var(--muted)]">
+      <div className="mt-5 rounded-lg border border-[var(--line)] bg-[var(--color-concrete-2)] p-4 text-sm text-[var(--muted)]">
         กำลังตรวจสอบสถานะเข้าสู่ระบบ...
       </div>
     );
@@ -691,7 +661,7 @@ function BookingForm({
           ชื่อลูกค้า
         </label>
         <input
-          className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-slate-50 px-3 text-sm text-[var(--foreground)] outline-none"
+          className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-[var(--color-concrete-2)] px-3 text-sm text-[var(--foreground)] outline-none"
           id="customerName"
           readOnly
           value={values.customerName}
@@ -709,7 +679,7 @@ function BookingForm({
           เบอร์โทร
         </label>
         <input
-          className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-slate-50 px-3 text-sm text-[var(--foreground)] outline-none"
+          className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-[var(--color-concrete-2)] px-3 text-sm text-[var(--foreground)] outline-none"
           id="phoneNumber"
           inputMode="tel"
           readOnly
@@ -1060,126 +1030,18 @@ export function ServicesListing() {
   }, [categories, selectedCategoryId]);
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-5 py-6 sm:px-8">
-      <div className="mb-5">
-        <AppNav />
-      </div>
-
-      <header className="overflow-hidden rounded-2xl bg-asphalt">
-        <div className="flex flex-col gap-6 px-6 py-10 sm:px-10 sm:py-14 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-concrete/20 px-3 py-1 font-display text-xs font-semibold uppercase tracking-widest text-safety">
-              เปิดบริการ จ.–ส. 09:00–18:00
-            </span>
-            <h1 className="mt-5 font-display text-4xl font-bold leading-[1.05] text-concrete sm:text-5xl">
-              ซ่อมรถให้ตรงจุด
-              <br />
-              <span className="text-safety">จองคิวได้จริง</span> ไม่ต้องเดา
-            </h1>
-            <p className="mt-4 max-w-lg text-sm leading-6 text-concrete/70">
-              เลือกบริการซ่อมและบำรุงรักษารถ ดูช่วงเวลาที่ว่างแบบเรียลไทม์
-              แล้วส่งคำขอจองด้วยโปรไฟล์ลูกค้าของคุณ
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <a
-                href="#services"
-                className="rounded-md bg-safety px-5 py-2.5 text-sm font-semibold text-asphalt transition hover:bg-safety-dim"
-              >
-                จองบริการตอนนี้
-              </a>
-              <Link
-                href="/products"
-                className="rounded-md border border-concrete/25 px-5 py-2.5 text-sm font-semibold text-concrete transition hover:border-concrete/50"
-              >
-                ดูสินค้าและอะไหล่
-              </Link>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 sm:w-72">
-            <div className="rounded-xl border border-concrete/15 bg-asphalt-2 p-4">
-              <p className="font-mono text-xs uppercase tracking-wide text-concrete/50">
-                หมวดหมู่
-              </p>
-              <p className="mt-1 font-display text-3xl font-bold text-concrete">
-                {loadState.status === "ready" ? categories.length : "–"}
-              </p>
-            </div>
-            <div className="rounded-xl border border-concrete/15 bg-asphalt-2 p-4">
-              <p className="font-mono text-xs uppercase tracking-wide text-concrete/50">
-                บริการ
-              </p>
-              <p className="mt-1 font-display text-3xl font-bold text-concrete">
-                {loadState.status === "ready" ? serviceCount : "–"}
-              </p>
-            </div>
-          </div>
+    <main className="storefront-main services-page min-h-screen pb-12">
+      <section className="services-page__hero">
+        <div>
+          <span className="home-section__kicker">OUR SERVICES</span>
+          <h1>บริการของ อู่ช่างโอ</h1>
+          <p>เลือกบริการที่ต้องการ ดูรายละเอียด ราคา และจองคิวได้จากหน้านี้</p>
         </div>
-      </header>
-
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <a
-          href="#services"
-          className="flex flex-col items-center gap-2 rounded-xl bg-[var(--foreground)] px-3 py-5 text-center transition hover:bg-black"
-        >
-          <CalendarIcon />
-          <span className="text-sm font-semibold text-white">จองคิวซ่อม</span>
-        </a>
-        <Link
-          href="/my-bookings"
-          className="flex flex-col items-center gap-2 rounded-xl bg-[var(--foreground)] px-3 py-5 text-center transition hover:bg-black"
-        >
-          <ClockIcon />
-          <span className="text-sm font-semibold text-white">ประวัติการจอง</span>
-        </Link>
-        <Link
-          href="/my-vehicles"
-          className="flex flex-col items-center gap-2 rounded-xl bg-[var(--foreground)] px-3 py-5 text-center transition hover:bg-black"
-        >
-          <CarIcon />
-          <span className="text-sm font-semibold text-white">รถของฉัน</span>
-        </Link>
-        <a
-          href="tel:0200000000"
-          className="flex flex-col items-center gap-2 rounded-xl bg-[var(--foreground)] px-3 py-5 text-center transition hover:bg-black"
-        >
-          <PhoneIcon />
-          <span className="text-sm font-semibold text-white">ติดต่อช่าง</span>
-        </a>
-      </div>
-
-      {loadState.status === "ready" && categories.length > 0 ? (
-        <section className="mt-10">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-[var(--foreground)]">บริการแนะนำ</h2>
-            <a href="#services" className="text-sm font-semibold text-safety">
-              ดูทั้งหมด →
-            </a>
-          </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            {categories.slice(0, 3).map((category, index) => (
-              <div
-                key={category.id}
-                className="overflow-hidden rounded-xl border border-[var(--line)] bg-white"
-              >
-                <div
-                  className={`flex h-32 items-center justify-center ${
-                    ["bg-steel", "bg-asphalt", "bg-safety-dim"][index % 3]
-                  }`}
-                >
-                  <WrenchIcon />
-                </div>
-                <div className="p-4">
-                  <p className="font-semibold text-[var(--foreground)]">{category.name}</p>
-                  <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">
-                    {category.services.length} บริการในหมวดนี้
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+        <div className="services-page__count">
+          <strong>{getServicesCount(categories)}</strong>
+          <span>บริการทั้งหมด</span>
+        </div>
+      </section>
 
       <div id="services" />
 
@@ -1318,7 +1180,7 @@ export function ServicesListing() {
                 </button>
               </div>
             ) : (
-              <div className="mt-4 rounded-lg border border-dashed border-[var(--line)] bg-slate-50 p-4 text-sm leading-6 text-[var(--muted)]">
+              <div className="mt-4 rounded-lg border border-dashed border-[var(--line)] bg-[var(--color-concrete-2)] p-4 text-sm leading-6 text-[var(--muted)]">
                 เลือกบริการหนึ่งรายการเพื่อเริ่มกรอกคำขอจอง
               </div>
             )}

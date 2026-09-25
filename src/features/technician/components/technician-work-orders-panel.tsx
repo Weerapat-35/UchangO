@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AppNav } from "@/components/app-nav";
 import {
   getTechnicianWorkOrders,
   type TechnicianWorkOrder,
@@ -248,9 +247,21 @@ export function TechnicianWorkOrdersPanel() {
       loadWorkOrders();
     });
 
+    const channel = supabase
+      .channel("technician-work-orders-repair-jobs")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "repair_jobs" },
+        () => {
+          loadWorkOrders();
+        },
+      )
+      .subscribe();
+
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+      void supabase.removeChannel(channel);
     };
   }, []);
 
@@ -287,18 +298,11 @@ export function TechnicianWorkOrdersPanel() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
-          </p>
-          <AppNav />
-        </div>
         <h1 className="text-3xl font-bold text-[var(--foreground)]">
-          My Work Orders
+          งานซ่อมของฉัน
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-          Review repair jobs assigned to your technician account. Open a work
-          order to update status, diagnosis, and repair notes.
+          ดูงานซ่อมที่ได้รับมอบหมาย และอัปเดตสถานะ อาการเสีย และรายละเอียดการซ่อมได้จากหน้านี้
         </p>
       </header>
 

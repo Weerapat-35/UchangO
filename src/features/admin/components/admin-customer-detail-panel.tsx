@@ -176,7 +176,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
+            อู่ช่างโอ
           </p>
           <AppNav />
         </div>

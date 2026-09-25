@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AppNav } from "@/components/app-nav";
 import {
   getCustomerProductOrders,
   type ProductOrderWithItems,
@@ -60,7 +59,7 @@ function getPaymentStatusStyle(status: ProductOrderWithItems["payment_status"]) 
     return "bg-red-50 text-red-700";
   }
 
-  return "bg-slate-100 text-slate-700";
+  return "bg-[var(--color-concrete-2)] text-slate-700";
 }
 
 function getVerificationStatusStyle(
@@ -78,7 +77,7 @@ function getVerificationStatusStyle(
     return "bg-red-50 text-red-700";
   }
 
-  return "bg-slate-100 text-slate-700";
+  return "bg-[var(--color-concrete-2)] text-slate-700";
 }
 
 function formatOrderStatus(status: ProductOrderWithItems["status"]) {
@@ -401,12 +400,6 @@ export function CustomerProductOrdersPanel() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            BCare
-          </p>
-          <AppNav />
-        </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">

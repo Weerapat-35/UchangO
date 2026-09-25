@@ -30,7 +30,7 @@ export default function SupabaseInsertCheckPage() {
       .from("profiles")
       .insert({
         email: null,
-        full_name: `BCare Test ${uniqueSuffix}`,
+        full_name: `อู่ช่างโอ Test ${uniqueSuffix}`,
         phone_number: `099${uniqueSuffix}`,
       })
       .select("*")
@@ -56,7 +56,7 @@ export default function SupabaseInsertCheckPage() {
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-          BCare
+          อู่ช่างโอ
         </p>
         <h1 className="mt-2 text-3xl font-bold text-[var(--foreground)]">
           Insert Permission Check

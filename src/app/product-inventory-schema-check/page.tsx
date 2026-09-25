@@ -182,7 +182,7 @@ export default function ProductInventorySchemaCheckPage() {
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-          BCare Step 11 Part 0
+          อู่ช่างโอ Step 11 Part 0
         </p>
         <h1 className="mt-2 text-3xl font-bold text-[var(--foreground)]">
           Product / Inventory Schema Check

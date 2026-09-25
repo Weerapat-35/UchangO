@@ -154,7 +154,7 @@ export default function AuthRlsCheckPage() {
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-          BCare
+          อู่ช่างโอ
         </p>
         <h1 className="mt-2 text-3xl font-bold text-[var(--foreground)]">
           Authenticated RLS Check

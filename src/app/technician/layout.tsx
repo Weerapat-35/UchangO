@@ -1,11 +1,15 @@
 import type { ReactNode } from "react";
 import { TechnicianSidebar } from "@/components/technician-sidebar";
+import { TechnicianTopbar } from "@/components/technician-topbar";
 
 export default function TechnicianLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-[var(--background)]">
+    <div className="technician-shell">
       <TechnicianSidebar />
-      <div className="flex-1 overflow-x-hidden">{children}</div>
+      <div className="technician-content">
+        <TechnicianTopbar />
+        <div className="technician-content__body">{children}</div>
+      </div>
     </div>
   );
 }

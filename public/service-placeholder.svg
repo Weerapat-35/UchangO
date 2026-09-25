@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+  <rect width="800" height="450" fill="#f1f3f5"/>
+  <path d="M370 170l-55 55 55 55 25-25-30-30 30-30zM430 170l55 55-55 55-25-25 30-30-30-30z" fill="#9ca3af"/>
+  <text x="400" y="335" text-anchor="middle" font-family="Arial,sans-serif" font-size="30" fill="#6b7280">รูปบริการ</text>
+</svg>
