@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
 const NAV_ITEMS = [
-  { href: "/technician/dashboard", label: "Dashboard", icon: "▦" },
+  { href: "/technician/dashboard", label: "แดชบอร์ด", icon: "▦" },
   { href: "/technician/work-orders", label: "งานซ่อมของฉัน", icon: "🔧" },
   { href: "/technician/profile", label: "โปรไฟล์ช่าง", icon: "👤" },
   { href: "/technician/notifications", label: "การแจ้งเตือน", icon: "🔔" },
@@ -24,10 +24,8 @@ export function TechnicianSidebar() {
     <aside className="technician-sidebar">
       <div className="technician-sidebar__brand">
         <Link href="/technician/work-orders" className="technician-sidebar__logo">
-          <span className="technician-sidebar__logo-mark">O</span>
-          <span>
-            <strong>อู่ช่างโอ</strong>
-            <small>GARAGE SERVICE</small>
+          <span className="technician-sidebar__logo-frame">
+            <img src="/brand/ouchang-o-logo.png" alt="อู่ช่างโอ" className="technician-sidebar__logo-image" />
           </span>
         </Link>
       </div>

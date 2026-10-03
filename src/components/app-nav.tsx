@@ -102,6 +102,7 @@ export function AppNav() {
     };
 
     let notificationSetupToken = 0;
+    let cartSetupToken = 0;
 
     const setupNotificationRealtime = async (nextUser: User | null) => {
       const setupToken = ++notificationSetupToken;
@@ -153,6 +154,7 @@ export function AppNav() {
     };
 
     const setupCartRealtime = async (nextUser: User | null) => {
+      const setupToken = ++cartSetupToken;
       removeCartRealtime();
 
       if (!nextUser) {
@@ -162,11 +164,14 @@ export function AppNav() {
 
       const cartId = await loadCartCount(nextUser);
 
-      // Build every postgres_changes callback BEFORE subscribe().
-      // Supabase does not allow adding callbacks after a channel is subscribed.
-      let channel = supabase.channel(`cart-badge-${nextUser.id}-${Date.now()}`);
+      // Auth/session events can fire more than once while the initial session
+      // is loading. Give every setup attempt a unique channel and discard
+      // stale attempts before subscribing.
+      const channel = supabase.channel(
+        `cart-badge-${nextUser.id}-${setupToken}-${Date.now()}`,
+      );
 
-      channel = channel.on(
+      channel.on(
         "postgres_changes",
         {
           event: "*",
@@ -180,7 +185,7 @@ export function AppNav() {
       );
 
       if (cartId) {
-        channel = channel.on(
+        channel.on(
           "postgres_changes",
           {
             event: "*",
@@ -193,9 +198,9 @@ export function AppNav() {
           },
         );
       } else {
-        // No cart exists yet. Listen to cart-item changes without a cart filter
-        // so the first cart/item creation can also refresh the badge.
-        channel = channel.on(
+        // No cart exists yet. Listen for item changes so the badge can refresh
+        // when the first cart/item is created.
+        channel.on(
           "postgres_changes",
           {
             event: "*",
@@ -208,9 +213,14 @@ export function AppNav() {
         );
       }
 
-      cartChannel = channel;
+      // Another auth/session event may have replaced this setup while the
+      // count query was running. Do not subscribe the stale channel.
+      if (setupToken !== cartSetupToken) {
+        void supabase.removeChannel(channel);
+        return;
+      }
 
-      // subscribe() MUST be the final step after all .on(...) calls.
+      cartChannel = channel;
       await channel.subscribe();
     };
 
@@ -268,8 +278,7 @@ export function AppNav() {
       <div className="site-header__top">
         <div className="site-header__inner site-header__top-inner">
           <Link href="/" className="garage-logo" aria-label="อู่ช่างโอ หน้าหลัก">
-            <span className="garage-logo__mark">อู่</span>
-            <span className="garage-logo__text"><b>ช่างโอ</b><small>GARAGE SERVICE</small></span>
+            <img src="/brand/ouchang-o-logo.png" alt="อู่ช่างโอ" className="garage-logo__image" />
           </Link>
 
           <nav aria-label="เมนูหลัก" className="main-nav">

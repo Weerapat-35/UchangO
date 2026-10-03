@@ -90,7 +90,7 @@ function AddTechnicianSkillForm({
   return (
     <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
       <div className="border-b border-[var(--line)] pb-4">
-        <p className="text-sm font-semibold text-[var(--brand)]">Add skill</p>
+        <p className="text-sm font-semibold text-[var(--brand)]">เพิ่มทักษะ</p>
         <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
           Active skills will be available on technician profiles and mechanic
           assignment.
@@ -555,7 +555,7 @@ export function AdminTechnicianSkillsPanel() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin Technician Skills
+              ทักษะช่าง
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
               Manage the skill list technicians can select on their profiles

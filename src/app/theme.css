@@ -1,0 +1,196 @@
+/* อู่ช่างโอ — ธีมแดง/ขาว/ดำ แบบเรียบ คม ไม่ใช้ไล่เฉด ไม่ใช้เงาเรืองแสง
+   โหลดต่อท้าย globals.css เพื่อทับค่าเดิมทั้งเว็บ */
+:root{
+  --r:#d3121a; --r-deep:#a50d13; --k:#0d0d0d; --k2:#1c1c1c; --w:#fff; --paper:#f6f4f1;
+  --hair:#d9d5cf; --ink-soft:#5c5a57;
+  --brand:var(--r); --brand-strong:var(--r-deep); --line:var(--hair); --muted:var(--ink-soft);
+  --radius-sm:2px; --radius-md:3px; --radius-lg:4px; --shadow-soft:none;
+}
+html,body{background:var(--paper)!important;color:var(--k)}
+h1,h2,h3{letter-spacing:-.02em}
+::selection{background:var(--r);color:#fff}
+
+/* ---- ทุกการ์ด/แผง: มุมคม เส้นบาง ไม่มีเงา ---- */
+.card-surface,.profile-card,.auth-card,.order-card,.order-summary,.admin-panel,.admin-stat-card,
+.technician-stat-card,.technician-dashboard__panel,.notification-card,.home-service-card,
+.home-stat-card,.service-shortcut,.admin-state-card,.admin-recent-booking{
+  border-radius:3px!important;border:1px solid var(--hair)!important;box-shadow:none!important;background:#fff!important}
+.card-surface:hover,.service-shortcut:hover,.home-service-card:hover,.notification-card:hover{
+  border-color:var(--k)!important;box-shadow:4px 4px 0 var(--r)!important;transform:translate(-2px,-2px)!important}
+.admin-stat-card--accent,.technician-stat-card--accent{background:var(--k)!important;color:#fff!important;border-color:var(--k)!important}
+
+/* ---- ปุ่ม ---- */
+.garage-btn-primary,.admin-btn--red,.auth-submit,.profile-primary-button,.notifications-primary-button,
+.order-action--primary,.profile-save{
+  background:var(--r)!important;color:#fff!important;border:1px solid var(--r)!important;border-radius:2px!important;
+  box-shadow:none!important;font-weight:700;letter-spacing:.01em;text-transform:none}
+.garage-btn-primary:hover,.admin-btn--red:hover,.auth-submit:hover,.profile-primary-button:hover,.order-action--primary:hover{
+  background:var(--k)!important;border-color:var(--k)!important;transform:none!important}
+.garage-btn-secondary,.admin-btn--dark,.profile-secondary-button,.order-action--ghost{
+  background:transparent!important;color:var(--k)!important;border:1px solid var(--k)!important;border-radius:2px!important;box-shadow:none!important}
+.garage-btn-secondary:hover,.admin-btn--dark:hover{background:var(--k)!important;color:#fff!important}
+.admin-btn{border-radius:2px!important}
+
+/* ---- ช่องกรอก ---- */
+input:not([type=checkbox]):not([type=radio]),select,textarea{
+  border:1px solid var(--k)!important;border-radius:2px!important;background:#fff;box-shadow:none!important}
+input:focus,select:focus,textarea:focus{outline:0!important;border-color:var(--r)!important;box-shadow:inset 0 -3px 0 var(--r)!important}
+
+/* ---- ส่วนหัวเว็บ ---- */
+.site-header{background:#fff!important;border-bottom:3px solid var(--k)!important;box-shadow:none!important}
+.site-header__top{background:var(--k)!important;color:#fff}
+.main-nav__link{font-weight:700!important;border-radius:0!important;text-transform:none}
+.main-nav__link:hover{background:transparent!important;color:var(--r)!important}
+.main-nav__link.is-active{background:var(--k)!important;color:#fff!important}
+.main-nav__link.is-active::after{display:none}
+
+/* ---- หน้าแรก ---- */
+.garage-hero{border-radius:0!important;box-shadow:none!important;min-height:520px;margin-top:0;background:var(--k)!important;
+  border-bottom:10px solid var(--r);display:flex;align-items:flex-end}
+.garage-hero::before,.garage-hero::after,.hero-car-shape{display:none!important}
+.garage-hero__content{max-width:900px;padding:72px 56px 56px}
+.garage-hero h1{font-size:clamp(44px,7.4vw,112px)!important;line-height:.98;font-weight:700!important;letter-spacing:-.045em}
+.garage-hero h1 span{color:#fff;box-shadow:inset 0 -.16em 0 var(--r)}
+.garage-hero p{color:#bdb8b2!important;font-size:17px;max-width:540px}
+.garage-kicker{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--r)!important;font-weight:700}
+.garage-kicker::before{content:"";width:36px;height:2px;background:var(--r);font-size:0}
+.garage-btn-secondary{color:#fff!important;border-color:#fff!important}
+.garage-btn-secondary:hover{background:#fff!important;color:var(--k)!important}
+.home-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:0;border-bottom:1px solid var(--k)}
+.home-stat-card{border:0!important;border-right:1px solid var(--k)!important;padding:28px 24px!important;background:transparent!important}
+.home-stat-card:last-child{border-right:0!important}
+.home-stat-card strong{display:block;font:700 30px var(--font-display);color:var(--r)}
+.home-section__kicker{font-size:11px;letter-spacing:.2em;font-weight:700;color:var(--r);text-transform:uppercase}
+.store-section-title h2{font-size:clamp(28px,3.6vw,46px)!important;font-weight:700!important}
+.store-section-title h2::before{display:none}
+.home-service-grid{counter-reset:s;display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--k);border-left:1px solid var(--k)}
+.home-service-card{counter-increment:s;border-radius:0!important;border:0!important;border-right:1px solid var(--k)!important;border-bottom:1px solid var(--k)!important;padding:28px 24px!important;position:relative}
+.home-service-card__icon{font-size:0!important;background:none!important;width:auto!important}
+.home-service-card__icon::before{content:"0" counter(s);font:700 14px var(--font-display);color:var(--r);letter-spacing:.1em}
+.home-service-card:hover{background:var(--k)!important;color:#fff!important;box-shadow:none!important;transform:none!important}
+.home-service-card:hover p{color:#bdb8b2}
+.home-about,.home-hours{border-radius:0!important}
+.home-hours__panel{background:var(--k)!important;color:#fff;border-radius:0!important}
+@media(max-width:800px){.home-stats{grid-template-columns:1fr 1fr}.home-service-grid{grid-template-columns:1fr}.garage-hero__content{padding:48px 22px 36px}}
+
+/* ---- แอดมิน/ช่าง: ดำล้วน ไม่มีโทนน้ำเงิน ---- */
+.admin-shell,.technician-shell{background:var(--paper)!important}
+.admin-sidebar,.technician-sidebar{background:var(--k)!important;box-shadow:none!important;border-right:4px solid var(--r)!important}
+.admin-nav-item,.technician-nav-item{border-radius:0!important}
+.admin-nav-item.is-active,.admin-nav-item[aria-current=page],.technician-nav-item.is-active{background:var(--r)!important;color:#fff!important}
+.admin-topbar,.technician-topbar{background:#fff!important;border-bottom:1px solid var(--k)!important;box-shadow:none!important}
+.admin-page-heading h1{font-size:clamp(26px,3vw,38px);font-weight:700}
+table{border-collapse:collapse}
+thead th{background:var(--k)!important;color:#fff!important;font-size:12px;letter-spacing:.08em;text-transform:uppercase;border:0!important}
+tbody tr{border-bottom:1px solid var(--hair)}
+tbody tr:hover{background:#fff1f0}
+.order-stepper__circle{border-radius:0!important}
+
+/* ---- ป้ายสถานะ ---- */
+[class*="rounded-full"]{border-radius:2px!important}
+footer{background:var(--k);color:#fff;border-top:6px solid var(--r)}
+
+/* ================= รอบปรับความสวยงาม ================= */
+
+/* สีสถานะ: ตัดเขียว/เหลือง/ฟ้า/ม่วง ให้เหลือแดง-ดำ-เทาอุ่น */
+.bg-amber-50,.bg-orange-50,.bg-rose-50{background:#fdecea!important}
+.text-amber-800,.text-amber-700,.text-orange-800{color:var(--r-deep)!important}
+.border-amber-200,.border-orange-200,.border-rose-200{border-color:#f0b4b0!important}
+.bg-emerald-50{background:var(--k)!important}
+.text-emerald-800,.text-emerald-700{color:#fff!important}
+.border-emerald-200{border-color:var(--k)!important}
+.bg-cyan-50,.bg-indigo-50,.bg-slate-100,.bg-gray-100{background:#ebe8e3!important}
+.text-cyan-800,.text-indigo-800{color:var(--k)!important}
+.border-cyan-200,.border-slate-200,.border-slate-100{border-color:var(--hair)!important}
+.bg-slate-50{background:var(--paper)!important}
+.text-slate-700,.text-slate-600,.text-slate-800,.text-slate-900,.text-slate-950{color:var(--k)!important}
+.text-slate-500,.text-slate-400{color:var(--ink-soft)!important}
+.border-slate-900,.border-slate-300{border-color:var(--k)!important}
+
+/* จังหวะการอ่าน */
+body{font-size:15.5px;font-feature-settings:"tnum" 1}
+h1,h2,h3{font-weight:700;text-wrap:balance}
+p{text-wrap:pretty}
+.storefront-main,.admin-content__body,.technician-content__body{animation:rise .5s cubic-bezier(.2,.7,.2,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+::-webkit-scrollbar-thumb{background:var(--k);border-radius:0}
+::-webkit-scrollbar-thumb:hover{background:var(--r)}
+
+/* ฮีโร่: ตัวอักษร "โอ" ยักษ์เป็นลายน้ำ + ลายตารางเส้นบาง + แถบสองชั้น */
+.garage-hero{position:relative;overflow:hidden;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 119px,rgba(255,255,255,.06) 119px 120px),
+    repeating-linear-gradient(0deg,transparent 0 119px,rgba(255,255,255,.06) 119px 120px),
+    var(--k)!important;
+  border-bottom:0!important;box-shadow:0 10px 0 var(--r),0 16px 0 var(--k)!important;margin-bottom:22px}
+.garage-hero::after{display:block!important;content:"โอ";position:absolute;right:-1%;bottom:-18%;
+  font:700 clamp(240px,38vw,560px)/1 var(--font-display);color:transparent;
+  -webkit-text-stroke:2px var(--r);opacity:.9;transform:none;background:none;width:auto;height:auto;top:auto;pointer-events:none}
+.garage-hero__content{position:relative;z-index:2}
+.garage-hero__actions .garage-btn-primary,.garage-hero__actions .garage-btn-secondary{min-height:54px;padding:0 30px;font-size:15px}
+
+/* หัวข้อส่วน: ขีดแดงสั้นนำ */
+.store-section-title{border-bottom:2px solid var(--k);padding-bottom:18px;margin:56px 0 0}
+.store-section-title h2{position:relative;padding-top:16px}
+.store-section-title h2::after{content:"";position:absolute;top:0;left:0;width:44px;height:4px;background:var(--r)}
+.home-section__link{font-weight:700;border-bottom:2px solid var(--r);padding-bottom:2px}
+.home-section__link:hover{background:var(--r);color:#fff}
+.home-service-card h3{font-size:19px;font-weight:700}
+.home-service-card__arrow{color:var(--r);font-weight:700;transition:transform .2s}
+.home-service-card:hover .home-service-card__arrow{transform:translateX(6px);color:#fff}
+
+/* เกี่ยวกับเรา / ข้อมูลอู่ */
+.home-about{display:grid;grid-template-columns:1fr 1.2fr;gap:48px;margin-top:72px;padding:0!important;background:transparent!important;border:0!important}
+.home-about h2,.home-hours h2{font-size:clamp(28px,3.4vw,44px);margin-top:10px}
+.home-about p,.home-hours p{color:var(--ink-soft);margin-top:12px;max-width:46ch}
+.home-about__grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid var(--k);border-left:1px solid var(--k)}
+.home-about__grid>div{padding:22px;border-right:1px solid var(--k);border-bottom:1px solid var(--k);display:flex;flex-direction:column;gap:6px;background:#fff}
+.home-about__grid strong{font:700 17px var(--font-display);border-left:4px solid var(--r);padding-left:10px}
+.home-about__grid span{color:var(--ink-soft);font-size:14px}
+.home-hours{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:72px;background:#fff!important;border:1px solid var(--k)!important}
+.home-hours>div:first-child{padding:44px}
+.home-hours .garage-btn-primary{margin-top:24px}
+.home-hours__panel{padding:44px;display:flex;flex-direction:column;gap:14px;border-left:8px solid var(--r)}
+.home-hours__panel strong{font:700 20px var(--font-display)}
+.home-hours__panel div{display:flex;justify-content:space-between;border-bottom:1px solid #3a3a3a;padding-bottom:12px}
+.home-hours__panel b{color:#fff;font-weight:700}
+.home-hours__panel span{color:#bdb8b2}
+@media(max-width:800px){.home-about,.home-hours{grid-template-columns:1fr}.home-about{gap:28px}.home-hours>div:first-child,.home-hours__panel{padding:28px}}
+
+/* หน้าเข้าสู่ระบบ */
+.auth-page{background:var(--paper)!important}
+.auth-card{border-top:6px solid var(--r)!important;padding:40px!important}
+.auth-heading h1,.auth-heading h2{font-size:30px;font-weight:700}
+.auth-mode-switch{border:1px solid var(--k)!important;border-radius:2px!important;padding:3px;background:#fff!important}
+.auth-mode-switch button{border-radius:0!important}
+.auth-mode-switch button[aria-pressed=true],.auth-mode-switch .is-active{background:var(--k)!important;color:#fff!important}
+.auth-submit{min-height:50px;font-size:15px}
+
+/* แดชบอร์ดแอดมิน/ช่าง */
+.admin-stat-card strong,.technician-stat-card strong{font:700 clamp(30px,3vw,44px)/1 var(--font-display);letter-spacing:-.03em}
+.admin-stat-card,.technician-stat-card{border-top:4px solid var(--k)!important}
+.admin-stat-card--accent,.technician-stat-card--accent{border-top-color:var(--r)!important}
+.admin-panel__heading h2,.admin-panel__heading h3{font-size:18px;font-weight:700}
+.admin-panel__heading{border-bottom:1px solid var(--hair);padding-bottom:12px;margin-bottom:14px}
+.admin-nav-group__label,.technician-sidebar__section-label{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#8f8a84!important}
+.admin-nav-item:hover,.technician-nav-item:hover{background:#1c1c1c!important;box-shadow:inset 3px 0 0 var(--r)}
+.admin-topbar__eyebrow,.technician-topbar__eyebrow,.admin-welcome__eyebrow,.profile-kicker,.notifications-kicker,.order-page-kicker,.technician-dashboard__eyebrow{
+  color:var(--r)!important;font-size:11px;letter-spacing:.2em;text-transform:uppercase;font-weight:700}
+.order-page-header,.notifications-hero,.services-page__hero,.technician-profile-hero{border-radius:0!important;border-bottom:3px solid var(--k)}
+.order-stepper__step.is-done .order-stepper__circle,.order-stepper__circle.is-done{background:var(--r)!important;border-color:var(--r)!important;color:#fff}
+
+/* ส่วนท้าย */
+footer a{color:#bdb8b2!important}
+footer a:hover{color:#fff!important}
+footer,footer p{color:#bdb8b2!important}
+footer{margin-top:80px!important}
+
+/* ป้ายหัวข้อเล็กเป็นภาษาไทยแล้ว: ลดระยะห่างตัวอักษร/ขยายขนาดเล็กน้อยให้อ่านง่าย */
+.home-section__kicker,
+.profile-kicker,
+.notifications-kicker,
+.garage-kicker{letter-spacing:.04em;font-size:13px;text-transform:none}
+.auth-brand span{letter-spacing:.04em;font-size:11px}
+.brand-mark__subtitle{letter-spacing:.04em;font-size:11px}
+.admin-page-heading__meta span{letter-spacing:.04em;text-transform:none}

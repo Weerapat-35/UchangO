@@ -269,7 +269,7 @@ function AdminBookingRow({
             </span>
           </div>
           <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
-            {booking.booking_date} at {formatTime(booking.booking_time)}
+            {booking.booking_date} เวลา {formatTime(booking.booking_time)}
           </h2>
         </div>
       </div>
@@ -634,7 +634,7 @@ export function AdminBookingsPanel() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin Bookings
+              การจองคิวทั้งหมด
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
               Review booking requests from all customers and manage their

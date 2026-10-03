@@ -1,5 +1,7 @@
 "use client";
 
+import type { Database } from "@/lib/supabase/database.types";
+
 import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -46,7 +48,7 @@ export default function SupabaseDataCheckPage() {
 
     const supabase = createClient();
     const { data, error, count } = await supabase
-      .from(normalizedTableName)
+      .from(normalizedTableName as keyof Database["public"]["Tables"])
       .select("*", { count: "exact" })
       .limit(5);
 

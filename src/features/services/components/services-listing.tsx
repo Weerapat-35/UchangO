@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -1030,18 +1031,18 @@ export function ServicesListing() {
   }, [categories, selectedCategoryId]);
 
   return (
-    <main className="storefront-main services-page min-h-screen pb-12">
-      <section className="services-page__hero">
-        <div>
-          <span className="home-section__kicker">OUR SERVICES</span>
-          <h1>บริการของ อู่ช่างโอ</h1>
-          <p>เลือกบริการที่ต้องการ ดูรายละเอียด ราคา และจองคิวได้จากหน้านี้</p>
-        </div>
-        <div className="services-page__count">
-          <strong>{getServicesCount(categories)}</strong>
-          <span>บริการทั้งหมด</span>
-        </div>
-      </section>
+    <main className="storefront-main services-page min-h-screen pt-7 pb-12">
+      <PageHeader
+        actions={
+          <div className="ph-stat">
+            <span>บริการทั้งหมด</span>
+            <strong>{getServicesCount(categories)}</strong>
+          </div>
+        }
+        crumbs={[{ label: "บริการ" }]}
+        description="เลือกบริการที่ต้องการ ดูรายละเอียด ราคา และจองคิวได้จากหน้านี้"
+        title="บริการ"
+      />
 
       <div id="services" />
 

@@ -10,38 +10,33 @@ type NavGroup = { label: string; items: NavItem[] };
 
 const NAV_GROUPS: NavGroup[] = [
   { label: "ภาพรวม", items: [{ href: "/admin", label: "แดชบอร์ด", icon: "grid" }] },
-  {
-    label: "งานบริการ",
-    items: [
-      { href: "/admin/bookings", label: "การจองคิว", icon: "calendar" },
-      { href: "/admin/repair-jobs", label: "งานซ่อม", icon: "wrench" },
-      { href: "/admin/schedule", label: "ตารางคิว", icon: "clock" },
-      { href: "/admin/capacity", label: "ความจุคิว", icon: "layers" },
-      { href: "/admin/operating-days", label: "วันเปิดร้าน", icon: "store" },
-      { href: "/admin/services", label: "บริการ", icon: "tool" },
-      { href: "/admin/service-categories", label: "หมวดบริการ", icon: "folder" },
-      { href: "/admin/technician-skills", label: "ทักษะช่าง", icon: "badge" },
-    ],
-  },
-  {
-    label: "สินค้าและสต็อก",
-    items: [
-      { href: "/admin/products", label: "สินค้า", icon: "box" },
-      { href: "/admin/product-categories", label: "หมวดสินค้า", icon: "folder" },
-      { href: "/admin/inventory", label: "คลังสินค้า", icon: "warehouse" },
-      { href: "/admin/inventory-review", label: "ตรวจสต็อก", icon: "alert" },
-      { href: "/admin/product-orders", label: "ออเดอร์สินค้า", icon: "cart" },
-    ],
-  },
-  {
-    label: "จัดการระบบ",
-    items: [
-      { href: "/admin/customers", label: "ลูกค้า", icon: "users" },
-      { href: "/admin/payment-settings", label: "การชำระเงิน", icon: "card" },
-      { href: "/admin/reports", label: "รายงาน", icon: "chart" },
-      { href: "/admin/notifications", label: "การแจ้งเตือน", icon: "bell" },
-    ],
-  },
+  { label: "งานบริการ", items: [
+    { href: "/admin/bookings", label: "การจองคิว", icon: "calendar" },
+    { href: "/admin/repair-jobs", label: "งานซ่อม", icon: "wrench" },
+    { href: "/admin/schedule", label: "ตารางคิว", icon: "clock" },
+    { href: "/admin/capacity", label: "ความจุคิว", icon: "layers" },
+    { href: "/admin/operating-days", label: "วันเปิดร้าน", icon: "store" },
+    { href: "/admin/services", label: "บริการ", icon: "tool" },
+    { href: "/admin/service-categories", label: "หมวดบริการ", icon: "folder" },
+    { href: "/admin/technician-skills", label: "ทักษะช่าง", icon: "badge" },
+  ]},
+  { label: "สินค้าและสต็อก", items: [
+    { href: "/admin/products", label: "สินค้า", icon: "box" },
+    { href: "/admin/product-categories", label: "หมวดสินค้า", icon: "folder" },
+    { href: "/admin/inventory", label: "คลังสินค้า", icon: "warehouse" },
+    { href: "/admin/inventory-review", label: "ตรวจสต็อก", icon: "alert" },
+    { href: "/admin/product-orders", label: "ออเดอร์สินค้า", icon: "cart" },
+  ]},
+  { label: "การเงินและบุคลากร", items: [
+    { href: "/admin/finance", label: "การเงิน", icon: "wallet" },
+    { href: "/admin/payroll", label: "เงินเดือนช่าง", icon: "money" },
+  ]},
+  { label: "จัดการระบบ", items: [
+    { href: "/admin/customers", label: "ลูกค้า", icon: "users" },
+    { href: "/admin/payment-settings", label: "การชำระเงิน", icon: "card" },
+    { href: "/admin/reports", label: "รายงาน", icon: "chart" },
+    { href: "/admin/notifications", label: "การแจ้งเตือน", icon: "bell" },
+  ]},
 ];
 
 function Icon({ name }: { name: string }) {
@@ -62,6 +57,8 @@ function Icon({ name }: { name: string }) {
     case "users": return <svg {...common}><path d="M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20M9.5 10.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM16 4a3.5 3.5 0 0 1 0 7M17 14.5h.5a4 4 0 0 1 4 4V20"/></svg>;
     case "card": return <svg {...common}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>;
     case "chart": return <svg {...common}><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>;
+    case "wallet": return <svg {...common}><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h13A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-9Z"/><path d="M16 12h5M17 12h.01"/></svg>;
+    case "money": return <svg {...common}><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M7 8h.01M17 16h.01"/></svg>;
     case "bell": return <svg {...common}><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>;
     default: return <svg {...common}><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 8h8v8H8z"/></svg>;
   }
@@ -69,7 +66,6 @@ function Icon({ name }: { name: string }) {
 
 export function AdminSidebar() {
   const pathname = usePathname();
-
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -79,36 +75,27 @@ export function AdminSidebar() {
   return (
     <aside className="admin-sidebar">
       <div className="admin-sidebar__brand">
-        <BrandMark tone="dark" subtitle="ADMIN MANAGEMENT" />
+        <BrandMark tone="dark" subtitle="ระบบจัดการหลังบ้าน" />
       </div>
-
-      <Link href="/admin/bookings" className="admin-create-button">
-        <span className="admin-create-button__plus">+</span>
-        <span>สร้างงานซ่อม</span>
-      </Link>
-
+      <div className="admin-sidebar__profile">
+        <div className="admin-sidebar__avatar">A</div>
+        <div><strong>ผู้ดูแลระบบ</strong><span>Admin • อู่ช่างโอ</span></div>
+      </div>
+      <Link href="/admin/bookings" className="admin-create-button"><span className="admin-create-button__plus">+</span><span>สร้างงานซ่อม</span></Link>
       <nav className="admin-sidebar__nav" aria-label="เมนูผู้ดูแลระบบ">
-        {NAV_GROUPS.map((group) => (
-          <div key={group.label} className="admin-nav-group">
-            <p className="admin-nav-group__label">{group.label}</p>
-            <div className="admin-nav-group__items">
-              {group.items.map((item) => {
-                const isActive = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
-                return (
-                  <Link key={item.href} href={item.href} className={`admin-nav-item${isActive ? " is-active" : ""}`}>
-                    <span className="admin-nav-item__icon"><Icon name={item.icon} /></span>
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
+        {NAV_GROUPS.map((group) => <div key={group.label} className="admin-nav-group">
+          <p className="admin-nav-group__label">{group.label}</p>
+          <div className="admin-nav-group__items">
+            {group.items.map((item) => {
+              const isActive = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+              return <Link key={item.href} href={item.href} className={`admin-nav-item${isActive ? " is-active" : ""}`}>
+                <span className="admin-nav-item__icon"><Icon name={item.icon}/></span><span>{item.label}</span>
+              </Link>;
+            })}
           </div>
-        ))}
+        </div>)}
       </nav>
-
-      <div className="admin-sidebar__footer">
-        <button onClick={handleSignOut} type="button" className="admin-signout">ออกจากระบบ</button>
-      </div>
+      <div className="admin-sidebar__footer"><button onClick={handleSignOut} type="button" className="admin-signout"><span>↪</span> ออกจากระบบ</button></div>
     </aside>
   );
 }

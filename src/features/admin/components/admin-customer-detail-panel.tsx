@@ -183,7 +183,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Customer Detail
+              รายละเอียดลูกค้า
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
               Review profile, vehicles, and booking history for this customer.
@@ -250,7 +250,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
         <section className="grid gap-6 py-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <aside className="h-fit rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold text-[var(--brand)]">
-              Customer profile
+              ข้อมูลลูกค้า
             </p>
             <h2 className="mt-2 text-2xl font-bold text-[var(--foreground)]">
               {loadState.customer.full_name}
@@ -287,7 +287,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
             <section>
               <div className="mb-4 flex items-center justify-between gap-4">
                 <h2 className="text-xl font-bold text-[var(--foreground)]">
-                  Vehicles
+                  รถของลูกค้า
                 </h2>
                 <p className="text-sm text-[var(--muted)]">
                   {loadState.customer.vehicles.length} records
@@ -322,7 +322,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
             <section>
               <div className="mb-4 flex items-center justify-between gap-4">
                 <h2 className="text-xl font-bold text-[var(--foreground)]">
-                  Bookings
+                  ประวัติการจอง
                 </h2>
                 <p className="text-sm text-[var(--muted)]">
                   {loadState.customer.bookings.length} records
@@ -350,7 +350,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
                             </span>
                           </div>
                           <h3 className="mt-2 text-lg font-bold text-[var(--foreground)]">
-                            {booking.booking_date} at{" "}
+                            {booking.booking_date} เวลา{" "}
                             {formatTime(booking.booking_time)}
                           </h3>
                           <p className="mt-2 text-sm text-[var(--muted)]">

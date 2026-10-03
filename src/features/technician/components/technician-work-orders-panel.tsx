@@ -137,13 +137,13 @@ function TechnicianWorkOrderRow({
 
       <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
         <div className="rounded-md bg-slate-50 p-3">
-          <p className="font-semibold text-[var(--foreground)]">Diagnosis</p>
+          <p className="font-semibold text-[var(--foreground)]">ผลวินิจฉัย</p>
           <p className="mt-2 leading-6 text-[var(--muted)]">
             {workOrder.diagnosis || "-"}
           </p>
         </div>
         <div className="rounded-md bg-slate-50 p-3">
-          <p className="font-semibold text-[var(--foreground)]">Repair notes</p>
+          <p className="font-semibold text-[var(--foreground)]">บันทึกการซ่อม</p>
           <p className="mt-2 leading-6 text-[var(--muted)]">
             {workOrder.repair_notes || "-"}
           </p>

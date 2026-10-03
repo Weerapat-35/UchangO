@@ -67,6 +67,6 @@ export type ProductPaymentSlipInput = {
   amount: number;
   file: File;
   orderId: string;
-  paymentMethod: Extract<ProductPayment["payment_method"], "bank_transfer" | "promptpay">;
+  paymentMethod: "bank_transfer" | "promptpay";
   slipReference: string | null;
 };

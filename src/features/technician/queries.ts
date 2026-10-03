@@ -14,8 +14,10 @@ import type {
 
 type BCareSupabaseClient = SupabaseClient<Database>;
 
-function getUniqueIds(values: string[]) {
-  return Array.from(new Set(values));
+function getUniqueIds(values: Array<string | null | undefined>) {
+  return Array.from(
+    new Set(values.filter((value): value is string => Boolean(value))),
+  );
 }
 
 function canTechnicianSetStatus(status: TechnicianRepairJobStatus) {
@@ -256,7 +258,9 @@ async function attachTechnicianWorkOrderDetails(
 
   return {
     data: repairJobs.map((repairJob) => {
-      const booking = bookingsById.get(repairJob.booking_id) ?? null;
+      const booking = repairJob.booking_id
+        ? (bookingsById.get(repairJob.booking_id) ?? null)
+        : null;
       const customerId = repairJob.customer_id ?? booking?.customer_id ?? null;
 
       return {
@@ -264,9 +268,11 @@ async function attachTechnicianWorkOrderDetails(
         booking,
         customer: customerId ? (customersById.get(customerId) ?? null) : null,
         service: booking ? (servicesById.get(booking.service_id) ?? null) : null,
-        vehicle:
-          vehiclesById.get(repairJob.vehicle_id) ??
-          (booking ? (vehiclesById.get(booking.vehicle_id) ?? null) : null),
+        vehicle: repairJob.vehicle_id
+          ? (vehiclesById.get(repairJob.vehicle_id) ?? null)
+          : booking?.vehicle_id
+            ? (vehiclesById.get(booking.vehicle_id) ?? null)
+            : null,
       } satisfies TechnicianWorkOrder;
     }),
     error: null,

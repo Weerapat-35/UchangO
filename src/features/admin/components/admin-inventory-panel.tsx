@@ -161,7 +161,7 @@ function MovementForm({
     <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
       <div className="border-b border-[var(--line)] pb-4">
         <p className="text-sm font-semibold text-[var(--brand)]">
-          Record inventory movement
+          บันทึกการเคลื่อนไหวสต็อก
         </p>
         <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
           Each movement creates a history row and updates product stock through
@@ -514,7 +514,7 @@ export function AdminInventoryPanel() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin Inventory
+              จัดการคลังสินค้า
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
               Record stock in, stock out, adjustments, repair usage, and
@@ -616,7 +616,7 @@ export function AdminInventoryPanel() {
           <section className="mt-5 rounded-lg border border-[var(--line)] bg-white shadow-sm">
             <div className="border-b border-[var(--line)] p-5">
               <h2 className="text-xl font-bold text-[var(--foreground)]">
-                Recent inventory movements
+                ความเคลื่อนไหวสต็อกล่าสุด
               </h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
                 Latest stock changes across all products.

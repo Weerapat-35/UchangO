@@ -1,0 +1,95 @@
+/* ส่วนหัวมาตรฐานของหน้าลูกค้า (ใช้ผ่านคอมโพเนนต์ PageHeader) */
+.ph {
+  --ph-red: #d3121a;
+  --ph-ink: #0d0d0d;
+  --ph-soft: #5c5a57;
+  --ph-line: #e6e3de;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px 24px;
+  margin: 0 0 20px;
+  color: var(--ph-ink);
+}
+.ph--w1040 { max-width: 1040px; margin-left: auto; margin-right: auto; }
+
+.ph__text { min-width: 0; }
+.ph__title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.ph h1 {
+  margin: 0;
+  font-family: var(--font-display, inherit);
+  font-size: clamp(28px, 3vw, 36px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--ph-ink);
+}
+.ph__text p {
+  margin: 6px 0 0;
+  max-width: 62ch;
+  color: var(--ph-soft);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.ph__side { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+.ph__crumb { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ph-soft); font-size: 13px; }
+.ph__crumb a { color: inherit; display: inline-flex; align-items: center; }
+.ph__crumb a:hover { color: var(--ph-red); }
+.ph__crumb .ph__home { color: var(--ph-red); }
+.ph__crumb strong { color: var(--ph-ink); font-weight: 600; }
+.ph__crumb-item { display: inline-flex; align-items: center; gap: 8px; }
+.ph-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.ph__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+
+/* ปุ่มในส่วนหัว */
+.ph-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 18px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--ph-red);
+  border: 1px solid var(--ph-red);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.ph-btn:hover { background: var(--ph-ink); border-color: var(--ph-ink); color: #fff; }
+.ph-btn:focus-visible { outline: 2px solid var(--ph-ink); outline-offset: 2px; }
+.ph-btn--ghost { color: var(--ph-ink); background: #fff; border-color: var(--ph-line); }
+.ph-btn--ghost:hover { color: var(--ph-red); background: #fff; border-color: var(--ph-red); }
+
+/* ตัวเลขสรุป */
+.ph-stat {
+  min-width: 112px;
+  padding: 8px 16px;
+  background: #fff;
+  border: 1px solid var(--ph-line);
+  border-radius: 6px;
+}
+.ph-stat span { display: block; color: var(--ph-soft); font-size: 11.5px; }
+.ph-stat strong { display: block; margin-top: 2px; color: var(--ph-red); font-family: var(--font-display, inherit); font-size: 20px; font-weight: 700; line-height: 1.15; }
+
+/* ป้ายเล็กต่อท้ายหัวข้อ */
+.ph-tag {
+  padding: 3px 10px;
+  color: var(--ph-soft);
+  font-size: 12px;
+  font-weight: 700;
+  background: #f1f0ee;
+  border-radius: 4px;
+}
+
+@media (max-width: 760px) {
+  .ph { align-items: flex-start; }
+  .ph__side { align-items: flex-start; width: 100%; }
+  .ph__actions { justify-content: flex-start; }
+}

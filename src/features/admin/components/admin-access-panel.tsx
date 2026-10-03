@@ -83,11 +83,7 @@ function StatCard({
 }) {
   return (
     <Link
-      className={
-        accent
-          ? "rounded-xl bg-[var(--brand)] p-5 text-white shadow-sm transition hover:bg-[var(--brand-strong)]"
-          : "rounded-xl border border-[var(--line)] bg-white p-5 shadow-sm transition hover:border-[var(--brand)]"
-      }
+      className={`admin-stat-card ${accent ? "admin-stat-card--accent" : ""}`}
       href={href}
     >
       <p
@@ -162,7 +158,7 @@ function RevenueChart({ data }: { data: AdminDashboardOverview["dailyRevenue"] }
 
 function RecentBookingRow({ booking }: { booking: AdminBooking }) {
   return (
-    <article className="rounded-lg border border-[var(--line)] bg-white p-4 shadow-sm">
+    <article className="admin-recent-booking">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -197,298 +193,77 @@ function RecentBookingRow({ booking }: { booking: AdminBooking }) {
 }
 
 export function AdminAccessPanel() {
-  const [loadState, setLoadState] = useState<LoadState>({
-    access: null,
-    bookings: null,
-    overview: null,
-    error: null,
-    status: "loading",
-  });
+  const [loadState, setLoadState] = useState<LoadState>({ access:null, bookings:null, overview:null, error:null, status:"loading" });
 
   useEffect(() => {
     let isMounted = true;
     const supabase = createClient();
-
     async function loadDashboard() {
-      setLoadState({
-        access: null,
-        bookings: null,
-        overview: null,
-        error: null,
-        status: "loading",
-      });
-
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
+      setLoadState({access:null,bookings:null,overview:null,error:null,status:"loading"});
+      const { data:{session}, error:sessionError } = await supabase.auth.getSession();
       if (!isMounted) return;
-
-      if (sessionError) {
-        setLoadState({
-          access: null,
-          bookings: null,
-          overview: null,
-          error: sessionError.message,
-          status: "error",
-        });
-        return;
-      }
-
-      if (!session?.user) {
-        setLoadState({
-          access: null,
-          bookings: null,
-          overview: null,
-          error: null,
-          status: "signed-out",
-        });
-        return;
-      }
-
+      if (sessionError) { setLoadState({access:null,bookings:null,overview:null,error:sessionError.message,status:"error"}); return; }
+      if (!session?.user) { setLoadState({access:null,bookings:null,overview:null,error:null,status:"signed-out"}); return; }
       const access = await checkAdminAccess(supabase, session.user.id);
-
       if (!isMounted) return;
-
-      if (!access.allowed) {
-        setLoadState({
-          access,
-          bookings: null,
-          overview: null,
-          error: null,
-          status: "ready",
-        });
-        return;
-      }
-
-      const [bookingsResult, overviewResult] = await Promise.all([
-        getAdminBookings(supabase),
-        getAdminDashboardOverview(supabase),
-      ]);
-
+      if (!access.allowed) { setLoadState({access,bookings:null,overview:null,error:null,status:"ready"}); return; }
+      const [bookingsResult, overviewResult] = await Promise.all([getAdminBookings(supabase), getAdminDashboardOverview(supabase)]);
       if (!isMounted) return;
-
-      if (bookingsResult.error) {
-        setLoadState({
-          access: null,
-          bookings: null,
-          overview: null,
-          error: bookingsResult.error.message,
-          status: "error",
-        });
-        return;
-      }
-
-      setLoadState({
-        access,
-        bookings: bookingsResult.data ?? [],
-        overview: overviewResult.data,
-        error: null,
-        status: "ready",
-      });
+      if (bookingsResult.error) { setLoadState({access:null,bookings:null,overview:null,error:bookingsResult.error.message,status:"error"}); return; }
+      setLoadState({access,bookings:bookingsResult.data ?? [],overview:overviewResult.data,error:null,status:"ready"});
     }
-
     loadDashboard();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      loadDashboard();
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
+    const { data:{subscription} } = supabase.auth.onAuthStateChange(() => { loadDashboard(); });
+    return () => { isMounted=false; subscription.unsubscribe(); };
   }, []);
 
-  const counts = useMemo(() => {
-    if (loadState.status !== "ready" || !loadState.bookings) {
-      return getDashboardCounts([]);
-    }
-    return getDashboardCounts(loadState.bookings);
-  }, [loadState]);
+  const counts = useMemo(() => loadState.status === "ready" && loadState.bookings ? getDashboardCounts(loadState.bookings) : getDashboardCounts([]), [loadState]);
+  const recentBookings = useMemo(() => loadState.status === "ready" && loadState.bookings ? loadState.bookings.slice(0,5) : [], [loadState]);
 
-  const recentBookings = useMemo(() => {
-    if (loadState.status !== "ready" || !loadState.bookings) return [];
-    return loadState.bookings.slice(0, 5);
-  }, [loadState]);
+  return <main className="admin-dashboard-page">
+    {loadState.status === "loading" ? <section className="admin-state-card"><div className="admin-loading-dot"/><strong>กำลังโหลดข้อมูลแดชบอร์ด...</strong></section> : null}
+    {loadState.status === "signed-out" ? <section className="admin-state-card admin-state-card--warning"><strong>ต้องเข้าสู่ระบบก่อน</strong><p>กรุณาเข้าสู่ระบบเพื่อตรวจสอบสิทธิ์แอดมิน</p><Link href="/auth">ไปหน้าบัญชี</Link></section> : null}
+    {loadState.status === "error" ? <section className="admin-state-card admin-state-card--error"><strong>ไม่สามารถโหลดข้อมูลได้</strong><p>{loadState.error}</p></section> : null}
 
-  return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
-      <header className="border-b border-[var(--line)] pb-5">
-        <h1 className="text-3xl font-bold text-[var(--foreground)]">
-          แดชบอร์ดภาพรวม
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-          สรุปยอดจอง รายได้ งานซ่อมค้าง และสต็อกสินค้าใกล้หมด
-        </p>
-      </header>
+    {loadState.status === "ready" ? loadState.access.allowed ? <>
+      <section className="admin-welcome">
+        <div className="admin-welcome__identity"><div className="admin-welcome__avatar">A</div><div><p className="admin-welcome__eyebrow">ภาพรวมระบบอู่ช่างโอ</p><h2>ยินดีต้อนรับกลับ 👋</h2><p>ดูสถานะงานบริการ การจอง สินค้า และรายรับของร้านได้จากหน้านี้</p></div></div>
+        <div className="admin-welcome__actions"><Link href="/admin/bookings" className="admin-btn admin-btn--dark">+ สร้างงานซ่อม</Link><Link href="/admin/reports" className="admin-btn admin-btn--red">ดูรายงาน</Link></div>
+      </section>
 
-      {loadState.status === "loading" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            กำลังโหลดแดชบอร์ด...
-          </div>
-        </section>
-      ) : null}
+      <nav className="admin-dashboard-tabs" aria-label="ส่วนของแดชบอร์ด">
+        <Link className="is-active" href="/admin">ภาพรวม</Link><Link href="/admin/repair-jobs">งานซ่อม</Link><Link href="/admin/finance">การเงิน</Link><Link href="/admin/reports">รายงาน</Link>
+      </nav>
 
-      {loadState.status === "signed-out" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">ต้องเข้าสู่ระบบก่อน</p>
-            <p className="mt-1">กรุณาเข้าสู่ระบบเพื่อตรวจสอบสิทธิ์แอดมิน</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              ไปหน้าบัญชี
-            </Link>
-          </div>
-        </section>
-      ) : null}
+      {loadState.overview ? <section className="admin-stat-grid">
+        <StatCard accent href="/admin/reports" label="รายได้วันนี้" value={formatBaht(loadState.overview.revenueToday)} />
+        <StatCard href="/admin/bookings" label="การจองวันนี้" value={String(loadState.overview.bookingsToday)} />
+        <StatCard href="/admin/repair-jobs" label="งานซ่อมค้าง" value={String(loadState.overview.pendingRepairJobCount)} />
+        <StatCard href="/admin/inventory" label="สินค้าใกล้หมด" value={String(loadState.overview.lowStockCount)} />
+      </section> : null}
 
-      {loadState.status === "error" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-xl rounded-lg border border-red-200 bg-white px-5 py-4 text-sm text-red-700 shadow-sm">
-            {loadState.error}
-          </div>
-        </section>
-      ) : null}
+      <section className="admin-dashboard-grid">
+        <div className="admin-panel admin-panel--chart">
+          <div className="admin-panel__heading"><div><p>รายรับจากบริการ</p><h3>รายได้ย้อนหลัง 14 วัน</h3></div><Link href="/admin/reports">ดูรายงานเต็ม →</Link></div>
+          {loadState.overview ? <RevenueChart data={loadState.overview.dailyRevenue}/> : null}
+          <p className="admin-panel__note">นับเฉพาะการจองที่ยืนยันหรือเสร็จสิ้นแล้ว ยังไม่รวมยอดขายสินค้า</p>
+        </div>
+        <div className="admin-panel admin-panel--status">
+          <div className="admin-panel__heading"><div><p>สถานะงาน</p><h3>การจองวันนี้</h3></div><Link href="/admin/bookings">ทั้งหมด</Link></div>
+          <div className="admin-status-list">{STATUS_ORDER.map((status,index)=><Link key={status} href={`/admin/bookings?status=${status}`} className="admin-status-row"><span className={`admin-status-dot admin-status-dot--${index}`}/><span>{STATUS_LABEL[status]}</span><strong>{counts[status]}</strong></Link>)}</div>
+        </div>
+      </section>
 
-      {loadState.status === "ready" ? (
-        <section className="py-6">
-          {loadState.access.allowed ? (
-            <div className="space-y-6">
-              {loadState.overview ? (
-                <>
-                  <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <StatCard
-                      accent
-                      href="/admin/reports"
-                      label="รายได้วันนี้ (โดยประมาณ)"
-                      value={formatBaht(loadState.overview.revenueToday)}
-                    />
-                    <StatCard
-                      href="/admin/bookings"
-                      label="การจองวันนี้"
-                      value={String(loadState.overview.bookingsToday)}
-                    />
-                    <StatCard
-                      href="/admin/repair-jobs"
-                      label="งานซ่อมที่ยังไม่เสร็จ"
-                      value={String(loadState.overview.pendingRepairJobCount)}
-                    />
-                    <StatCard
-                      href="/admin/inventory"
-                      label="สินค้าใกล้หมด (≤5 ชิ้น)"
-                      value={String(loadState.overview.lowStockCount)}
-                    />
-                  </section>
-
-                  <section className="rounded-xl border border-[var(--line)] bg-white p-5 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-bold text-[var(--foreground)]">
-                        รายได้ย้อนหลัง 14 วัน (จากการจองบริการ)
-                      </h2>
-                      <Link
-                        className="text-sm font-semibold text-[var(--brand)] hover:underline"
-                        href="/admin/reports"
-                      >
-                        ดูรายงานเต็ม →
-                      </Link>
-                    </div>
-                    <div className="mt-4">
-                      <RevenueChart data={loadState.overview.dailyRevenue} />
-                    </div>
-                    <p className="mt-2 text-xs text-[var(--muted)]">
-                      * นับเฉพาะการจองที่ยืนยันหรือเสร็จสิ้นแล้ว ยังไม่รวมยอดขายสินค้า
-                    </p>
-                  </section>
-
-                  {loadState.overview.lowStockProducts.length > 0 ? (
-                    <section className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-                      <h2 className="text-sm font-bold text-amber-900">
-                        ⚠️ สินค้าใกล้หมดสต็อก
-                      </h2>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {loadState.overview.lowStockProducts.map((product) => (
-                          <Link
-                            key={product.id}
-                            href="/admin/inventory"
-                            className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-800"
-                          >
-                            {product.name} — เหลือ {product.stock_quantity} ชิ้น
-                          </Link>
-                        ))}
-                      </div>
-                    </section>
-                  ) : null}
-                </>
-              ) : null}
-
-              <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {STATUS_ORDER.map((status) => (
-                  <Link
-                    className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm transition hover:border-[var(--brand)]"
-                    href={`/admin/bookings?status=${status}`}
-                    key={status}
-                  >
-                    <p className="text-sm font-semibold text-[var(--muted)]">
-                      {STATUS_LABEL[status]}
-                    </p>
-                    <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-                      {counts[status]}
-                    </p>
-                  </Link>
-                ))}
-              </section>
-
-              <div>
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <h2 className="text-xl font-bold text-[var(--foreground)]">
-                    การจองล่าสุด
-                  </h2>
-                  <Link
-                    className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)] transition hover:border-[var(--brand)]"
-                    href="/admin/bookings"
-                  >
-                    ดูทั้งหมด
-                  </Link>
-                </div>
-                {recentBookings.length > 0 ? (
-                  <div className="space-y-3">
-                    {recentBookings.map((booking) => (
-                      <RecentBookingRow booking={booking} key={booking.id} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-                    ยังไม่มีการจอง
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-              <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
-              <p className="mt-2">{loadState.access.reason}</p>
-              {loadState.access.profile ? (
-                <p className="mt-2 text-xs">
-                  สิทธิ์ปัจจุบัน: {loadState.access.profile.role ?? "ไม่ทราบ"}
-                </p>
-              ) : null}
-              <Link
-                className="mt-5 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-                href="/auth"
-              >
-                ไปหน้าบัญชี
-              </Link>
-            </div>
-          )}
-        </section>
-      ) : null}
-    </main>
-  );
+      <section className="admin-lower-grid">
+        <div className="admin-panel">
+          <div className="admin-panel__heading"><div><p>รายการล่าสุด</p><h3>การจองล่าสุด</h3></div><Link href="/admin/bookings">ดูทั้งหมด →</Link></div>
+          <div className="admin-booking-list">{recentBookings.length ? recentBookings.map((booking)=><RecentBookingRow booking={booking} key={booking.id}/>) : <div className="admin-empty">ยังไม่มีการจอง</div>}</div>
+        </div>
+        <div className="admin-panel admin-stock-panel">
+          <div className="admin-panel__heading"><div><p>คลังสินค้า</p><h3>รายการที่ควรตรวจสอบ</h3></div><Link href="/admin/inventory">ดูคลัง →</Link></div>
+          {loadState.overview?.lowStockProducts.length ? <div className="admin-stock-list">{loadState.overview.lowStockProducts.slice(0,5).map(product=><Link href="/admin/inventory" key={product.id} className="admin-stock-row"><span className="admin-stock-icon">!</span><span><strong>{product.name}</strong><small>คงเหลือ {product.stock_quantity} ชิ้น</small></span><b>ตรวจ</b></Link>)}</div> : <div className="admin-empty admin-empty--good"><span>✓</span> ไม่มีสินค้าใกล้หมด</div>}
+        </div>
+      </section>
+    </> : <section className="admin-state-card admin-state-card--error"><strong>ไม่มีสิทธิ์เข้าถึง</strong><p>{loadState.access.reason}</p>{loadState.access.profile ? <small>สิทธิ์ปัจจุบัน: {loadState.access.profile.role ?? "ไม่ทราบ"}</small> : null}<Link href="/auth">ไปหน้าบัญชี</Link></section> : null}
+  </main>;
 }

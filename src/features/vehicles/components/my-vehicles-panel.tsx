@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -124,7 +125,7 @@ function AddVehicleForm({
 
   return (
     <section className="mb-5 rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
-      <p className="text-sm font-semibold text-[var(--brand)]">+ Add vehicle</p>
+      <p className="text-sm font-semibold text-[var(--brand)]">+ เพิ่มรถ</p>
       <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
         Add a vehicle manually instead of waiting for a booking to create one.
       </p>
@@ -306,7 +307,7 @@ function VehicleCard({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-[var(--brand)]">
-              Vehicle
+              รถ
             </p>
             {isEditing ? (
               <input
@@ -560,24 +561,16 @@ export function MyVehiclesPanel() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
-      <header className="border-b border-[var(--line)] pb-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              My Vehicles
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Review and update vehicles linked to your customer profile.
-            </p>
-          </div>
-          <Link
-            className="min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-            href="/"
-          >
-            New booking
+      <PageHeader
+        actions={
+          <Link className="ph-btn" href="/">
+            จองคิวใหม่
           </Link>
-        </div>
-      </header>
+        }
+        crumbs={[{ label: "รถของฉัน" }]}
+        description="ดูและแก้ไขข้อมูลรถที่เชื่อมกับโปรไฟล์ลูกค้าของคุณ"
+        title="รถของฉัน"
+      />
 
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">

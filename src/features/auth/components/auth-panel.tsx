@@ -262,7 +262,7 @@ export function AuthPanel() {
             <div className="auth-brand__mark">อู่</div>
             <div>
               <strong>ช่างโอ</strong>
-              <span>GARAGE SERVICE</span>
+              <span>บริการอู่ซ่อมรถ</span>
             </div>
           </div>
 

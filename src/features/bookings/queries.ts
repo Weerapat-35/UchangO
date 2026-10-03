@@ -214,6 +214,9 @@ async function attachBookingDetails(
   const repairJobsByBookingId = new Map<string, MyBookingRepairJob>();
 
   for (const repairJob of repairJobs) {
+    if (!repairJob.booking_id) {
+      continue;
+    }
     if (!repairJobsByBookingId.has(repairJob.booking_id)) {
       repairJobsByBookingId.set(repairJob.booking_id, {
         ...repairJob,
@@ -352,6 +355,7 @@ export async function createGuestBooking(
   const profileResult = await supabase
     .from("profiles")
     .insert({
+      id: crypto.randomUUID(),
       email: null,
       full_name: input.customerName,
       phone_number: input.phoneNumber,

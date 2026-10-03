@@ -571,9 +571,15 @@ export async function createProductOrderFromCart(
   const subtotal = detailsResult.data.subtotal;
   const deliveryFee = input.deliveryMethod === "delivery" ? input.deliveryFee : 0;
   const totalAmount = subtotal + deliveryFee;
+  const orderNumber = `ORD-${new Date()
+    .toISOString()
+    .replace(/\D/g, "")
+    .slice(0, 14)}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+
   const orderResult = await supabase
     .from("product_orders")
     .insert({
+      order_number: orderNumber,
       customer_id: customerId,
       delivery_address:
         input.deliveryMethod === "delivery" ? input.deliveryAddress : null,

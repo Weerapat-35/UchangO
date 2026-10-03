@@ -39,6 +39,12 @@ import type {
   AdminServiceUpdateInput,
   AdminTechnicianSkillCreateInput,
   AdminTechnicianSkillUpdateInput,
+  AdminFinanceTransaction,
+  AdminFinanceTransactionInput,
+  AdminFinanceSummary,
+  AdminFinanceDailySummary,
+  AdminPayroll,
+  AdminPayrollInput,
   RepairJob,
 } from "./types";
 
@@ -48,8 +54,10 @@ const scheduleStartTime = "09:00";
 const scheduleEndTime = "18:00";
 const scheduleSlotIntervalMinutes = 30;
 
-function getUniqueIds(values: string[]) {
-  return Array.from(new Set(values));
+function getUniqueIds(values: Array<string | null | undefined>) {
+  return Array.from(
+    new Set(values.filter((value): value is string => Boolean(value))),
+  );
 }
 
 function normalizeSearchTerm(search: string) {
@@ -1108,7 +1116,9 @@ async function attachAdminRepairJobDetails(
 
   return {
     data: repairJobs.map((repairJob) => {
-      const booking = bookingsById.get(repairJob.booking_id) ?? null;
+      const booking = repairJob.booking_id
+        ? (bookingsById.get(repairJob.booking_id) ?? null)
+        : null;
       const customerId = repairJob.customer_id ?? booking?.customer_id ?? null;
 
       return {
@@ -1119,9 +1129,11 @@ async function attachAdminRepairJobDetails(
           ? (mechanicsById.get(repairJob.mechanic_id) ?? null)
           : null,
         service: booking ? (servicesById.get(booking.service_id) ?? null) : null,
-        vehicle:
-          vehiclesById.get(repairJob.vehicle_id) ??
-          (booking ? (vehiclesById.get(booking.vehicle_id) ?? null) : null),
+        vehicle: repairJob.vehicle_id
+          ? (vehiclesById.get(repairJob.vehicle_id) ?? null)
+          : booking?.vehicle_id
+            ? (vehiclesById.get(booking.vehicle_id) ?? null)
+            : null,
       } satisfies AdminRepairJob;
     }),
     error: null,
@@ -2469,25 +2481,45 @@ export async function getAdminDashboardOverview(
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13);
   const fourteenDaysAgoStr = fourteenDaysAgo.toISOString().slice(0, 10);
 
-  const [bookingsResult, servicesResult, repairJobsResult, productsResult] =
-    await Promise.all([
-      supabase
-        .from("bookings")
-        .select("booking_date, status, service_id")
-        .gte("booking_date", fourteenDaysAgoStr)
-        .in("status", ["confirmed", "completed"]),
-      supabase.from("services").select("id, base_price"),
-      supabase
-        .from("repair_jobs")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "assigned", "in_progress"]),
-      supabase
-        .from("products")
-        .select("id, name, stock_quantity")
-        .eq("status", "active")
-        .lte("stock_quantity", 5)
-        .order("stock_quantity", { ascending: true }),
-    ]);
+  const [
+    bookingsResult,
+    servicesResult,
+    repairJobsResult,
+    productsResult,
+    financeResult,
+    technicianJobsResult,
+    techniciansResult,
+  ] = await Promise.all([
+    supabase
+      .from("bookings")
+      .select("booking_date, status, service_id")
+      .gte("booking_date", fourteenDaysAgoStr)
+      .in("status", ["confirmed", "completed"]),
+    supabase.from("services").select("id, base_price"),
+    supabase
+      .from("repair_jobs")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["pending", "assigned", "in_progress"]),
+    supabase
+      .from("products")
+      .select("id, name, stock_quantity")
+      .eq("status", "active")
+      .lte("stock_quantity", 5)
+      .order("stock_quantity", { ascending: true }),
+    supabase
+      .from("finance_transactions")
+      .select("transaction_date, transaction_type, amount")
+      .gte("transaction_date", fourteenDaysAgoStr)
+      .lte("transaction_date", todayStr),
+    supabase
+      .from("repair_jobs")
+      .select("mechanic_id, status")
+      .in("status", ["pending", "assigned", "in_progress"]),
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("role", "technician"),
+  ]);
 
   if (bookingsResult.error) {
     return { data: null, error: bookingsResult.error };
@@ -2503,6 +2535,18 @@ export async function getAdminDashboardOverview(
 
   if (productsResult.error) {
     return { data: null, error: productsResult.error };
+  }
+
+  if (financeResult.error) {
+    return { data: null, error: financeResult.error };
+  }
+
+  if (technicianJobsResult.error) {
+    return { data: null, error: technicianJobsResult.error };
+  }
+
+  if (techniciansResult.error) {
+    return { data: null, error: techniciansResult.error };
   }
 
   const priceByServiceId = new Map(
@@ -2537,6 +2581,51 @@ export async function getAdminDashboardOverview(
 
   const lowStockProducts = (productsResult.data ?? []).slice(0, 5);
 
+  const financeDailyMap = new Map<string, { date: string; income: number; expense: number; net: number }>();
+  for (let i = 0; i < 14; i += 1) {
+    const d = new Date(fourteenDaysAgo);
+    d.setDate(d.getDate() + i);
+    const date = d.toISOString().slice(0, 10);
+    financeDailyMap.set(date, { date, income: 0, expense: 0, net: 0 });
+  }
+
+  for (const transaction of financeResult.data ?? []) {
+    const day = financeDailyMap.get(transaction.transaction_date);
+    if (!day) continue;
+    const amount = Number(transaction.amount) || 0;
+    if (transaction.transaction_type === "income") day.income += amount;
+    else day.expense += amount;
+    day.net = day.income - day.expense;
+  }
+
+  const financeDaily = Array.from(financeDailyMap.values());
+  const todayFinance = financeDaily.find((day) => day.date === todayStr) ?? {
+    date: todayStr, income: 0, expense: 0, net: 0,
+  };
+
+  const technicianNameById = new Map(
+    (techniciansResult.data ?? []).map((technician) => [
+      technician.id,
+      technician.full_name || "ไม่ระบุชื่อ",
+    ]),
+  );
+  const technicianWorkloadMap = new Map<string, number>();
+  for (const job of technicianJobsResult.data ?? []) {
+    if (!job.mechanic_id) continue;
+    technicianWorkloadMap.set(
+      job.mechanic_id,
+      (technicianWorkloadMap.get(job.mechanic_id) ?? 0) + 1,
+    );
+  }
+  const technicianWorkload = Array.from(technicianWorkloadMap.entries())
+    .map(([id, jobCount]) => ({
+      id,
+      name: technicianNameById.get(id) ?? "ช่างไม่ทราบชื่อ",
+      jobCount,
+    }))
+    .sort((a, b) => b.jobCount - a.jobCount)
+    .slice(0, 6);
+
   return {
     data: {
       bookingsToday,
@@ -2545,7 +2634,203 @@ export async function getAdminDashboardOverview(
       lowStockProducts,
       pendingRepairJobCount: repairJobsResult.count ?? 0,
       revenueToday,
+      financeTodayIncome: todayFinance.income,
+      financeTodayExpense: todayFinance.expense,
+      financeTodayNet: todayFinance.net,
+      financeDaily,
+      technicianWorkload,
     },
     error: null,
   };
+}
+
+
+export async function getAdminFinanceTransactions(
+  supabase: BCareSupabaseClient,
+  startDate: string,
+  endDate: string,
+) {
+  const result = await supabase
+    .from("finance_transactions")
+    .select("*")
+    .gte("transaction_date", startDate)
+    .lte("transaction_date", endDate)
+    .order("transaction_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (result.error) {
+    return { data: null, error: result.error };
+  }
+
+  const transactions = (result.data ?? []) as AdminFinanceTransaction[];
+  const summary = transactions.reduce<AdminFinanceSummary>(
+    (acc, transaction) => {
+      if (transaction.transaction_type === "income") {
+        acc.income += Number(transaction.amount);
+      } else {
+        acc.expense += Number(transaction.amount);
+      }
+      return acc;
+    },
+    { income: 0, expense: 0, net: 0 },
+  );
+
+  summary.net = summary.income - summary.expense;
+
+  const dailyMap = new Map<string, AdminFinanceDailySummary>();
+  for (const transaction of transactions) {
+    const current = dailyMap.get(transaction.transaction_date) ?? {
+      date: transaction.transaction_date,
+      income: 0,
+      expense: 0,
+      net: 0,
+    };
+    if (transaction.transaction_type === "income") {
+      current.income += Number(transaction.amount);
+    } else {
+      current.expense += Number(transaction.amount);
+    }
+    current.net = current.income - current.expense;
+    dailyMap.set(transaction.transaction_date, current);
+  }
+
+  return {
+    data: {
+      transactions,
+      summary,
+      daily: Array.from(dailyMap.values()).sort((a, b) =>
+        b.date.localeCompare(a.date),
+      ),
+    },
+    error: null,
+  };
+}
+
+export async function createAdminFinanceTransaction(
+  supabase: BCareSupabaseClient,
+  userId: string,
+  input: AdminFinanceTransactionInput,
+) {
+  const result = await supabase
+    .from("finance_transactions")
+    .insert({
+      amount: input.amount,
+      category: input.category.trim(),
+      description: input.description?.trim() || null,
+      transaction_date: input.transactionDate,
+      transaction_type: input.transactionType,
+      created_by: userId,
+    })
+    .select("*")
+    .single();
+
+  return {
+    data: (result.data ?? null) as AdminFinanceTransaction | null,
+    error: result.error,
+  };
+}
+
+export async function deleteAdminFinanceTransaction(
+  supabase: BCareSupabaseClient,
+  transactionId: string,
+) {
+  return supabase
+    .from("finance_transactions")
+    .delete()
+    .eq("id", transactionId);
+}
+
+export async function getAdminPayrolls(
+  supabase: BCareSupabaseClient,
+  payrollMonth: string,
+) {
+  const [payrollResult, techniciansResult] = await Promise.all([
+    supabase
+      .from("technician_payrolls")
+      .select("*")
+      .eq("payroll_month", payrollMonth)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "technician")
+      .order("full_name", { ascending: true }),
+  ]);
+
+  if (payrollResult.error) {
+    return { data: null, error: payrollResult.error };
+  }
+
+  if (techniciansResult.error) {
+    return { data: null, error: techniciansResult.error };
+  }
+
+  const technicianIds = new Set(
+    (techniciansResult.data ?? []).map((technician) => technician.id),
+  );
+
+  const payrolls = (payrollResult.data ?? []).map((payroll) => ({
+    ...payroll,
+    technician:
+      (techniciansResult.data ?? []).find(
+        (technician) => technician.id === payroll.technician_id,
+      ) ?? null,
+  })) as AdminPayroll[];
+
+  return {
+    data: {
+      payrolls,
+      technicians: (techniciansResult.data ?? []).filter((technician) =>
+        technicianIds.has(technician.id),
+      ),
+    },
+    error: null,
+  };
+}
+
+export async function upsertAdminPayroll(
+  supabase: BCareSupabaseClient,
+  userId: string,
+  input: AdminPayrollInput,
+) {
+  const netSalary = Math.max(
+    0,
+    input.baseSalary +
+      input.overtimeAmount +
+      input.commissionAmount -
+      input.deductionAmount,
+  );
+
+  const result = await supabase
+    .from("technician_payrolls")
+    .upsert(
+      {
+        technician_id: input.technicianId,
+        payroll_month: input.payrollMonth,
+        base_salary: input.baseSalary,
+        overtime_amount: input.overtimeAmount,
+        commission_amount: input.commissionAmount,
+        deduction_amount: input.deductionAmount,
+        net_salary: netSalary,
+        status: input.status,
+        paid_at: input.status === "paid" ? new Date().toISOString() : null,
+        note: input.note?.trim() || null,
+        created_by: userId,
+      },
+      { onConflict: "technician_id,payroll_month" },
+    )
+    .select("*")
+    .single();
+
+  return {
+    data: (result.data ?? null) as Database["public"]["Tables"]["technician_payrolls"]["Row"] | null,
+    error: result.error,
+  };
+}
+
+export async function deleteAdminPayroll(
+  supabase: BCareSupabaseClient,
+  payrollId: string,
+) {
+  return supabase.from("technician_payrolls").delete().eq("id", payrollId);
 }

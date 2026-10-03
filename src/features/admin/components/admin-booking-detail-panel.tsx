@@ -426,7 +426,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin Booking Detail
+              รายละเอียดการจอง
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
               Review customer, vehicle, service, and status details for this
@@ -508,7 +508,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
                   {loadState.booking.service?.name ?? "Service not found"}
                 </p>
                 <h2 className="mt-2 text-2xl font-bold text-[var(--foreground)]">
-                  {loadState.booking.booking_date} at{" "}
+                  {loadState.booking.booking_date} เวลา{" "}
                   {formatTime(loadState.booking.booking_time)}
                 </h2>
               </div>
@@ -559,7 +559,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
 
             {loadState.booking.note ? (
               <div className="mt-5 rounded-md bg-slate-50 p-4 text-sm leading-6 text-[var(--muted)]">
-                <p className="font-semibold text-[var(--foreground)]">Note</p>
+                <p className="font-semibold text-[var(--foreground)]">หมายเหตุ</p>
                 <p className="mt-2">{loadState.booking.note}</p>
               </div>
             ) : null}
@@ -572,7 +572,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
           <aside className="h-fit space-y-4">
             <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-[var(--brand)]">
-                Customer
+                ลูกค้า
               </p>
               <dl className="mt-4 space-y-3 text-sm">
                 <DetailItem
@@ -592,7 +592,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
 
             <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-[var(--brand)]">
-                Vehicle
+                รถ
               </p>
               <dl className="mt-4 space-y-3 text-sm">
                 <DetailItem
@@ -622,7 +622,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
 
             <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-[var(--brand)]">
-                Work order
+                ใบงานซ่อม
               </p>
 
               {loadState.repairJob ? (
@@ -671,7 +671,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
 
             <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-[var(--brand)]">
-                Status management
+                จัดการสถานะ
               </p>
 
               {isEditingStatus ? (

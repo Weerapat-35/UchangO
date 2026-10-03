@@ -29,6 +29,7 @@ export default function SupabaseInsertCheckPage() {
     const profileResult = await supabase
       .from("profiles")
       .insert({
+        id: crypto.randomUUID(),
         email: null,
         full_name: `อู่ช่างโอ Test ${uniqueSuffix}`,
         phone_number: `099${uniqueSuffix}`,

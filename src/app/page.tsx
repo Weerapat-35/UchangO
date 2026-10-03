@@ -27,8 +27,7 @@ export default async function Home() {
 
   return (
     <main className="storefront-main home-page min-h-screen pb-12">
-      <section className="garage-hero home-page__hero">
-        <div className="hero-car-shape" aria-hidden="true" />
+      <section className="garage-hero garage-hero--banner home-page__hero">
         <div className="garage-hero__content">
           <div className="garage-kicker">ศูนย์บริการรถยนต์</div>
           <h1>อู่ช่างโอ<br /><span>ดูแลรถของคุณ</span> เหมือนรถของเรา</h1>
@@ -50,7 +49,7 @@ export default async function Home() {
       <section className="home-section">
         <div className="store-section-title">
           <div>
-            <span className="home-section__kicker">OUR SERVICES</span>
+            <span className="home-section__kicker">บริการของเรา</span>
             <h2>บริการครบ จบที่อู่ช่างโอ</h2>
             <p>เลือกดูบริการที่ต้องการ แล้วจองคิวได้จากหน้าบริการ</p>
           </div>
@@ -80,7 +79,7 @@ export default async function Home() {
 
       <section className="home-about">
         <div>
-          <span className="home-section__kicker">ABOUT US</span>
+          <span className="home-section__kicker">เกี่ยวกับเรา</span>
           <h2>ดูแลรถด้วยความใส่ใจในทุกขั้นตอน</h2>
           <p>อู่ช่างโอออกแบบระบบบริการให้ลูกค้าดูข้อมูลบริการ เลือกบริการ จองคิว และติดตามงานได้ง่ายในที่เดียว</p>
         </div>
@@ -94,7 +93,7 @@ export default async function Home() {
 
       <section className="home-hours">
         <div>
-          <span className="home-section__kicker">GARAGE INFORMATION</span>
+          <span className="home-section__kicker">ข้อมูลอู่</span>
           <h2>พร้อมดูแลรถของคุณ</h2>
           <p>ก่อนเข้ารับบริการ สามารถตรวจสอบบริการและเลือกวันเวลาที่ต้องการจองได้จากระบบ</p>
           <Link href="/services" className="garage-btn-primary">เลือกบริการและจองคิว</Link>

@@ -188,7 +188,7 @@ export function AdminReportsPanel() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin Reports
+              รายงานภาพรวม
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
               Review booking volume, estimated revenue, and most active
@@ -269,7 +269,7 @@ export function AdminReportsPanel() {
 
           <section>
             <h2 className="mb-4 text-xl font-bold text-[var(--foreground)]">
-              Booking status
+              สถานะการจอง
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {loadState.reports.statusCounts.map((item) => (
@@ -285,7 +285,7 @@ export function AdminReportsPanel() {
           <section className="grid gap-4 lg:grid-cols-3">
             <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <h2 className="text-lg font-bold text-[var(--foreground)]">
-                Top services
+                บริการยอดนิยม
               </h2>
               <div className="mt-4 space-y-3">
                 {loadState.reports.topServices.length > 0 ? (
@@ -310,7 +310,7 @@ export function AdminReportsPanel() {
 
             <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <h2 className="text-lg font-bold text-[var(--foreground)]">
-                Top customers
+                ลูกค้ายอดนิยม
               </h2>
               <div className="mt-4 space-y-3">
                 {loadState.reports.topCustomers.length > 0 ? (
@@ -340,7 +340,7 @@ export function AdminReportsPanel() {
 
             <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <h2 className="text-lg font-bold text-[var(--foreground)]">
-                Top vehicles
+                รถที่เข้ามาบ่อย
               </h2>
               <div className="mt-4 space-y-3">
                 {loadState.reports.topVehicles.length > 0 ? (

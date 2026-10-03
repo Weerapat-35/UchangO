@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
@@ -117,14 +118,16 @@ export function ProfilePage() {
     setUploading(false);
   }
 
-  if (loading) return <main className="profile-page"><div className="profile-card profile-loading">กำลังโหลดโปรไฟล์...</div></main>;
-  if (!profile) return <main className="profile-page"><div className="profile-card"><h1>โปรไฟล์</h1><p>กรุณาเข้าสู่ระบบก่อน</p><Link href="/auth" className="profile-primary-button">เข้าสู่ระบบ</Link></div></main>;
+  if (loading) return <main className="profile-page"><PageHeader crumbs={[{ label: "โปรไฟล์" }]} description="จัดการข้อมูลส่วนตัวและรูปโปรไฟล์ของคุณ" title="โปรไฟล์ของฉัน" /><div className="profile-card profile-loading">กำลังโหลดโปรไฟล์...</div></main>;
+  if (!profile) return <main className="profile-page"><PageHeader crumbs={[{ label: "โปรไฟล์" }]} description="จัดการข้อมูลส่วนตัวและรูปโปรไฟล์ของคุณ" title="โปรไฟล์ของฉัน" /><div className="profile-card"><p>กรุณาเข้าสู่ระบบก่อน</p><Link href="/auth" className="profile-primary-button">เข้าสู่ระบบ</Link></div></main>;
 
   return (
     <main className="profile-page">
-      <div className="profile-page__heading">
-        <div><p className="profile-kicker">ACCOUNT</p><h1>โปรไฟล์ของฉัน</h1><p>จัดการข้อมูลส่วนตัวและรูปโปรไฟล์ของคุณ</p></div>
-      </div>
+      <PageHeader
+        crumbs={[{ label: "โปรไฟล์" }]}
+        description="จัดการข้อมูลส่วนตัวและรูปโปรไฟล์ของคุณ"
+        title="โปรไฟล์ของฉัน"
+      />
       <div className="profile-grid">
         <section className="profile-card profile-avatar-card">
           <div className="profile-avatar-wrap">
@@ -141,7 +144,7 @@ export function ProfilePage() {
         </section>
 
         <form className="profile-card profile-form" onSubmit={saveProfile}>
-          <div className="profile-card__title"><div><p className="profile-kicker">PERSONAL INFORMATION</p><h2>ข้อมูลส่วนตัว</h2></div></div>
+          <div className="profile-card__title"><div><p className="profile-kicker">ข้อมูลบัญชี</p><h2>ข้อมูลส่วนตัว</h2></div></div>
           <label>ชื่อ-นามสกุล<input value={name} onChange={(e) => setName(e.target.value)} placeholder="ชื่อ-นามสกุล" /></label>
           <label>เบอร์โทรศัพท์<input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" placeholder="08xxxxxxxx" /></label>
           <label>อีเมล<input value={profile.email ?? ""} disabled /></label>

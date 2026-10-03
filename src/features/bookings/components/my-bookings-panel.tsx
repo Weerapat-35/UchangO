@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getCurrentUserBookings, type MyBooking } from "@/features/bookings";
@@ -79,7 +80,7 @@ function BookingCard({ booking }: { booking: MyBooking }) {
             {booking.service?.name ?? "Service not found"}
           </p>
           <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
-            {booking.booking_date} at {formatTime(booking.booking_time)}
+            {booking.booking_date} เวลา {formatTime(booking.booking_time)}
           </h2>
         </div>
         <span
@@ -133,7 +134,7 @@ function BookingCard({ booking }: { booking: MyBooking }) {
       <section className="mt-4 rounded-md border border-[var(--line)] bg-[var(--color-concrete-2)] p-3 text-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-semibold text-[var(--foreground)]">
-            Work order progress
+            ความคืบหน้าใบงานซ่อม
           </p>
           {booking.repairJob ? (
             <span
@@ -253,25 +254,16 @@ export function MyBookingsPanel() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
-      <header className="border-b border-[var(--line)] pb-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              My Bookings
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Review booking requests linked to your signed-in customer
-              profile.
-            </p>
-          </div>
-          <Link
-            className="min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-            href="/"
-          >
-            New booking
+      <PageHeader
+        actions={
+          <Link className="ph-btn" href="/">
+            จองคิวใหม่
           </Link>
-        </div>
-      </header>
+        }
+        crumbs={[{ label: "การจองของฉัน" }]}
+        description="ดูคำขอจองคิวที่เชื่อมกับบัญชีลูกค้าของคุณ"
+        title="การจองของฉัน"
+      />
 
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">

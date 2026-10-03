@@ -224,9 +224,8 @@ async function getRequestAccessToken(request: Request) {
   };
 }
 
-async function ensureAdminRequest(request: Request) {
+async function ensureRequestUser(request: Request) {
   const cookieSupabase = await createClient();
-  const adminSupabase = createAdminClient();
 
   let authSource: "body" | "cookie" | "header" = "cookie";
   let userResult = await cookieSupabase.auth.getUser();
@@ -251,45 +250,10 @@ async function ensureAdminRequest(request: Request) {
       error: NextResponse.json(
         {
           authSource,
-          message:
-            authSource === "cookie"
-              ? "กรุณาเข้าสู่ระบบด้วยบัญชี admin ก่อนตรวจสลิป"
-              : "ระบบได้รับ session แล้ว แต่ session หมดอายุหรือใช้ตรวจไม่ได้ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่",
+          message: "กรุณาเข้าสู่ระบบก่อนตรวจสลิป",
           ok: false,
         },
         { status: 401 },
-      ),
-    };
-  }
-
-  const profileResult = await adminSupabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profileResult.error) {
-    return {
-      error: NextResponse.json(
-        {
-          authSource,
-          message: profileResult.error.message,
-          ok: false,
-        },
-        { status: 500 },
-      ),
-    };
-  }
-
-  if (profileResult.data?.role !== "admin") {
-    return {
-      error: NextResponse.json(
-        {
-          authSource,
-          message: "บัญชีนี้ไม่มีสิทธิ์ admin สำหรับตรวจสลิป",
-          ok: false,
-        },
-        { status: 403 },
       ),
     };
   }
@@ -302,13 +266,13 @@ async function ensureAdminRequest(request: Request) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
-  const adminCheck = await ensureAdminRequest(request);
+  const authCheck = await ensureRequestUser(request);
 
-  if (adminCheck.error) {
-    return adminCheck.error;
+  if (authCheck.error) {
+    return authCheck.error;
   }
 
-  const adminUserId = adminCheck.userId;
+  const requestUserId = authCheck.userId;
 
   const { paymentId } = await context.params;
 
@@ -363,6 +327,42 @@ export async function POST(request: Request, context: RouteContext) {
         ok: false,
       },
       { status: 404 },
+    );
+  }
+
+  const orderOwnerResult = await adminSupabase
+    .from("product_orders")
+    .select("customer_id")
+    .eq("id", payment.product_order_id)
+    .maybeSingle();
+
+  if (orderOwnerResult.error) {
+    return NextResponse.json(
+      { message: orderOwnerResult.error.message, ok: false },
+      { status: 500 },
+    );
+  }
+
+  const profileResult = await adminSupabase
+    .from("profiles")
+    .select("role")
+    .eq("id", requestUserId)
+    .maybeSingle();
+
+  if (profileResult.error) {
+    return NextResponse.json(
+      { message: profileResult.error.message, ok: false },
+      { status: 500 },
+    );
+  }
+
+  const isAdmin = profileResult.data?.role === "admin";
+  const isOwner = orderOwnerResult.data?.customer_id === requestUserId;
+
+  if (!isAdmin && !isOwner) {
+    return NextResponse.json(
+      { message: "ไม่มีสิทธิ์ตรวจสลิปของคำสั่งซื้อนี้", ok: false },
+      { status: 403 },
     );
   }
 
@@ -510,7 +510,7 @@ export async function POST(request: Request, context: RouteContext) {
         }),
         verification_status: "verified",
         verified_at: now,
-        verified_by: adminUserId,
+        verified_by: requestUserId,
       })
       .eq("id", payment.id)
       .select("*")
@@ -570,7 +570,7 @@ export async function POST(request: Request, context: RouteContext) {
       }),
       verification_status: "rejected",
       verified_at: now,
-      verified_by: adminUserId,
+      verified_by: requestUserId,
     })
     .eq("id", payment.id)
     .select("*")

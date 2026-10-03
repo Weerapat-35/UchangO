@@ -119,7 +119,7 @@ export function TechnicianDashboardPanel() {
   }
 
   if (loadState.status === "signed-out") {
-    return <main className="technician-dashboard"><div className="technician-dashboard__message"><strong>กรุณาเข้าสู่ระบบ</strong><span>เข้าสู่ระบบด้วยบัญชีช่างเพื่อดู Dashboard</span><Link href="/auth">เข้าสู่ระบบ</Link></div></main>;
+    return <main className="technician-dashboard"><div className="technician-dashboard__message"><strong>กรุณาเข้าสู่ระบบ</strong><span>เข้าสู่ระบบด้วยบัญชีช่างเพื่อดูแดชบอร์ด</span><Link href="/auth">เข้าสู่ระบบ</Link></div></main>;
   }
 
   if (loadState.status === "error") {

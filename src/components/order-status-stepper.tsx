@@ -1,6 +1,6 @@
 "use client";
 
-type OrderStatus =
+export type OrderStatus =
   | "pending"
   | "confirmed"
   | "preparing"

@@ -1,5 +1,7 @@
 "use client";
 
+import type { Database } from "@/lib/supabase/database.types";
+
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -135,13 +137,13 @@ export default function ProductSalesSchemaCheckPage() {
     const nextResults = await Promise.all(
       Object.entries(productSalesCandidates).map(async ([table, columns]) => {
         const tableProbe = await supabase
-          .from(table)
+          .from(table as keyof Database["public"]["Tables"])
           .select("*", { count: "exact", head: true });
 
         const columnResults = await Promise.all(
           columns.map(async (column) => {
             const { error } = await supabase
-              .from(table)
+              .from(table as keyof Database["public"]["Tables"])
               .select(column)
               .limit(0);
 

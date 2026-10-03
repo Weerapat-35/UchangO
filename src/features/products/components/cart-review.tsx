@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -364,36 +365,23 @@ export function CartReview() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8">
-      <header className="border-b border-[var(--line)] pb-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold leading-tight text-[var(--foreground)]">
-              ตะกร้าสินค้า
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              ตรวจรายการสินค้า แก้จำนวน หรือลบสินค้าออกจากตะกร้าก่อนเข้าสู่ขั้นตอนยืนยันคำสั่งซื้อ
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:w-80">
-            <div className="rounded-lg border border-[var(--line)] bg-white p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                จำนวน
-              </p>
-              <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
-                {cartState.details.itemCount}
-              </p>
+      <PageHeader
+        actions={
+          <>
+            <div className="ph-stat">
+              <span>จำนวน</span>
+              <strong>{cartState.details.itemCount}</strong>
             </div>
-            <div className="rounded-lg border border-[var(--line)] bg-white p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                ยอดรวม
-              </p>
-              <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
-                {currencyFormatter.format(cartState.details.subtotal)}
-              </p>
+            <div className="ph-stat">
+              <span>ยอดรวม</span>
+              <strong>{currencyFormatter.format(cartState.details.subtotal)}</strong>
             </div>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+        crumbs={[{ label: "ตะกร้าสินค้า" }]}
+        description="ตรวจรายการสินค้า แก้จำนวน หรือลบสินค้าออกจากตะกร้าก่อนเข้าสู่ขั้นตอนยืนยันคำสั่งซื้อ"
+        title="ตะกร้าสินค้า"
+      />
 
       {authState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">

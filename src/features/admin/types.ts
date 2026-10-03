@@ -333,4 +333,75 @@ export type AdminDashboardOverview = {
   pendingRepairJobCount: number;
   lowStockCount: number;
   lowStockProducts: { id: string; name: string; stock_quantity: number }[];
+  financeTodayIncome: number;
+  financeTodayExpense: number;
+  financeTodayNet: number;
+  financeDaily: AdminFinanceDailySummary[];
+  technicianWorkload: { id: string; name: string; jobCount: number }[];
+};
+
+export type AdminFinanceTransactionType = "income" | "expense";
+
+export type AdminFinanceTransaction = {
+  id: string;
+  transaction_date: string;
+  transaction_type: AdminFinanceTransactionType;
+  category: string;
+  amount: number;
+  description: string | null;
+  reference_type: string | null;
+  reference_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminFinanceTransactionInput = {
+  amount: number;
+  category: string;
+  description: string | null;
+  transactionDate: string;
+  transactionType: AdminFinanceTransactionType;
+};
+
+export type AdminFinanceSummary = {
+  income: number;
+  expense: number;
+  net: number;
+};
+
+export type AdminFinanceDailySummary = {
+  date: string;
+  income: number;
+  expense: number;
+  net: number;
+};
+
+export type AdminPayroll = {
+  id: string;
+  technician_id: string;
+  payroll_month: string;
+  base_salary: number;
+  overtime_amount: number;
+  commission_amount: number;
+  deduction_amount: number;
+  net_salary: number;
+  status: string;
+  paid_at: string | null;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  technician: Profile | null;
+};
+
+export type AdminPayrollInput = {
+  technicianId: string;
+  payrollMonth: string;
+  baseSalary: number;
+  overtimeAmount: number;
+  commissionAmount: number;
+  deductionAmount: number;
+  status: string;
+  note: string | null;
 };

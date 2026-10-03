@@ -1,5 +1,7 @@
 "use client";
 
+import type { Database } from "@/lib/supabase/database.types";
+
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -32,7 +34,7 @@ export default function SupabaseTableAccessCheckPage() {
     const nextResults = await Promise.all(
       coreTables.map(async (table) => {
         const { data, error, count } = await supabase
-          .from(table)
+          .from(table as keyof Database["public"]["Tables"])
           .select("*", { count: "exact" })
           .limit(2);
 

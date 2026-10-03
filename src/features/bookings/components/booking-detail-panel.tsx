@@ -1,5 +1,6 @@
 "use client";
 
+import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
@@ -285,25 +286,19 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
-      <header className="border-b border-[var(--line)] pb-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Booking Detail
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Review the selected booking request and cancel it while it is
-              still pending.
-            </p>
-          </div>
-          <Link
-            className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
-            href="/my-bookings"
-          >
-            Back to bookings
+      <PageHeader
+        actions={
+          <Link className="ph-btn ph-btn--ghost" href="/my-bookings">
+            กลับไปการจอง
           </Link>
-        </div>
-      </header>
+        }
+        crumbs={[
+          { href: "/my-bookings", label: "การจองของฉัน" },
+          { label: "รายละเอียด" },
+        ]}
+        description="ตรวจสอบคำขอจองที่เลือก และยกเลิกได้ตราบเท่าที่ยังรอดำเนินการ"
+        title="รายละเอียดการจอง"
+      />
 
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">
@@ -364,7 +359,7 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
                   {loadState.booking.service?.name ?? "Service not found"}
                 </p>
                 <h2 className="mt-2 text-2xl font-bold text-[var(--foreground)]">
-                  {loadState.booking.booking_date} at{" "}
+                  {loadState.booking.booking_date} เวลา{" "}
                   {formatTime(loadState.booking.booking_time)}
                 </h2>
               </div>
@@ -429,7 +424,7 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
 
             {loadState.booking.note ? (
               <div className="mt-5 rounded-md bg-[var(--color-concrete-2)] p-4 text-sm leading-6 text-[var(--muted)]">
-                <p className="font-semibold text-[var(--foreground)]">Note</p>
+                <p className="font-semibold text-[var(--foreground)]">หมายเหตุ</p>
                 <p className="mt-2">{loadState.booking.note}</p>
               </div>
             ) : null}
@@ -472,7 +467,7 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-sm font-semibold text-[var(--brand)]">
-                  Work Order Progress
+                  ความคืบหน้าใบงานซ่อม
                 </p>
                 <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
                   {loadState.booking.repairJob
@@ -528,7 +523,7 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
                 <div className="mt-5 grid gap-3 text-sm md:grid-cols-2">
                   <div className="rounded-md bg-[var(--color-concrete-2)] p-4">
                     <p className="font-semibold text-[var(--foreground)]">
-                      Diagnosis
+                      ผลวินิจฉัย
                     </p>
                     <p className="mt-2 leading-6 text-[var(--muted)]">
                       {loadState.booking.repairJob.diagnosis || "-"}
@@ -536,7 +531,7 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
                   </div>
                   <div className="rounded-md bg-[var(--color-concrete-2)] p-4">
                     <p className="font-semibold text-[var(--foreground)]">
-                      Repair notes
+                      บันทึกการซ่อม
                     </p>
                     <p className="mt-2 leading-6 text-[var(--muted)]">
                       {loadState.booking.repairJob.repair_notes || "-"}

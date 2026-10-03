@@ -237,7 +237,7 @@ export function AdminCustomersPanel() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin Customers
+              รายชื่อลูกค้า
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
               Review customer profiles, vehicle counts, and booking activity.
