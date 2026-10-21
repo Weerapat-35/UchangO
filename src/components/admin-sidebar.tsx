@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
-import { BrandMark } from "@/components/brand-mark";
+import { useEffect, useState } from "react";
 
 type NavItem = { href: string; label: string; icon: string };
 type NavGroup = { label: string; items: NavItem[] };
@@ -25,7 +25,7 @@ const NAV_GROUPS: NavGroup[] = [
     { href: "/admin/product-categories", label: "หมวดสินค้า", icon: "folder" },
     { href: "/admin/inventory", label: "คลังสินค้า", icon: "warehouse" },
     { href: "/admin/inventory-review", label: "ตรวจสต็อก", icon: "alert" },
-    { href: "/admin/product-orders", label: "ออเดอร์สินค้า", icon: "cart" },
+    { href: "/admin/product-orders", label: "คำสั่งซื้อสินค้า", icon: "cart" },
   ]},
   { label: "การเงินและบุคลากร", items: [
     { href: "/admin/finance", label: "การเงิน", icon: "wallet" },
@@ -36,6 +36,7 @@ const NAV_GROUPS: NavGroup[] = [
     { href: "/admin/payment-settings", label: "การชำระเงิน", icon: "card" },
     { href: "/admin/reports", label: "รายงาน", icon: "chart" },
     { href: "/admin/notifications", label: "การแจ้งเตือน", icon: "bell" },
+    { href: "/admin/profile", label: "โปรไฟล์ผู้ดูแลระบบ", icon: "users" },
   ]},
 ];
 
@@ -66,6 +67,23 @@ function Icon({ name }: { name: string }) {
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const toggle = () => setOpen((value) => !value);
+    const close = () => setOpen(false);
+    window.addEventListener("admin:toggle-sidebar", toggle);
+    window.addEventListener("admin:close-sidebar", close);
+    return () => {
+      window.removeEventListener("admin:toggle-sidebar", toggle);
+      window.removeEventListener("admin:close-sidebar", close);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -73,22 +91,20 @@ export function AdminSidebar() {
   }
 
   return (
-    <aside className="admin-sidebar">
-      <div className="admin-sidebar__brand">
-        <BrandMark tone="dark" subtitle="ระบบจัดการหลังบ้าน" />
+    <>
+      <button className={`admin-sidebar__backdrop${open ? " is-open" : ""}`} type="button" aria-label="ปิดเมนู" onClick={() => setOpen(false)} />
+      <aside className={`admin-sidebar${open ? " is-open" : ""}`}>
+      <div className="admin-sidebar__drawer-head">
+        <div><strong>เมนูผู้ดูแลระบบ</strong><span>อู่ช่างโอ • ผู้ดูแลระบบ</span></div>
+        <button type="button" className="admin-sidebar__close" onClick={() => setOpen(false)} aria-label="ปิดเมนู">×</button>
       </div>
-      <div className="admin-sidebar__profile">
-        <div className="admin-sidebar__avatar">A</div>
-        <div><strong>ผู้ดูแลระบบ</strong><span>Admin • อู่ช่างโอ</span></div>
-      </div>
-      <Link href="/admin/bookings" className="admin-create-button"><span className="admin-create-button__plus">+</span><span>สร้างงานซ่อม</span></Link>
       <nav className="admin-sidebar__nav" aria-label="เมนูผู้ดูแลระบบ">
         {NAV_GROUPS.map((group) => <div key={group.label} className="admin-nav-group">
           <p className="admin-nav-group__label">{group.label}</p>
           <div className="admin-nav-group__items">
             {group.items.map((item) => {
               const isActive = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
-              return <Link key={item.href} href={item.href} className={`admin-nav-item${isActive ? " is-active" : ""}`}>
+              return <Link key={item.href} href={item.href} onClick={() => setOpen(false)} className={`admin-nav-item${isActive ? " is-active" : ""}`}>
                 <span className="admin-nav-item__icon"><Icon name={item.icon}/></span><span>{item.label}</span>
               </Link>;
             })}
@@ -97,5 +113,6 @@ export function AdminSidebar() {
       </nav>
       <div className="admin-sidebar__footer"><button onClick={handleSignOut} type="button" className="admin-signout"><span>↪</span> ออกจากระบบ</button></div>
     </aside>
+    </>
   );
 }

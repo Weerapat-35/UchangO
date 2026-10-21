@@ -167,8 +167,8 @@ export function AdminFinancePanel() {
     <main className="mx-auto w-full max-w-7xl px-6 py-8">
       <header className="mb-6">
         <p className="text-sm font-semibold text-[var(--brand)]">การเงิน</p>
-        <h1 className="mt-1 text-3xl font-bold text-[var(--foreground)]">การเงินอู่ช่างโอ</h1>
-        <p className="mt-2 text-sm text-[var(--muted)]">ดูเงินเข้า เงินออก และยอดสุทธิ พร้อมบันทึกรายการค่าใช้จ่ายของอู่</p>
+        <h1 className="mt-1 text-3xl font-bold text-[var(--foreground)]">การเงิน</h1>
+        
       </header>
 
       <section className="mb-6 grid gap-4 md:grid-cols-3">

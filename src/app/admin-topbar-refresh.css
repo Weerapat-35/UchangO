@@ -1,0 +1,127 @@
+/* อู่ช่างโอ — Admin Topbar refresh
+   Append this file's contents to the END of src/app/globals.css.
+   Keeps the existing topbar structure and handlers; only visual styling changes. */
+.admin-topbar {
+  min-height: 78px;
+  padding: 10px clamp(14px, 2.2vw, 34px);
+  gap: 18px;
+  background: rgba(255,255,255,.97);
+  border-bottom: 1px solid #e6e6e8;
+  box-shadow: 0 4px 18px rgba(20,20,20,.035);
+  backdrop-filter: blur(14px);
+}
+.admin-topbar__left { min-width: 0; display:flex; align-items:center; gap: clamp(12px, 1.5vw, 22px); }
+.admin-topbar__left > div:last-child { min-width:0; }
+.admin-topbar .admin-icon-button {
+  flex: 0 0 40px;
+  width:40px; height:40px;
+  display:grid; place-items:center;
+  border:1px solid transparent;
+  border-radius:11px;
+  background:transparent;
+  color:#62666e;
+  transition: background .16s ease, color .16s ease, border-color .16s ease, transform .16s ease;
+}
+.admin-topbar .admin-icon-button:hover {
+  color:#d71920;
+  background:#fff4f4;
+  border-color:#f5d1d3;
+}
+.admin-topbar .admin-icon-button:active { transform:scale(.97); }
+.admin-topbar .admin-icon-button svg { width:20px; height:20px; }
+.admin-page-heading { display:flex; align-items:center; gap:16px; min-width:0; }
+.admin-page-heading__icon {
+  width:54px; height:54px; flex:0 0 54px;
+  display:grid; place-items:center;
+  border:1px solid #f0d0d2;
+  border-left:3px solid #d71920;
+  border-radius:15px;
+  background:linear-gradient(145deg,#fff 0%,#fff8f8 100%);
+  color:#d71920;
+  box-shadow:0 4px 14px rgba(215,25,32,.055);
+}
+.admin-page-heading__icon svg { width:23px; height:23px; }
+.admin-page-heading__copy { min-width:0; }
+.admin-page-heading__meta {
+  display:flex; align-items:center; gap:8px;
+  margin:0 0 3px;
+  color:#85858b; font-size:10px; font-weight:750;
+  letter-spacing:.16em; line-height:1.3;
+}
+.admin-page-heading__meta span:first-child { color:#d71920; letter-spacing:0; }
+.admin-page-heading__meta i { display:block; width:4px; height:4px; border-radius:50%; background:#c8c8cc; }
+.admin-topbar h1 {
+  margin:0; color:#19191c;
+  font-size:clamp(18px,1.4vw,23px); font-weight:900;
+  line-height:1.25; letter-spacing:-.035em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.admin-page-heading__line { display:flex; align-items:center; gap:7px; margin-top:8px; }
+.admin-page-heading__line b { display:block; width:33px; height:3px; border-radius:5px; background:#d71920; }
+.admin-page-heading__line span { display:block; width:9px; height:3px; border-radius:5px; background:#d8d8dc; }
+.admin-topbar__actions { display:flex; align-items:center; justify-content:flex-end; gap:7px; flex:0 0 auto; }
+.admin-topbar__notification { display:flex; align-items:center; margin-left:2px; }
+.admin-topbar__notification button {
+  width:44px !important; height:44px !important;
+  border:1px solid #e5e5e8 !important;
+  border-radius:13px !important;
+  background:#fff !important;
+  color:#252529 !important;
+  box-shadow:0 2px 6px rgba(0,0,0,.025);
+}
+.admin-topbar__notification button:hover { border-color:#efb8bb !important; background:#fff7f7 !important; }
+.admin-topbar__site-link {
+  display:inline-flex; align-items:center; justify-content:center;
+  min-height:44px; margin-left:2px; padding:0 15px;
+  border:1px solid #f0f0f2; border-radius:13px;
+  background:#f7f7f9; color:#4d5057;
+  font-size:12px; font-weight:800; white-space:nowrap;
+  transition:all .16s ease;
+}
+.admin-topbar__site-link:hover { border-color:#f0c5c7; background:#fff4f4; color:#c9151c; }
+.admin-user-chip {
+  display:flex; align-items:center; gap:10px;
+  min-height:48px; padding:4px 12px 4px 5px;
+  border:1px solid #f0f0f2; border-radius:999px;
+  background:#f7f7f9;
+}
+.admin-user-chip__avatar {
+  width:36px; height:36px; flex:0 0 36px;
+  display:grid; place-items:center; border-radius:50%;
+  background:#202024; color:#fff; font-size:12px; font-weight:850;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
+}
+.admin-user-chip span:last-child { display:grid; gap:3px; line-height:1.05; }
+.admin-user-chip strong { color:#26262b; font-size:11px; font-weight:850; }
+.admin-user-chip small { color:#96969c; font-size:9px; }
+@media (max-width: 1000px) {
+  .admin-topbar { padding-inline:16px; }
+  .admin-topbar__actions { gap:4px; }
+  .admin-search-button, .admin-bookmark-button { display:none !important; }
+  .admin-page-heading { gap:11px; }
+  .admin-page-heading__icon { width:46px; height:46px; flex-basis:46px; }
+}
+@media (max-width: 700px) {
+  .admin-topbar { min-height:68px; padding:9px 12px; gap:8px; }
+  .admin-topbar__left { gap:7px; }
+  .admin-topbar .admin-icon-button { width:36px; height:36px; flex-basis:36px; }
+  .admin-page-heading { gap:9px; }
+  .admin-page-heading__icon { width:39px; height:39px; flex-basis:39px; border-radius:11px; }
+  .admin-page-heading__icon svg { width:19px; height:19px; }
+  .admin-page-heading__meta { font-size:8px; margin-bottom:2px; }
+  .admin-topbar h1 { font-size:16px; }
+  .admin-page-heading__line { margin-top:5px; }
+  .admin-page-heading__line b { width:25px; }
+  .admin-topbar__expand-button, .admin-expand-button { display:none !important; }
+  .admin-topbar__notification button { width:36px !important; height:36px !important; }
+  .admin-topbar__site-link { display:none; }
+  .admin-user-chip { min-height:38px; padding:3px; }
+  .admin-user-chip__avatar { width:30px; height:30px; flex-basis:30px; }
+  .admin-user-chip span:last-child { display:none; }
+}
+@media (max-width: 420px) {
+  .admin-page-heading__meta { letter-spacing:.08em; }
+  .admin-topbar__left { gap:3px; }
+  .admin-page-heading { gap:7px; }
+  .admin-page-heading__icon { display:none; }
+}

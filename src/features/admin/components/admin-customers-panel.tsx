@@ -32,7 +32,7 @@ function formatDateTime(value: string) {
   return new Date(value).toLocaleString("th-TH");
 }
 
-function CustomerCard({ customer }: { customer: AdminCustomerSummary }) {
+function ลูกค้าCard({ customer }: { customer: AdminCustomerSummary }) {
   return (
     <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -63,19 +63,19 @@ function CustomerCard({ customer }: { customer: AdminCustomerSummary }) {
 
       <dl className="mt-5 grid gap-4 border-t border-[var(--line)] pt-4 text-sm sm:grid-cols-4">
         <div>
-          <dt className="text-[var(--muted)]">Vehicles</dt>
+          <dt className="text-[var(--muted)]">รถยนต์</dt>
           <dd className="mt-1 text-lg font-bold text-[var(--foreground)]">
             {customer.vehicleCount}
           </dd>
         </div>
         <div>
-          <dt className="text-[var(--muted)]">Bookings</dt>
+          <dt className="text-[var(--muted)]">การจองคิว</dt>
           <dd className="mt-1 text-lg font-bold text-[var(--foreground)]">
             {customer.bookingCount}
           </dd>
         </div>
         <div>
-          <dt className="text-[var(--muted)]">Latest booking</dt>
+          <dt className="text-[var(--muted)]">การจองล่าสุด</dt>
           <dd className="mt-1 font-semibold text-[var(--foreground)]">
             {customer.latestBooking
               ? `${customer.latestBooking.booking_date} ${customer.latestBooking.booking_time.slice(
@@ -91,7 +91,7 @@ function CustomerCard({ customer }: { customer: AdminCustomerSummary }) {
           ) : null}
         </div>
         <div>
-          <dt className="text-[var(--muted)]">Joined</dt>
+          <dt className="text-[var(--muted)]">วันที่สมัคร</dt>
           <dd className="mt-1 font-semibold text-[var(--foreground)]">
             {formatDateTime(customer.created_at)}
           </dd>
@@ -229,19 +229,13 @@ export function AdminCustomersPanel() {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            อู่ช่างโอ
-          </p>
           <AppNav />
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              รายชื่อลูกค้า
+              ลูกค้า
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Review customer profiles, vehicle counts, and booking activity.
-            </p>
           </div>
           <Link
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
@@ -255,7 +249,7 @@ export function AdminCustomersPanel() {
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            Loading customers...
+            กำลังโหลดข้อมูลลูกค้า...
           </div>
         </section>
       ) : null}
@@ -263,8 +257,8 @@ export function AdminCustomersPanel() {
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">Login required</p>
-            <p className="mt-1">Sign in with an admin account.</p>
+            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
+            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
@@ -278,7 +272,7 @@ export function AdminCustomersPanel() {
       {loadState.status === "access-denied" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">Access denied</p>
+            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
             <p className="mt-2">{loadState.access.reason}</p>
           </div>
         </section>
@@ -301,14 +295,14 @@ export function AdminCustomersPanel() {
                 customers
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Customer records are read-only in this part.
+                ลูกค้า records are read-only in this part.
               </p>
             </div>
 
             <input
               className="min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)] lg:max-w-md"
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search customer, phone, or email"
+              placeholder="ค้นหาชื่อลูกค้า เบอร์โทร หรืออีเมล"
               type="search"
               value={searchInput}
             />
@@ -317,7 +311,7 @@ export function AdminCustomersPanel() {
           {filteredCustomers.length > 0 ? (
             <div className="mt-5 space-y-4">
               {filteredCustomers.map((customer) => (
-                <CustomerCard customer={customer} key={customer.id} />
+                <ลูกค้าCard customer={customer} key={customer.id} />
               ))}
             </div>
           ) : (

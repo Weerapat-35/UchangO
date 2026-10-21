@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import InvoicePrintButton from "@/features/invoices/components/invoice-print-button";
@@ -37,6 +38,7 @@ export default async function InvoicePage({
     .maybeSingle();
 
   const isAdmin = profileResult.data?.role === "admin";
+  const backHref = isAdmin ? `/admin/product-orders/${id}` : `/my-product-orders/${id}`;
   const orderResult = await supabase
     .from("product_orders")
     .select("*")
@@ -56,11 +58,21 @@ export default async function InvoicePage({
   if (order.payment_status !== "paid") {
     return (
       <main className="min-h-screen bg-[#f5f6f8] p-6 text-slate-900">
-        <div className="mx-auto max-w-2xl rounded-3xl bg-white p-8 shadow-sm">
-          <h1 className="text-2xl font-black">ยังออกเอกสารไม่ได้</h1>
-          <p className="mt-3 text-slate-600">
-            คำสั่งซื้อนี้ยังไม่ได้รับการยืนยันการชำระเงิน จึงยังไม่สามารถออกเอกสาร PDF ได้
-          </p>
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-4 print:hidden">
+            <Link
+              href={backHref}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              <span aria-hidden="true">←</span> กลับไปยังรายละเอียดคำสั่งซื้อ
+            </Link>
+          </div>
+          <div className="rounded-3xl bg-white p-8 shadow-sm">
+            <h1 className="text-2xl font-black">ยังออกเอกสารไม่ได้</h1>
+            <p className="mt-3 text-slate-600">
+              คำสั่งซื้อนี้ยังไม่ได้รับการยืนยันการชำระเงิน จึงยังไม่สามารถออกเอกสาร PDF ได้
+            </p>
+          </div>
         </div>
       </main>
     );
@@ -107,24 +119,30 @@ export default async function InvoicePage({
   const invoiceNumber = `INV-${new Date(order.created_at).toISOString().slice(0, 10).replaceAll("-", "")}-${order.order_number}`;
 
   return (
-    <main className="invoice-page min-h-screen bg-slate-100 px-4 py-8 print:bg-white print:p-0">
+    <main className="invoice-page min-h-screen bg-[#f2f3f5] px-4 py-8 print:bg-white print:p-0">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-4 flex justify-end print:hidden">
+        <div className="mb-4 flex items-center justify-between gap-3 print:hidden">
+          <Link
+            href={backHref}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+          >
+            <span aria-hidden="true">←</span> กลับไปยังรายละเอียดคำสั่งซื้อ
+          </Link>
           <InvoicePrintButton />
         </div>
 
-        <article className="invoice-paper overflow-hidden bg-white shadow-xl print:shadow-none">
-          <header className="border-b-4 border-[#b5121b] p-8 sm:p-10">
+        <article className="invoice-paper overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,.10)] print:rounded-none print:border-0 print:shadow-none">
+          <header className="invoice-header border-b-4 border-[#b5121b] p-8 sm:p-10">
             <div className="flex flex-col justify-between gap-8 sm:flex-row">
               <div>
-                <div className="text-sm font-bold tracking-[0.25em] text-[#b5121b]">OUCHANG O GARAGE</div>
+                <div className="text-xs font-black tracking-[0.28em] text-[#b5121b]">OUCHANG O GARAGE</div>
                 <h1 className="mt-2 text-3xl font-black text-slate-950">{settings?.shop_name ?? "อู่ช่างโอ"}</h1>
                 <div className="mt-3 max-w-md whitespace-pre-line text-sm leading-6 text-slate-600">
                   {settings?.address || "-"}
-                  {settings?.phone_number ? `\nโทร. ${settings.phone_number}` : ""}
+                  {settings?.phone_number ? `\phone. ${settings.phone_number}` : ""}
                   {settings?.email ? `\n${settings.email}` : ""}
-                  {settings?.tax_id ? `\nเลขประจำตัวผู้เสียภาษี: ${settings.tax_id}` : ""}
-                  {settings?.branch_name ? `\nสาขา: ${settings.branch_name}${settings.branch_number ? ` (${settings.branch_number})` : ""}` : ""}
+                  {settings?.tax_id ? `\taxIdี: ${settings.tax_id}` : ""}
+                  {settings?.branch_name ? `\branch: ${settings.branch_name}${settings.branch_number ? ` (${settings.branch_number})` : ""}` : ""}
                 </div>
               </div>
               <div className="text-left sm:text-right">
@@ -138,16 +156,16 @@ export default async function InvoicePage({
 
           <section className="grid gap-6 border-b border-slate-200 p-8 sm:grid-cols-2 sm:p-10">
             <div>
-              <div className="text-xs font-black text-slate-400">เรียกเก็บจาก</div>
+              <div className="text-xs font-black uppercase tracking-widest text-slate-400">Billed to</div>
               <div className="mt-2 text-lg font-bold text-slate-950">{profile.data?.full_name ?? "-"}</div>
               <div className="mt-1 text-sm leading-6 text-slate-600">
                 {profile.data?.phone_number ? `โทร. ${profile.data.phone_number}` : ""}
                 {profile.data?.email ? `\n${profile.data.email}` : ""}
-                {order.delivery_address ? `\n${order.delivery_address}` : "\nรับที่อู่"}
+                {order.delivery_address ? `\n${order.delivery_address}` : "\pickupLocationู่"}
               </div>
             </div>
             <div className="sm:text-right">
-              <div className="text-xs font-black text-slate-400">การชำระเงิน</div>
+              <div className="text-xs font-black uppercase tracking-widest text-slate-400">Payment</div>
               <div className="mt-2 font-bold text-slate-950">ชำระเงินแล้ว</div>
               <div className="mt-1 text-sm text-slate-600">{order.delivery_method === "delivery" ? "จัดส่งถึงบ้าน" : "รับที่อู่"}</div>
             </div>

@@ -185,12 +185,3 @@ footer a{color:#bdb8b2!important}
 footer a:hover{color:#fff!important}
 footer,footer p{color:#bdb8b2!important}
 footer{margin-top:80px!important}
-
-/* ป้ายหัวข้อเล็กเป็นภาษาไทยแล้ว: ลดระยะห่างตัวอักษร/ขยายขนาดเล็กน้อยให้อ่านง่าย */
-.home-section__kicker,
-.profile-kicker,
-.notifications-kicker,
-.garage-kicker{letter-spacing:.04em;font-size:13px;text-transform:none}
-.auth-brand span{letter-spacing:.04em;font-size:11px}
-.brand-mark__subtitle{letter-spacing:.04em;font-size:11px}
-.admin-page-heading__meta span{letter-spacing:.04em;text-transform:none}

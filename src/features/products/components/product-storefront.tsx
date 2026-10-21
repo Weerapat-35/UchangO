@@ -2,7 +2,6 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
 import type { SyntheticEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
@@ -16,7 +15,6 @@ import {
   type ProductCategoryWithProducts,
   type ProductWithCategory,
 } from "@/features/products";
-import "./product-storefront.css";
 
 type AuthState =
   | { status: "loading"; user: null; error: null }
@@ -50,80 +48,26 @@ type AddToCartState =
   | { status: "success"; productId: string; message: string }
   | { status: "error"; productId: string; message: string };
 
-const emptyCartSummary: CartSummary = {
-  cart: null,
-  itemCount: 0,
-};
+type SortMode = "relevant" | "latest" | "price-asc" | "price-desc";
 
+const emptyCartSummary: CartSummary = { cart: null, itemCount: 0 };
+const productImagePlaceholder = "/product-placeholder.svg";
 const currencyFormatter = new Intl.NumberFormat("th-TH", {
   currency: "THB",
   maximumFractionDigits: 0,
   style: "currency",
 });
-const productImagePlaceholder = "/product-placeholder.svg";
 
 function handleProductImageError(event: SyntheticEvent<HTMLImageElement>) {
   const image = event.currentTarget;
-
-  if (image.src.endsWith(productImagePlaceholder)) {
-    return;
-  }
-
+  if (image.src.endsWith(productImagePlaceholder)) return;
   image.src = productImagePlaceholder;
   image.alt = "ภาพสินค้าเริ่มต้น";
 }
 
-type SortKey = "default" | "price-asc" | "price-desc" | "name";
-
-function CartIcon() {
-  return (
-    <svg aria-hidden="true" className="ps-icon" viewBox="0 0 24 24">
-      <path d="M3 4h2.2l1.6 11h10.6L19.5 7.5H6.1" />
-      <circle cx="9.5" cy="19" r="1.4" />
-      <circle cx="16.5" cy="19" r="1.4" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg aria-hidden="true" className="ps-icon" viewBox="0 0 24 24">
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="m20 20-4.2-4.2" />
-    </svg>
-  );
-}
-
-function FilterIcon() {
-  return (
-    <svg aria-hidden="true" className="ps-icon" viewBox="0 0 24 24">
-      <path d="M3 5h18l-7 8v6l-4-2v-4L3 5Z" />
-    </svg>
-  );
-}
-
-function getStockLabel(product: ProductWithCategory) {
-  if (product.stock_quantity <= 0) {
-    return "สินค้าหมด";
-  }
-
-  if (product.stock_quantity <= 2) {
-    return `เหลือน้อย • ${product.stock_quantity} ชิ้น`;
-  }
-
-  return `มีสินค้า • ${product.stock_quantity} ชิ้น`;
-}
-
-function getStockTone(product: ProductWithCategory) {
-  if (product.stock_quantity <= 0) {
-    return "is-out";
-  }
-
-  if (product.stock_quantity <= 2) {
-    return "is-low";
-  }
-
-  return "is-ok";
+function stockText(product: ProductWithCategory) {
+  if (product.stock_quantity <= 0) return "สินค้าหมด";
+  return `มีสินค้า · ${product.stock_quantity} ชิ้น`;
 }
 
 function ProductCard({
@@ -138,46 +82,82 @@ function ProductCard({
   const isAdding =
     addToCartState.status === "adding" && addToCartState.productId === product.id;
   const isOutOfStock = product.stock_quantity <= 0;
-  const isLowStock = !isOutOfStock && product.stock_quantity <= 2;
 
   return (
-    <article className={`ps-card${isOutOfStock ? " is-sold-out" : ""}`}>
-      <div className="ps-card__media">
+    <article className="group flex min-w-0 flex-col overflow-hidden rounded-[16px] border border-[#dedede] bg-white transition duration-200 hover:-translate-y-1 hover:border-[#c8c8c8] hover:shadow-[0_14px_30px_rgba(0,0,0,.08)]">
+      <div className="relative flex h-[210px] items-center justify-center overflow-hidden bg-white p-4">
         <img
           alt={`รูปสินค้า ${product.name}`}
-          loading="lazy"
+          className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
           onError={handleProductImageError}
           src={product.image_url || productImagePlaceholder}
         />
-        {isLowStock ? <span className="ps-card__badge">เหลือน้อย</span> : null}
         {isOutOfStock ? (
-          <span className="ps-card__badge is-dark">สินค้าหมด</span>
+          <span className="absolute left-3 top-3 rounded-full bg-[#171717] px-3 py-1 text-[11px] font-bold text-white">
+            หมดสต๊อก
+          </span>
         ) : null}
       </div>
 
-      <div className="ps-card__body">
-        <p className="ps-card__category">
-          {product.category?.name ?? "ไม่มีหมวดสินค้า"}
+      <div className="flex flex-1 flex-col border-t border-[#ededed] p-4">
+        <p className="text-[11px] font-extrabold uppercase tracking-[.08em] text-[#d71920]">
+          {product.category?.name ?? "สินค้า"}
         </p>
-        <h3 className="ps-card__name" title={product.name}>
+        <h2 className="mt-2 line-clamp-2 min-h-[48px] text-[16px] font-extrabold leading-6 text-[#151515]">
           {product.name}
-        </h3>
-        <p className={`ps-card__stock ${getStockTone(product)}`}>
-          <span aria-hidden="true" className="ps-dot" />
-          {getStockLabel(product)}
-        </p>
-        <p className="ps-card__price">{currencyFormatter.format(product.unit_price)}</p>
-        <button
-          className="ps-btn ps-btn--block"
-          disabled={isOutOfStock || isAdding}
-          onClick={() => onAddToCart(product)}
-          type="button"
-        >
-          <CartIcon />
-          {isOutOfStock ? "สินค้าหมด" : isAdding ? "กำลังเพิ่ม..." : "เพิ่มใส่ตะกร้า"}
-        </button>
+        </h2>
+
+        <div className="mt-3 flex items-center gap-2 text-[12px] text-[#777]">
+          <span
+            className={`h-2 w-2 rounded-full ${isOutOfStock ? "bg-[#d71920]" : "bg-[#222]"}`}
+          />
+          <span>{stockText(product)}</span>
+        </div>
+
+        <div className="mt-auto pt-4">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <strong className="text-[21px] font-black tracking-tight text-[#151515]">
+              {currencyFormatter.format(product.unit_price)}
+            </strong>
+            {product.sku ? (
+              <span className="max-w-[105px] truncate text-[10px] font-semibold text-[#999]">
+                {product.sku}
+              </span>
+            ) : null}
+          </div>
+          <button
+            className="min-h-10 w-full rounded-[9px] bg-[#d71920] px-4 text-[13px] font-extrabold text-white transition hover:bg-[#b91218] disabled:cursor-not-allowed disabled:bg-[#bdbdbd]"
+            disabled={isOutOfStock || isAdding}
+            onClick={() => onAddToCart(product)}
+            type="button"
+          >
+            {isOutOfStock ? "สินค้าหมด" : isAdding ? "กำลังเพิ่ม..." : "หยิบใส่ตะกร้า"}
+          </button>
+        </div>
       </div>
     </article>
+  );
+}
+
+function SidebarCategory({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: () => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-3 text-[13px] font-semibold text-[#333]">
+      <input
+        checked={checked}
+        className="h-4 w-4 accent-[#d71920]"
+        onChange={onChange}
+        type="checkbox"
+      />
+      <span>{label}</span>
+    </label>
   );
 }
 
@@ -197,16 +177,12 @@ export function ProductStorefront() {
     status: "idle",
     summary: emptyCartSummary,
   });
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
-  const [sortKey, setSortKey] = useState<SortKey>("default");
-  const [minPriceDraft, setMinPriceDraft] = useState("");
-  const [maxPriceDraft, setMaxPriceDraft] = useState("");
-  const [appliedPrice, setAppliedPrice] = useState<{ min: number | null; max: number | null }>({
-    max: null,
-    min: null,
-  });
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("all");
   const [searchText, setSearchText] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("relevant");
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
   const [addToCartState, setAddToCartState] = useState<AddToCartState>({
     message: null,
     productId: null,
@@ -223,42 +199,22 @@ export function ProductStorefront() {
         error,
       } = await supabase.auth.getSession();
 
-      if (!isMounted) {
-        return;
-      }
-
+      if (!isMounted) return;
       if (error) {
-        setAuthState({
-          error: error.message,
-          status: "error",
-          user: null,
-        });
+        setAuthState({ error: error.message, status: "error", user: null });
         return;
       }
-
       if (!session?.user) {
-        setAuthState({
-          error: null,
-          status: "signed-out",
-          user: null,
-        });
+        setAuthState({ error: null, status: "signed-out", user: null });
         return;
       }
-
-      setAuthState({
-        error: null,
-        status: "ready",
-        user: session.user,
-      });
+      setAuthState({ error: null, status: "ready", user: session.user });
     }
 
-    loadAuthState();
-
+    void loadAuthState();
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      loadAuthState();
-    });
+    } = supabase.auth.onAuthStateChange(() => void loadAuthState());
 
     return () => {
       isMounted = false;
@@ -271,45 +227,23 @@ export function ProductStorefront() {
 
     async function loadProducts() {
       if (authState.status !== "ready") {
-        setProductsState({
-          data: null,
-          error: null,
-          status: "idle",
-        });
+        setProductsState({ data: null, error: null, status: "idle" });
         return;
       }
 
-      setProductsState({
-        data: null,
-        error: null,
-        status: "loading",
-      });
-
+      setProductsState({ data: null, error: null, status: "loading" });
       const supabase = createClient();
       const { data, error } = await getStorefrontProducts(supabase);
-
-      if (!isMounted) {
-        return;
-      }
+      if (!isMounted) return;
 
       if (error) {
-        setProductsState({
-          data: null,
-          error: error.message,
-          status: "error",
-        });
+        setProductsState({ data: null, error: error.message, status: "error" });
         return;
       }
-
-      setProductsState({
-        data,
-        error: null,
-        status: "ready",
-      });
+      setProductsState({ data, error: null, status: "ready" });
     }
 
-    loadProducts();
-
+    void loadProducts();
     return () => {
       isMounted = false;
     };
@@ -320,45 +254,23 @@ export function ProductStorefront() {
 
     async function loadCartSummary() {
       if (authState.status !== "ready") {
-        setCartState({
-          error: null,
-          status: "idle",
-          summary: emptyCartSummary,
-        });
+        setCartState({ error: null, status: "idle", summary: emptyCartSummary });
         return;
       }
 
-      setCartState((currentState) => ({
-        error: null,
-        status: "loading",
-        summary: currentState.summary,
-      }));
-
+      setCartState((current) => ({ error: null, status: "loading", summary: current.summary }));
       const supabase = createClient();
       const { data, error } = await getCartSummary(supabase, authState.user.id);
-
-      if (!isMounted) {
-        return;
-      }
+      if (!isMounted) return;
 
       if (error) {
-        setCartState((currentState) => ({
-          error: error.message,
-          status: "error",
-          summary: currentState.summary,
-        }));
+        setCartState((current) => ({ error: error.message, status: "error", summary: current.summary }));
         return;
       }
-
-      setCartState({
-        error: null,
-        status: "ready",
-        summary: data ?? emptyCartSummary,
-      });
+      setCartState({ error: null, status: "ready", summary: data ?? emptyCartSummary });
     }
 
-    loadCartSummary();
-
+    void loadCartSummary();
     return () => {
       isMounted = false;
     };
@@ -372,107 +284,50 @@ export function ProductStorefront() {
     () => productsState.data?.products ?? [],
     [productsState.data],
   );
+
   const visibleProducts = useMemo(() => {
-    const normalizedSearchText = searchText.trim().toLowerCase();
+    const normalizedSearch = searchText.trim().toLowerCase();
+    const min = minPrice === "" ? null : Number(minPrice);
+    const max = maxPrice === "" ? null : Number(maxPrice);
 
     const filtered = products.filter((product) => {
       const matchesCategory =
-        selectedCategoryIds.length === 0 ||
-        selectedCategoryIds.includes(product.product_category_id);
-      const matchesPrice =
-        (appliedPrice.min === null || product.unit_price >= appliedPrice.min) &&
-        (appliedPrice.max === null || product.unit_price <= appliedPrice.max);
+        selectedCategoryId === "all" || product.product_category_id === selectedCategoryId;
       const matchesSearch =
-        normalizedSearchText.length === 0 ||
-        product.name.toLowerCase().includes(normalizedSearchText) ||
-        (product.description ?? "").toLowerCase().includes(normalizedSearchText) ||
-        (product.sku ?? "").toLowerCase().includes(normalizedSearchText) ||
-        (product.category?.name ?? "").toLowerCase().includes(normalizedSearchText);
-
-      return matchesCategory && matchesPrice && matchesSearch;
+        !normalizedSearch ||
+        product.name.toLowerCase().includes(normalizedSearch) ||
+        (product.description ?? "").toLowerCase().includes(normalizedSearch) ||
+        (product.sku ?? "").toLowerCase().includes(normalizedSearch) ||
+        (product.category?.name ?? "").toLowerCase().includes(normalizedSearch);
+      const matchesAvailability = !onlyAvailable || product.stock_quantity > 0;
+      const matchesMin = min === null || Number.isNaN(min) || product.unit_price >= min;
+      const matchesMax = max === null || Number.isNaN(max) || product.unit_price <= max;
+      return matchesCategory && matchesSearch && matchesAvailability && matchesMin && matchesMax;
     });
 
-    if (sortKey === "price-asc") {
-      return [...filtered].sort((a, b) => a.unit_price - b.unit_price);
-    }
-
-    if (sortKey === "price-desc") {
-      return [...filtered].sort((a, b) => b.unit_price - a.unit_price);
-    }
-
-    if (sortKey === "name") {
-      return [...filtered].sort((a, b) => a.name.localeCompare(b.name, "th"));
-    }
-
-    return filtered;
-  }, [appliedPrice, products, searchText, selectedCategoryIds, sortKey]);
-
-  const hasActiveFilters =
-    selectedCategoryIds.length > 0 ||
-    searchText.trim().length > 0 ||
-    appliedPrice.min !== null ||
-    appliedPrice.max !== null;
-
-  function toggleCategory(categoryId: string) {
-    setSelectedCategoryIds((current) =>
-      current.includes(categoryId)
-        ? current.filter((id) => id !== categoryId)
-        : [...current, categoryId],
-    );
-  }
-
-  function applyPriceFilter() {
-    const min = minPriceDraft.trim() === "" ? null : Number(minPriceDraft);
-    const max = maxPriceDraft.trim() === "" ? null : Number(maxPriceDraft);
-
-    setAppliedPrice({
-      max: max !== null && Number.isFinite(max) ? max : null,
-      min: min !== null && Number.isFinite(min) ? min : null,
+    return [...filtered].sort((a, b) => {
+      if (sortMode === "latest") {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      if (sortMode === "price-asc") return a.unit_price - b.unit_price;
+      if (sortMode === "price-desc") return b.unit_price - a.unit_price;
+      return a.name.localeCompare(b.name, "th");
     });
-    setFiltersOpen(false);
-  }
-
-  function resetFilters() {
-    setSelectedCategoryIds([]);
-    setSearchText("");
-    setMinPriceDraft("");
-    setMaxPriceDraft("");
-    setAppliedPrice({ max: null, min: null });
-    setSortKey("default");
-  }
+  }, [maxPrice, minPrice, onlyAvailable, products, searchText, selectedCategoryId, sortMode]);
 
   async function handleAddToCart(product: ProductWithCategory) {
-    if (authState.status !== "ready") {
-      return;
-    }
+    if (authState.status !== "ready") return;
 
-    setAddToCartState({
-      message: null,
-      productId: product.id,
-      status: "adding",
-    });
-
+    setAddToCartState({ message: null, productId: product.id, status: "adding" });
     const supabase = createClient();
-    const { data, error } = await addProductToCart(
-      supabase,
-      authState.user.id,
-      product.id,
-    );
+    const { data, error } = await addProductToCart(supabase, authState.user.id, product.id);
 
     if (error) {
-      setAddToCartState({
-        message: error.message,
-        productId: product.id,
-        status: "error",
-      });
+      setAddToCartState({ message: error.message, productId: product.id, status: "error" });
       return;
     }
 
-    setCartState({
-      error: null,
-      status: "ready",
-      summary: data ?? emptyCartSummary,
-    });
+    setCartState({ error: null, status: "ready", summary: data ?? emptyCartSummary });
     window.dispatchEvent(new Event("cart-updated"));
     setAddToCartState({
       message: `เพิ่ม ${product.name} ลงตะกร้าแล้ว`,
@@ -481,243 +336,159 @@ export function ProductStorefront() {
     });
   }
 
-  const categoryCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-
-    for (const product of products) {
-      counts.set(
-        product.product_category_id,
-        (counts.get(product.product_category_id) ?? 0) + 1,
-      );
-    }
-
-    return counts;
-  }, [products]);
+  function resetFilters() {
+    setSelectedCategoryId("all");
+    setSearchText("");
+    setSortMode("relevant");
+    setOnlyAvailable(false);
+    setMinPrice("");
+    setMaxPrice("");
+  }
 
   return (
-    <main className="ps-page">
-      <PageHeader
-        crumbs={[{ label: "สินค้า" }]}
-        description="อะไหล่และสินค้าคุณภาพสำหรับรถของคุณ"
-        title="สินค้า"
-      />
-
+    <main className="min-h-screen bg-[#fafafa] text-[#151515]">
       {authState.status === "loading" ? (
-        <section className="ps-state">กำลังตรวจสอบบัญชี...</section>
+        <section className="mx-auto grid min-h-[55vh] max-w-7xl place-items-center px-5 py-12">
+          <div className="rounded-xl border border-[#e3e3e3] bg-white px-6 py-4 text-sm text-[#666]">
+            กำลังตรวจสอบบัญชี...
+          </div>
+        </section>
       ) : null}
 
       {authState.status === "signed-out" ? (
-        <section className="ps-state is-notice">
-          <p className="ps-state__title">ต้องเข้าสู่ระบบก่อนดูหน้าร้าน</p>
-          <p>
-            ตอนนี้ระบบสินค้าใช้ข้อมูลลูกค้าจากบัญชีของคุณ เพื่อแยกตะกร้าและคำสั่งซื้อให้ถูกคน
-          </p>
-          <Link className="ps-btn" href="/auth">
-            ไปที่หน้าบัญชี
-          </Link>
+        <section className="mx-auto grid min-h-[55vh] max-w-7xl place-items-center px-5 py-12">
+          <div className="w-full max-w-xl rounded-2xl border border-[#e3e3e3] bg-white p-7 text-sm leading-6 shadow-sm">
+            <p className="text-lg font-extrabold">กรุณาเข้าสู่ระบบก่อนเลือกซื้อสินค้า</p>
+            <p className="mt-2 text-[#666]">ระบบสินค้าใช้บัญชีลูกค้าเพื่อแยกตะกร้าและคำสั่งซื้อของแต่ละคน</p>
+            <Link className="mt-5 block rounded-[9px] bg-[#d71920] px-4 py-3 text-center font-extrabold text-white hover:bg-[#b91218]" href="/auth">
+              ไปที่หน้าบัญชี
+            </Link>
+          </div>
         </section>
       ) : null}
 
       {authState.status === "error" ? (
-        <section className="ps-state is-error">{authState.error}</section>
+        <section className="mx-auto grid min-h-[55vh] max-w-7xl place-items-center px-5 py-12">
+          <div className="rounded-xl border border-[#efb4b7] bg-white px-6 py-4 text-sm text-[#b31219]">{authState.error}</div>
+        </section>
       ) : null}
 
       {authState.status === "ready" ? (
-        <section className="ps-layout">
-          <aside className="ps-filter">
-            <button
-              aria-expanded={filtersOpen}
-              className="ps-filter__toggle"
-              onClick={() => setFiltersOpen((open) => !open)}
-              type="button"
-            >
-              <FilterIcon />
-              ค้นหาและกรอง
-              {hasActiveFilters ? <span className="ps-filter__pip" /> : null}
-            </button>
+        <div className="mx-auto max-w-[1380px] px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mb-5 border-b border-[#dedede] pb-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[.16em] text-[#d71920]">OU CHANG O · PRODUCTS</p>
+                <h1 className="mt-1 text-2xl font-black tracking-tight text-[#151515] sm:text-[28px]">สินค้า</h1>
+              </div>
+              <Link href="/cart" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] border border-[#d8d8d8] bg-white px-4 text-sm font-extrabold text-[#222] transition hover:border-[#d71920] hover:text-[#d71920]">
+                ตะกร้า <span className="grid h-6 min-w-6 place-items-center rounded-full bg-[#d71920] px-1.5 text-[11px] text-white">{cartState.summary.itemCount}</span>
+              </Link>
+            </div>
+          </div>
 
-            <div className={`ps-filter__panel${filtersOpen ? " is-open" : ""}`}>
-              <h2 className="ps-filter__title">
-                <FilterIcon />
-                ค้นหาและกรอง
-              </h2>
+          <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+            <aside className="rounded-[14px] border border-[#dedede] bg-white p-5 lg:sticky lg:top-5">
+              <div className="flex items-center justify-between border-b border-[#e5e5e5] pb-4">
+                <h2 className="text-[15px] font-black">ค้นหาและตัวกรอง</h2>
+                <button className="text-[11px] font-bold text-[#d71920] hover:underline" onClick={resetFilters} type="button">ล้าง</button>
+              </div>
 
-              <fieldset className="ps-filter__group">
-                <legend>หมวดหมู่สินค้า</legend>
-                {categories.length === 0 ? (
-                  <p className="ps-muted">ยังไม่มีหมวดสินค้า</p>
-                ) : (
-                  categories.map((category) => (
-                    <label className="ps-check" key={category.id}>
-                      <input
-                        checked={selectedCategoryIds.includes(category.id)}
-                        onChange={() => toggleCategory(category.id)}
-                        type="checkbox"
-                      />
-                      <span>{category.name}</span>
-                      <em>{categoryCounts.get(category.id) ?? 0}</em>
-                    </label>
-                  ))
-                )}
-              </fieldset>
-
-              <fieldset className="ps-filter__group">
-                <legend>ช่วงราคา (บาท)</legend>
-                <div className="ps-price">
-                  <input
-                    aria-label="ราคาต่ำสุด"
-                    className="ps-input"
-                    inputMode="numeric"
-                    min={0}
-                    onChange={(event) => setMinPriceDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") applyPriceFilter();
-                    }}
-                    placeholder="ต่ำสุด"
-                    type="number"
-                    value={minPriceDraft}
-                  />
-                  <span aria-hidden="true">–</span>
-                  <input
-                    aria-label="ราคาสูงสุด"
-                    className="ps-input"
-                    inputMode="numeric"
-                    min={0}
-                    onChange={(event) => setMaxPriceDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") applyPriceFilter();
-                    }}
-                    placeholder="สูงสุด"
-                    type="number"
-                    value={maxPriceDraft}
-                  />
+              <div className="pt-5">
+                <label className="text-[13px] font-extrabold text-[#222]">ค้นหาสินค้า</label>
+                <div className="mt-2 flex h-10 items-center rounded-[8px] border border-[#dcdcdc] bg-white px-3 focus-within:border-[#d71920]">
+                  <svg className="mr-2 h-4 w-4 shrink-0 text-[#888]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                  <input className="w-full bg-transparent text-[12px] outline-none placeholder:text-[#aaa]" onChange={(event) => setSearchText(event.target.value)} placeholder="ชื่อสินค้า หรือ SKU" value={searchText} />
                 </div>
-              </fieldset>
-
-              <button className="ps-btn ps-btn--block ps-btn--lg" onClick={applyPriceFilter} type="button">
-                <FilterIcon />
-                ค้นหาสินค้า
-              </button>
-              {hasActiveFilters ? (
-                <button className="ps-link" onClick={resetFilters} type="button">
-                  ล้างตัวกรองทั้งหมด
-                </button>
-              ) : null}
-            </div>
-          </aside>
-
-          <div className="ps-main">
-            <div className="ps-toolbar">
-              <label className="ps-search">
-                <SearchIcon />
-                <input
-                  aria-label="ค้นหาสินค้า"
-                  className="ps-input"
-                  onChange={(event) => setSearchText(event.target.value)}
-                  placeholder="ค้นหาสินค้า, SKU หรือหมวดหมู่สินค้า"
-                  value={searchText}
-                />
-              </label>
-              <select
-                aria-label="เรียงลำดับ"
-                className="ps-input ps-sort"
-                onChange={(event) => setSortKey(event.target.value as SortKey)}
-                value={sortKey}
-              >
-                <option value="default">เรียงลำดับ</option>
-                <option value="price-asc">ราคาต่ำ → สูง</option>
-                <option value="price-desc">ราคาสูง → ต่ำ</option>
-                <option value="name">ชื่อ ก → ฮ</option>
-              </select>
-            </div>
-
-            <div className="ps-chips" role="group" aria-label="หมวดหมู่สินค้า">
-              <button
-                aria-pressed={selectedCategoryIds.length === 0}
-                className="ps-chip"
-                onClick={() => setSelectedCategoryIds([])}
-                type="button"
-              >
-                ทั้งหมด
-              </button>
-              {categories.map((category) => (
-                <button
-                  aria-pressed={
-                    selectedCategoryIds.length === 1 &&
-                    selectedCategoryIds[0] === category.id
-                  }
-                  className="ps-chip"
-                  key={category.id}
-                  onClick={() => setSelectedCategoryIds([category.id])}
-                  type="button"
-                >
-                  {category.name}
-                </button>
-              ))}
-            </div>
-
-            {addToCartState.status === "success" ? (
-              <div className="ps-toast is-success" role="status">
-                <span>{addToCartState.message}</span>
-                <Link href="/cart">ดูตะกร้า ({cartState.summary.itemCount})</Link>
               </div>
-            ) : null}
-            {addToCartState.status === "error" ? (
-              <div className="ps-toast is-error" role="alert">
-                {addToCartState.message}
-              </div>
-            ) : null}
-            {cartState.status === "error" ? (
-              <div className="ps-toast is-error" role="alert">
-                {cartState.error}
-              </div>
-            ) : null}
 
-            {productsState.status === "loading" ? (
-              <div aria-busy="true" className="ps-grid">
-                {Array.from({ length: 10 }, (_, index) => (
-                  <div className="ps-card ps-skeleton" key={index}>
-                    <div className="ps-card__media" />
-                    <div className="ps-card__body">
-                      <span />
-                      <span />
-                      <span />
-                    </div>
+              <div className="mt-6 border-t border-[#e5e5e5] pt-5">
+                <h3 className="text-[13px] font-extrabold">หมวดหมู่สินค้า</h3>
+                <div className="mt-4 space-y-3">
+                  <SidebarCategory checked={selectedCategoryId === "all"} label="สินค้าทั้งหมด" onChange={() => setSelectedCategoryId("all")} />
+                  {categories.map((category) => (
+                    <SidebarCategory key={category.id} checked={selectedCategoryId === category.id} label={category.name} onChange={() => setSelectedCategoryId(category.id)} />
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-6 border-t border-[#e5e5e5] pt-5">
+                <h3 className="text-[13px] font-extrabold">สถานะสินค้า</h3>
+                <label className="mt-4 flex cursor-pointer items-center gap-3 text-[13px] font-semibold text-[#333]">
+                  <input checked={onlyAvailable} className="h-4 w-4 accent-[#d71920]" onChange={(event) => setOnlyAvailable(event.target.checked)} type="checkbox" />
+                  มีสินค้าเท่านั้น
+                </label>
+              </div>
+
+              <div className="mt-6 border-t border-[#e5e5e5] pt-5">
+                <h3 className="text-[13px] font-extrabold">ช่วงราคา</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <input aria-label="ราคาต่ำสุด" className="h-10 min-w-0 rounded-[8px] border border-[#dcdcdc] px-3 text-[12px] outline-none focus:border-[#d71920]" inputMode="numeric" onChange={(event) => setMinPrice(event.target.value.replace(/[^0-9]/g, ""))} placeholder="ต่ำสุด" value={minPrice} />
+                  <input aria-label="ราคาสูงสุด" className="h-10 min-w-0 rounded-[8px] border border-[#dcdcdc] px-3 text-[12px] outline-none focus:border-[#d71920]" inputMode="numeric" onChange={(event) => setMaxPrice(event.target.value.replace(/[^0-9]/g, ""))} placeholder="สูงสุด" value={maxPrice} />
+                </div>
+              </div>
+            </aside>
+
+            <section className="min-w-0">
+              <div className="rounded-[14px] border border-[#dedede] bg-white p-3 sm:p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="relative flex-1">
+                    <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#888]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                    <input className="h-11 w-full rounded-[9px] border border-[#dcdcdc] bg-[#fff] pl-10 pr-4 text-[13px] outline-none focus:border-[#d71920]" onChange={(event) => setSearchText(event.target.value)} placeholder="ค้นหาสินค้า, SKU หรือหมวดสินค้า" value={searchText} />
                   </div>
-                ))}
+                  <Link href="/cart" className="hidden h-11 shrink-0 items-center justify-center gap-2 rounded-[9px] bg-[#151515] px-5 text-[13px] font-extrabold text-white transition hover:bg-[#d71920] sm:flex">
+                    ตะกร้า <span className="rounded-full bg-white/15 px-2 py-0.5">{cartState.summary.itemCount}</span>
+                  </Link>
+                </div>
               </div>
-            ) : null}
 
-            {productsState.status === "error" ? (
-              <div className="ps-state is-error">{productsState.error}</div>
-            ) : null}
+              <div className="mt-3 flex flex-col gap-3 rounded-[14px] border border-[#dedede] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-[13px] font-semibold text-[#555]">แสดง <strong className="text-[#151515]">{visibleProducts.length}</strong> จาก {products.length} รายการ</p>
+                <div className="flex flex-wrap items-center gap-2 text-[12px] font-bold text-[#666]">
+                  <span>เรียงโดย</span>
+                  <button className={`rounded-[8px] border px-3 py-2 ${sortMode === "relevant" ? "border-[#d71920] bg-[#d71920] text-white" : "border-[#ddd] bg-white text-[#333]"}`} onClick={() => setSortMode("relevant")} type="button">เกี่ยวข้อง</button>
+                  <button className={`rounded-[8px] border px-3 py-2 ${sortMode === "latest" ? "border-[#d71920] bg-[#d71920] text-white" : "border-[#ddd] bg-white text-[#333]"}`} onClick={() => setSortMode("latest")} type="button">ล่าสุด</button>
+                  <button className={`rounded-[8px] border px-3 py-2 ${sortMode === "price-asc" ? "border-[#d71920] bg-[#d71920] text-white" : "border-[#ddd] bg-white text-[#333]"}`} onClick={() => setSortMode("price-asc")} type="button">ราคาต่ำ → สูง</button>
+                  <button className={`rounded-[8px] border px-3 py-2 ${sortMode === "price-desc" ? "border-[#d71920] bg-[#d71920] text-white" : "border-[#ddd] bg-white text-[#333]"}`} onClick={() => setSortMode("price-desc")} type="button">ราคาสูง → ต่ำ</button>
+                </div>
+              </div>
 
-            {productsState.status === "ready" ? (
-              visibleProducts.length > 0 ? (
-                <>
-                  <p className="ps-count">แสดง {visibleProducts.length} จาก {products.length} รายการ</p>
-                  <div className="ps-grid">
+              {productsState.status === "loading" ? (
+                <div className="mt-5 rounded-[14px] border border-[#dedede] bg-white p-8 text-center text-sm text-[#777]">กำลังโหลดสินค้า...</div>
+              ) : null}
+
+              {productsState.status === "error" ? (
+                <div className="mt-5 rounded-[14px] border border-[#efb4b7] bg-white p-6 text-sm text-[#b31219]">{productsState.error}</div>
+              ) : null}
+
+              {productsState.status === "ready" ? (
+                visibleProducts.length > 0 ? (
+                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
                     {visibleProducts.map((product) => (
-                      <ProductCard
-                        addToCartState={addToCartState}
-                        key={product.id}
-                        onAddToCart={handleAddToCart}
-                        product={product}
-                      />
+                      <ProductCard key={product.id} addToCartState={addToCartState} onAddToCart={handleAddToCart} product={product} />
                     ))}
                   </div>
-                </>
-              ) : (
-                <div className="ps-empty">
-                  <p>ไม่พบสินค้าตามตัวกรองนี้</p>
-                  <button className="ps-btn" onClick={resetFilters} type="button">
-                    ล้างตัวกรอง
-                  </button>
+                ) : (
+                  <div className="mt-5 rounded-[14px] border border-dashed border-[#ccc] bg-white p-12 text-center">
+                    <p className="font-extrabold text-[#333]">ไม่พบสินค้าที่ตรงกับตัวกรอง</p>
+                    <button className="mt-4 rounded-[8px] bg-[#d71920] px-4 py-2 text-sm font-extrabold text-white" onClick={resetFilters} type="button">ล้างตัวกรอง</button>
+                  </div>
+                )
+              ) : null}
+
+              {addToCartState.status === "success" ? (
+                <div className="fixed bottom-5 right-5 z-50 max-w-[calc(100vw-40px)] rounded-[10px] bg-[#151515] px-4 py-3 text-sm font-bold text-white shadow-xl">
+                  <span className="mr-2 text-[#ff3b43]">✓</span>{addToCartState.message}
                 </div>
-              )
-            ) : null}
+              ) : null}
+              {addToCartState.status === "error" ? (
+                <div className="fixed bottom-5 right-5 z-50 max-w-[calc(100vw-40px)] rounded-[10px] bg-[#d71920] px-4 py-3 text-sm font-bold text-white shadow-xl">
+                  {addToCartState.message}
+                </div>
+              ) : null}
+            </section>
           </div>
-        </section>
+        </div>
       ) : null}
     </main>
   );

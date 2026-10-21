@@ -231,9 +231,6 @@ export function AdminScheduleOverviewPanel() {
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            อู่ช่างโอ
-          </p>
           <AppNav />
         </div>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -241,9 +238,6 @@ export function AdminScheduleOverviewPanel() {
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
               ภาพรวมตารางคิว
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              ดูจำนวนคิวที่รับได้ จองแล้ว และคิวที่เหลือของแต่ละวันและเวลา
-            </p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row">

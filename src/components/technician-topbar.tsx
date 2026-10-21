@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { StaffNotificationBell } from "@/components/staff-notification-bell";
 
 const TITLES: Record<string, string> = {
-  "/technician/dashboard": "แดชบอร์ดช่าง",
+  "/technician/dashboard": "Dashboard ช่าง",
   "/technician/work-orders": "งานซ่อมของฉัน",
   "/technician/profile": "โปรไฟล์ช่าง",
 };

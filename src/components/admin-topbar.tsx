@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { StaffNotificationBell } from "@/components/staff-notification-bell";
 
 const TITLES: Record<string,string> = {
-  "/admin":"แดชบอร์ด", "/admin/bookings":"การจองคิว", "/admin/repair-jobs":"งานซ่อม", "/admin/schedule":"ตารางคิว", "/admin/capacity":"ความจุคิว", "/admin/operating-days":"วันเปิดร้าน", "/admin/services":"บริการ", "/admin/service-categories":"หมวดบริการ", "/admin/technician-skills":"ทักษะช่าง", "/admin/products":"สินค้า", "/admin/product-categories":"หมวดสินค้า", "/admin/inventory":"คลังสินค้า", "/admin/inventory-review":"ตรวจสต็อก", "/admin/product-orders":"ออเดอร์สินค้า", "/admin/customers":"ลูกค้า", "/admin/payment-settings":"การชำระเงิน", "/admin/reports":"รายงาน", "/admin/finance":"การเงิน", "/admin/payroll":"เงินเดือนช่าง", "/admin/notifications":"การแจ้งเตือน"
+  "/admin":"แดชบอร์ด", "/admin/bookings":"การจองคิว", "/admin/repair-jobs":"งานซ่อม", "/admin/schedule":"ตารางคิว", "/admin/capacity":"ความจุคิว", "/admin/operating-days":"วันเปิดร้าน", "/admin/services":"บริการ", "/admin/service-categories":"หมวดบริการ", "/admin/technician-skills":"ทักษะช่าง", "/admin/products":"สินค้า", "/admin/product-categories":"หมวดสินค้า", "/admin/inventory":"คลังสินค้า", "/admin/inventory-review":"ตรวจสต็อก", "/admin/product-orders":"คำสั่งซื้อสินค้า", "/admin/customers":"ลูกค้า", "/admin/payment-settings":"การชำระเงิน", "/admin/reports":"รายงาน", "/admin/finance":"การเงิน", "/admin/payroll":"เงินเดือนช่าง", "/admin/notifications":"การแจ้งเตือน", "/admin/profile":"โปรไฟล์ผู้ดูแลระบบ"
 };
 
 const TITLE_ICONS: Record<string, string> = {
@@ -15,7 +15,7 @@ const TITLE_ICONS: Record<string, string> = {
   "/admin/products": "box", "/admin/product-categories": "folder", "/admin/inventory": "warehouse",
   "/admin/inventory-review": "alert", "/admin/product-orders": "cart", "/admin/customers": "users",
   "/admin/payment-settings": "card", "/admin/reports": "chart", "/admin/finance": "wallet",
-  "/admin/payroll": "money", "/admin/notifications": "bell"
+  "/admin/payroll": "money", "/admin/notifications": "bell", "/admin/profile": "users"
 };
 
 function TitleIcon({name}:{name:string}){
@@ -52,19 +52,15 @@ export function AdminTopbar(){
       <div className="admin-page-heading">
         <div className="admin-page-heading__icon"><TitleIcon name={titleIcon}/></div>
         <div className="admin-page-heading__copy">
-          <div className="admin-page-heading__meta"><span>อู่ช่างโอ</span><i/> <span>ผู้ดูแลระบบ</span></div>
+          <div className="admin-page-heading__meta"><span>ผู้ดูแลระบบ</span></div>
           <h1>{title}</h1>
           <div className="admin-page-heading__line"><b/><span/></div>
         </div>
       </div>
     </div>
     <div className="admin-topbar__actions">
-      <button className="admin-icon-button admin-search-button" type="button" aria-label="ค้นหา"><SearchIcon/></button>
-      <button className="admin-icon-button admin-expand-button" type="button" aria-label="เต็มหน้าจอ"><ExpandIcon/></button>
-      <button className="admin-icon-button admin-bookmark-button" type="button" aria-label="บันทึก"><BookmarkIcon/></button>
       <div className="admin-topbar__notification"><StaffNotificationBell role="admin" /></div>
-      <Link href="/" className="admin-topbar__site-link">หน้าเว็บไซต์</Link>
-      <div className="admin-user-chip"><span className="admin-user-chip__avatar">A</span><span><strong>Admin</strong><small>ผู้ดูแลระบบ</small></span></div>
+      <div className="admin-user-chip"><span className="admin-user-chip__avatar">A</span><span><strong>ผู้ดูแลระบบ</strong><small>ผู้ดูแลระบบ</small></span></div>
     </div>
   </header>;
 }

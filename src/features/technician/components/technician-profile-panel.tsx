@@ -322,7 +322,7 @@ export function TechnicianProfilePanel() {
             </div>
             <p className="mt-3 text-xs text-[var(--muted)]">รองรับ JPG, PNG, WebP ขนาดไม่เกิน 2 MB</p>
 
-            <p className="mt-5 text-sm font-semibold text-[var(--brand)]">โปรไฟล์</p>
+            <p className="mt-5 text-sm font-semibold text-[var(--brand)]">Profile</p>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium text-[var(--foreground)]">
@@ -372,7 +372,7 @@ export function TechnicianProfilePanel() {
 
             <section className="mt-6 border-t border-[var(--line)] pt-5">
               <p className="text-sm font-semibold text-[var(--brand)]">
-                ทักษะ
+                Skills
               </p>
               {loadState.profile.skills.length > 0 ? (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -428,7 +428,7 @@ export function TechnicianProfilePanel() {
 
           <aside className="h-fit rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold text-[var(--brand)]">
-              ทักษะที่เลือก
+              Selected skills
             </p>
             {selectedSkillNames.length > 0 ? (
               <div className="mt-4 flex flex-wrap gap-2">

@@ -227,7 +227,7 @@ export function AdminAccessPanel() {
 
     {loadState.status === "ready" ? loadState.access.allowed ? <>
       <section className="admin-welcome">
-        <div className="admin-welcome__identity"><div className="admin-welcome__avatar">A</div><div><p className="admin-welcome__eyebrow">ภาพรวมระบบอู่ช่างโอ</p><h2>ยินดีต้อนรับกลับ 👋</h2><p>ดูสถานะงานบริการ การจอง สินค้า และรายรับของร้านได้จากหน้านี้</p></div></div>
+        <div className="admin-welcome__identity"><div className="admin-welcome__avatar">A</div><div><h2>ยินดีต้อนรับกลับ 👋</h2></div></div>
         <div className="admin-welcome__actions"><Link href="/admin/bookings" className="admin-btn admin-btn--dark">+ สร้างงานซ่อม</Link><Link href="/admin/reports" className="admin-btn admin-btn--red">ดูรายงาน</Link></div>
       </section>
 

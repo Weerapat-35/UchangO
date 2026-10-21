@@ -18,45 +18,45 @@ type LoadState =
       status: "loading";
       access: null;
       movements: null;
-      products: null;
+      สินค้า: null;
       error: null;
     }
   | {
       status: "signed-out";
       access: null;
       movements: null;
-      products: null;
+      สินค้า: null;
       error: null;
     }
   | {
       status: "access-denied";
       access: Extract<AdminAccessResult, { allowed: false }>;
       movements: null;
-      products: null;
+      สินค้า: null;
       error: null;
     }
   | {
       status: "ready";
       access: AdminAccessResult;
       movements: AdminInventoryMovement[];
-      products: AdminProduct[];
+      สินค้า: AdminProduct[];
       error: null;
     }
   | {
       status: "error";
       access: null;
       movements: null;
-      products: null;
+      สินค้า: null;
       error: string;
     };
 
-type StockFilter = "all" | "out" | "low" | "healthy" | "inactive";
+type สต็อกFilter = "all" | "out" | "low" | "healthy" | "inactive";
 
 type ReviewProduct = AdminProduct & {
   latestMovement: AdminInventoryMovement | null;
 };
 
-const stockFilters: { label: string; value: StockFilter }[] = [
+const stockFilters: { label: string; value: สต็อกFilter }[] = [
   { label: "all", value: "all" },
   { label: "out", value: "out" },
   { label: "low", value: "low" },
@@ -79,7 +79,7 @@ function formatDateTime(value: string) {
   });
 }
 
-function getStockStatus(product: AdminProduct): StockFilter {
+function getStockStatus(product: AdminProduct): สต็อกFilter {
   if (product.status === "inactive") {
     return "inactive";
   }
@@ -95,7 +95,7 @@ function getStockStatus(product: AdminProduct): StockFilter {
   return "healthy";
 }
 
-function getStockStatusStyle(stockStatus: StockFilter) {
+function getStockStatusStyle(stockStatus: สต็อกFilter) {
   if (stockStatus === "out") {
     return "bg-red-50 text-red-700";
   }
@@ -112,7 +112,7 @@ function getStockStatusStyle(stockStatus: StockFilter) {
 }
 
 function buildReviewProducts(
-  products: AdminProduct[],
+  สินค้า: AdminProduct[],
   movements: AdminInventoryMovement[],
 ) {
   const latestMovementByProductId = new Map<string, AdminInventoryMovement>();
@@ -123,7 +123,7 @@ function buildReviewProducts(
     }
   }
 
-  return products.map(
+  return สินค้า.map(
     (product) =>
       ({
         ...product,
@@ -184,13 +184,13 @@ function ReviewProductRow({ product }: { product: ReviewProduct }) {
             className="min-h-9 rounded-md bg-[var(--brand)] px-3 py-2 text-center text-xs font-semibold text-white"
             href="/admin/inventory"
           >
-            Stock in/out
+            สต็อก in/out
           </Link>
           <Link
             className="min-h-9 rounded-md border border-[var(--line)] bg-white px-3 py-2 text-center text-xs font-semibold text-[var(--muted)]"
-            href="/admin/products"
+            href="/admin/สินค้า"
           >
-            Edit product
+            แก้ไขสินค้า
           </Link>
         </div>
       </td>
@@ -203,11 +203,11 @@ export function AdminInventoryReviewPanel() {
     access: null,
     error: null,
     movements: null,
-    products: null,
+    สินค้า: null,
     status: "loading",
   });
   const [searchInput, setSearchInput] = useState("");
-  const [stockFilter, setStockFilter] = useState<StockFilter>("all");
+  const [stockFilter, setStockFilter] = useState<สต็อกFilter>("all");
 
   useEffect(() => {
     let isMounted = true;
@@ -218,7 +218,7 @@ export function AdminInventoryReviewPanel() {
         access: null,
         error: null,
         movements: null,
-        products: null,
+        สินค้า: null,
         status: "loading",
       });
 
@@ -236,7 +236,7 @@ export function AdminInventoryReviewPanel() {
           access: null,
           error: sessionError.message,
           movements: null,
-          products: null,
+          สินค้า: null,
           status: "error",
         });
         return;
@@ -247,7 +247,7 @@ export function AdminInventoryReviewPanel() {
           access: null,
           error: null,
           movements: null,
-          products: null,
+          สินค้า: null,
           status: "signed-out",
         });
         return;
@@ -264,13 +264,13 @@ export function AdminInventoryReviewPanel() {
           access,
           error: null,
           movements: null,
-          products: null,
+          สินค้า: null,
           status: "access-denied",
         });
         return;
       }
 
-      const [productsResult, movementsResult] = await Promise.all([
+      const [สินค้าResult, movementsResult] = await Promise.all([
         getAdminProducts(supabase),
         getAdminInventoryMovements(supabase, 200),
       ]);
@@ -279,12 +279,12 @@ export function AdminInventoryReviewPanel() {
         return;
       }
 
-      if (productsResult.error) {
+      if (สินค้าResult.error) {
         setLoadState({
           access: null,
-          error: productsResult.error.message,
+          error: สินค้าResult.error.message,
           movements: null,
-          products: null,
+          สินค้า: null,
           status: "error",
         });
         return;
@@ -295,7 +295,7 @@ export function AdminInventoryReviewPanel() {
           access: null,
           error: movementsResult.error.message,
           movements: null,
-          products: null,
+          สินค้า: null,
           status: "error",
         });
         return;
@@ -305,7 +305,7 @@ export function AdminInventoryReviewPanel() {
         access,
         error: null,
         movements: movementsResult.data ?? [],
-        products: productsResult.data ?? [],
+        สินค้า: สินค้าResult.data ?? [],
         status: "ready",
       });
     }
@@ -329,7 +329,7 @@ export function AdminInventoryReviewPanel() {
       return [];
     }
 
-    return buildReviewProducts(loadState.products, loadState.movements);
+    return buildReviewProducts(loadState.สินค้า, loadState.movements);
   }, [loadState]);
 
   const summary = useMemo(() => {
@@ -377,20 +377,13 @@ export function AdminInventoryReviewPanel() {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            อู่ช่างโอ
-          </p>
           <AppNav />
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              ตรวจสอบสต็อกสินค้า
+              Inventory Review
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Review out-of-stock, low-stock, and healthy products before
-              recording new stock movements.
-            </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Link
@@ -401,9 +394,9 @@ export function AdminInventoryReviewPanel() {
             </Link>
             <Link
               className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
-              href="/admin/products"
+              href="/admin/สินค้า"
             >
-              Manage products
+              Manage สินค้า
             </Link>
           </div>
         </div>
@@ -412,7 +405,7 @@ export function AdminInventoryReviewPanel() {
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            Loading inventory review...
+            กำลังโหลดข้อมูลตรวจสอบสต็อก...
           </div>
         </section>
       ) : null}
@@ -420,8 +413,8 @@ export function AdminInventoryReviewPanel() {
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">Login required</p>
-            <p className="mt-1">Sign in with an admin account.</p>
+            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
+            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
@@ -435,7 +428,7 @@ export function AdminInventoryReviewPanel() {
       {loadState.status === "access-denied" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">Access denied</p>
+            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
             <p className="mt-2">{loadState.access.reason}</p>
           </div>
         </section>
@@ -454,7 +447,7 @@ export function AdminInventoryReviewPanel() {
           <div className="grid gap-3 md:grid-cols-5">
             <div className="rounded-lg border border-[var(--line)] bg-white p-5">
               <p className="text-sm font-semibold text-[var(--muted)]">
-                Active products
+                Active สินค้า
               </p>
               <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
                 {summary.activeCount}
@@ -462,20 +455,20 @@ export function AdminInventoryReviewPanel() {
             </div>
             <div className="rounded-lg border border-[var(--line)] bg-white p-5">
               <p className="text-sm font-semibold text-[var(--muted)]">
-                Total stock
+                สินค้าคงเหลือทั้งหมด
               </p>
               <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
                 {summary.totalStock}
               </p>
             </div>
             <div className="rounded-lg border border-red-200 bg-white p-5">
-              <p className="text-sm font-semibold text-red-700">Out</p>
+              <p className="text-sm font-semibold text-red-700">หมดสต็อก</p>
               <p className="mt-2 text-3xl font-bold text-red-700">
                 {summary.outCount}
               </p>
             </div>
             <div className="rounded-lg border border-amber-200 bg-white p-5">
-              <p className="text-sm font-semibold text-amber-800">Low</p>
+              <p className="text-sm font-semibold text-amber-800">ใกล้หมด</p>
               <p className="mt-2 text-3xl font-bold text-amber-800">
                 {summary.lowCount}
               </p>
@@ -493,10 +486,10 @@ export function AdminInventoryReviewPanel() {
           <div className="mt-5 flex flex-col gap-4 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-semibold text-[var(--foreground)]">
-                {filteredProducts.length} of {reviewProducts.length} products
+                {filteredProducts.length} of {reviewProducts.length} สินค้า
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Low stock means active product stock is {lowStockThreshold} or
+                ใกล้หมด stock means active product stock is {lowStockThreshold} or
                 lower.
               </p>
             </div>
@@ -505,7 +498,7 @@ export function AdminInventoryReviewPanel() {
               <input
                 className="min-h-10 flex-1 rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
                 onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Search product, SKU, or category"
+                placeholder="ค้นหาสินค้า รหัสสินค้า หรือหมวดหมู่"
                 type="search"
                 value={searchInput}
               />
@@ -533,13 +526,13 @@ export function AdminInventoryReviewPanel() {
               <table className="w-full min-w-[1040px] border-collapse text-left text-sm">
                 <thead className="border-b border-[var(--line)] bg-slate-50 text-[var(--foreground)]">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Product</th>
-                    <th className="px-4 py-3 font-semibold">Category</th>
-                    <th className="px-4 py-3 font-semibold">Stock status</th>
-                    <th className="px-4 py-3 font-semibold">Stock</th>
-                    <th className="px-4 py-3 font-semibold">Sale price</th>
-                    <th className="px-4 py-3 font-semibold">Latest movement</th>
-                    <th className="px-4 py-3 font-semibold">Action</th>
+                    <th className="px-4 py-3 font-semibold">สินค้า</th>
+                    <th className="px-4 py-3 font-semibold">หมวดหมู่</th>
+                    <th className="px-4 py-3 font-semibold">สถานะสต็อก</th>
+                    <th className="px-4 py-3 font-semibold">สต็อก</th>
+                    <th className="px-4 py-3 font-semibold">ราคาขาย</th>
+                    <th className="px-4 py-3 font-semibold">การเคลื่อนไหวล่าสุด</th>
+                    <th className="px-4 py-3 font-semibold">การดำเนินการ</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -550,7 +543,7 @@ export function AdminInventoryReviewPanel() {
               </table>
             ) : (
               <div className="p-6 text-sm leading-6 text-[var(--muted)]">
-                No products match the current filters.
+                No สินค้า match the current filters.
               </div>
             )}
           </section>

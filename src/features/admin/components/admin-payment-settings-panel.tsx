@@ -118,7 +118,7 @@ function validatePaymentSettings(input: PaymentSettingsFormState) {
 
   if (input.promptpay_enabled) {
     if (!input.promptpay_display_name.trim()) {
-      return "กรุณากรอกชื่อผู้รับ PromptPay";
+      return "กรุณากรอกชื่อผู้รับ พร้อมเพย์";
     }
 
     if (!input.promptpay_qr_image_url.trim()) {
@@ -209,7 +209,7 @@ function PaymentPreview({ formState }: { formState: PaymentSettingsFormState }) 
       {formState.promptpay_enabled ? (
         <div className="mt-4 rounded-md border border-[var(--line)] bg-slate-50 p-4">
           <p className="font-semibold text-[var(--foreground)]">
-            PromptPay / QR
+            พร้อมเพย์ / QR
           </p>
           <img
             alt="Payment QR preview"
@@ -225,7 +225,7 @@ function PaymentPreview({ formState }: { formState: PaymentSettingsFormState }) 
               </dd>
             </div>
             <div>
-              <dt className="text-[var(--muted)]">PromptPay</dt>
+              <dt className="text-[var(--muted)]">พร้อมเพย์</dt>
               <dd className="font-semibold text-[var(--foreground)]">
                 {formState.promptpay_id || "-"}
               </dd>
@@ -552,9 +552,6 @@ export function AdminPaymentSettingsPanel() {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            อู่ช่างโอ
-          </p>
           <AppNav />
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -562,9 +559,6 @@ export function AdminPaymentSettingsPanel() {
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
               ตั้งค่าการชำระเงิน
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              ตั้งค่า QR Code, PromptPay และบัญชีธนาคารที่ลูกค้าจะเห็นในหน้าชำระเงิน
-            </p>
           </div>
           <Link
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
@@ -642,8 +636,8 @@ export function AdminPaymentSettingsPanel() {
                   }
                   value={formState.status}
                 >
-                  <option value="active">active</option>
-                  <option value="inactive">inactive</option>
+                  <option value="active">เปิดใช้งาน</option>
+                  <option value="inactive">ปิดใช้งาน</option>
                 </select>
               </label>
 
@@ -658,19 +652,19 @@ export function AdminPaymentSettingsPanel() {
                     }
                     type="checkbox"
                   />
-                  เปิด PromptPay / QR
+                  เปิด พร้อมเพย์ / QR
                 </label>
 
                 <div className="mt-4 grid gap-3">
                   <TextInput
-                    label="ชื่อผู้รับ PromptPay"
+                    label="ชื่อผู้รับ พร้อมเพย์"
                     onChange={(value) =>
                       patchFormState({ promptpay_display_name: value })
                     }
                     value={formState.promptpay_display_name}
                   />
                   <TextInput
-                    label="เบอร์/เลข PromptPay"
+                    label="เบอร์/เลข พร้อมเพย์"
                     onChange={(value) => patchFormState({ promptpay_id: value })}
                     placeholder="เช่น 099-999-9999"
                     value={formState.promptpay_id}

@@ -22,35 +22,35 @@ type LoadState =
       status: "loading";
       access: null;
       movements: null;
-      products: null;
+      สินค้า: null;
       error: null;
     }
   | {
       status: "signed-out";
       access: null;
       movements: null;
-      products: null;
+      สินค้า: null;
       error: null;
     }
   | {
       status: "access-denied";
       access: Extract<AdminAccessResult, { allowed: false }>;
       movements: null;
-      products: null;
+      สินค้า: null;
       error: null;
     }
   | {
       status: "ready";
       access: AdminAccessResult;
       movements: AdminInventoryMovement[];
-      products: AdminProduct[];
+      สินค้า: AdminProduct[];
       error: null;
     }
   | {
       status: "error";
       access: null;
       movements: null;
-      products: null;
+      สินค้า: null;
       error: string;
     };
 
@@ -63,8 +63,8 @@ type CreateState =
 type MovementType = AdminInventoryMovement["movement_type"];
 
 const movementOptions: { label: string; value: MovementType }[] = [
-  { label: "Stock in", value: "stock_in" },
-  { label: "Stock out", value: "stock_out" },
+  { label: "สต็อก in", value: "stock_in" },
+  { label: "สต็อก out", value: "stock_out" },
   { label: "Adjustment in", value: "adjustment_in" },
   { label: "Adjustment out", value: "adjustment_out" },
   { label: "Repair usage", value: "repair_usage" },
@@ -104,17 +104,17 @@ function getProductLabel(product: AdminProduct) {
 
 function validateMovementInput(
   input: AdminInventoryMovementCreateInput,
-  products: AdminProduct[],
+  สินค้า: AdminProduct[],
 ) {
   if (!input.product_id) {
-    return "Product is required.";
+    return "สินค้า is required.";
   }
 
   if (!Number.isFinite(input.quantity) || input.quantity < 1) {
-    return "Quantity must be at least 1.";
+    return "จำนวน must be at least 1.";
   }
 
-  const product = products.find(
+  const product = สินค้า.find(
     (currentProduct) => currentProduct.id === input.product_id,
   );
 
@@ -122,10 +122,10 @@ function validateMovementInput(
     return "Selected product was not found.";
   }
 
-  const isStockOut = !stockIncreasingMovements.includes(input.movement_type);
+  const isOutOfStock = !stockIncreasingMovements.includes(input.movement_type);
 
-  if (isStockOut && input.quantity > product.stock_quantity) {
-    return "Quantity is greater than current stock.";
+  if (isOutOfStock && input.quantity > product.stock_quantity) {
+    return "จำนวน is greater than current stock.";
   }
 
   return null;
@@ -134,17 +134,17 @@ function validateMovementInput(
 function MovementForm({
   createState,
   onCreate,
-  products,
+  สินค้า,
 }: {
   createState: CreateState;
   onCreate: (input: AdminInventoryMovementCreateInput) => void;
-  products: AdminProduct[];
+  สินค้า: AdminProduct[];
 }) {
-  const [productId, setProductId] = useState(products[0]?.id ?? "");
+  const [productId, setProductId] = useState(สินค้า[0]?.id ?? "");
   const [movementType, setMovementType] = useState<MovementType>("stock_in");
   const [quantity, setQuantity] = useState("1");
   const [note, setNote] = useState("");
-  const selectedProduct = products.find((product) => product.id === productId);
+  const selectedProduct = สินค้า.find((product) => product.id === productId);
   const isSaving = createState.status === "saving";
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -161,7 +161,7 @@ function MovementForm({
     <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
       <div className="border-b border-[var(--line)] pb-4">
         <p className="text-sm font-semibold text-[var(--brand)]">
-          บันทึกการเคลื่อนไหวสต็อก
+          Record inventory movement
         </p>
         <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
           Each movement creates a history row and updates product stock through
@@ -172,13 +172,13 @@ function MovementForm({
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_140px] lg:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Product
+            สินค้า
             <select
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setProductId(event.target.value)}
               value={productId}
             >
-              {products.map((product) => (
+              {สินค้า.map((product) => (
                 <option key={product.id} value={product.id}>
                   {getProductLabel(product)} / stock {product.stock_quantity}
                 </option>
@@ -204,7 +204,7 @@ function MovementForm({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Quantity
+            จำนวน
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               min={1}
@@ -216,7 +216,7 @@ function MovementForm({
         </div>
 
         <label className="text-sm font-semibold text-[var(--foreground)]">
-          Note
+          หมายเหตุ
           <textarea
             className="mt-2 min-h-20 w-full resize-y rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
             onChange={(event) => setNote(event.target.value)}
@@ -234,16 +234,16 @@ function MovementForm({
                 </span>
               </span>
             ) : (
-              <span>No product selected.</span>
+              <span>ยังไม่ได้เลือกสินค้า</span>
             )}
           </div>
 
           <button
             className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isSaving || products.length === 0}
+            disabled={isSaving || สินค้า.length === 0}
             type="submit"
           >
-            {isSaving ? "Saving..." : "Record movement"}
+            {isSaving ? "กำลังบันทึก..." : "Record movement"}
           </button>
         </div>
 
@@ -280,7 +280,7 @@ function MovementRow({ movement }: { movement: AdminInventoryMovement }) {
           />
           <div>
             <div className="font-semibold text-[var(--foreground)]">
-              {movement.product?.name ?? "Product not found"}
+              {movement.product?.name ?? "สินค้า not found"}
             </div>
             <div className="text-xs text-[var(--muted)]">
               SKU {movement.product?.sku ?? "-"}
@@ -322,7 +322,7 @@ export function AdminInventoryPanel() {
     access: null,
     error: null,
     movements: null,
-    products: null,
+    สินค้า: null,
     status: "loading",
   });
   const [createState, setCreateState] = useState<CreateState>({
@@ -337,7 +337,7 @@ export function AdminInventoryPanel() {
       access: null,
       error: null,
       movements: null,
-      products: null,
+      สินค้า: null,
       status: "loading",
     });
 
@@ -351,7 +351,7 @@ export function AdminInventoryPanel() {
         access: null,
         error: sessionError.message,
         movements: null,
-        products: null,
+        สินค้า: null,
         status: "error",
       });
       return;
@@ -362,7 +362,7 @@ export function AdminInventoryPanel() {
         access: null,
         error: null,
         movements: null,
-        products: null,
+        สินค้า: null,
         status: "signed-out",
       });
       return;
@@ -375,23 +375,23 @@ export function AdminInventoryPanel() {
         access,
         error: null,
         movements: null,
-        products: null,
+        สินค้า: null,
         status: "access-denied",
       });
       return;
     }
 
-    const [productsResult, movementsResult] = await Promise.all([
+    const [สินค้าResult, movementsResult] = await Promise.all([
       getAdminProducts(supabase),
       getAdminInventoryMovements(supabase, 80),
     ]);
 
-    if (productsResult.error) {
+    if (สินค้าResult.error) {
       setLoadState({
         access: null,
-        error: productsResult.error.message,
+        error: สินค้าResult.error.message,
         movements: null,
-        products: null,
+        สินค้า: null,
         status: "error",
       });
       return;
@@ -402,7 +402,7 @@ export function AdminInventoryPanel() {
         access: null,
         error: movementsResult.error.message,
         movements: null,
-        products: null,
+        สินค้า: null,
         status: "error",
       });
       return;
@@ -412,7 +412,7 @@ export function AdminInventoryPanel() {
       access,
       error: null,
       movements: movementsResult.data ?? [],
-      products: productsResult.data ?? [],
+      สินค้า: สินค้าResult.data ?? [],
       status: "ready",
     });
   }
@@ -450,10 +450,10 @@ export function AdminInventoryPanel() {
     }
 
     return {
-      lowStockCount: loadState.products.filter(
+      lowStockCount: loadState.สินค้า.filter(
         (product) => product.stock_quantity <= 2,
       ).length,
-      totalStock: loadState.products.reduce(
+      totalStock: loadState.สินค้า.reduce(
         (total, product) => total + product.stock_quantity,
         0,
       ),
@@ -465,7 +465,7 @@ export function AdminInventoryPanel() {
       return;
     }
 
-    const validationError = validateMovementInput(input, loadState.products);
+    const validationError = validateMovementInput(input, loadState.สินค้า);
 
     if (validationError) {
       setCreateState({
@@ -506,20 +506,13 @@ export function AdminInventoryPanel() {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            อู่ช่างโอ
-          </p>
           <AppNav />
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              จัดการคลังสินค้า
+              Admin Inventory
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Record stock in, stock out, adjustments, repair usage, and
-              returns with a full movement history.
-            </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Link
@@ -530,9 +523,9 @@ export function AdminInventoryPanel() {
             </Link>
             <Link
               className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
-              href="/admin/products"
+              href="/admin/สินค้า"
             >
-              Manage products
+              Manage สินค้า
             </Link>
           </div>
         </div>
@@ -541,7 +534,7 @@ export function AdminInventoryPanel() {
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            Loading inventory...
+            กำลังโหลดคลังสินค้า...
           </div>
         </section>
       ) : null}
@@ -549,8 +542,8 @@ export function AdminInventoryPanel() {
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">Login required</p>
-            <p className="mt-1">Sign in with an admin account.</p>
+            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
+            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
@@ -564,7 +557,7 @@ export function AdminInventoryPanel() {
       {loadState.status === "access-denied" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">Access denied</p>
+            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
             <p className="mt-2">{loadState.access.reason}</p>
           </div>
         </section>
@@ -583,21 +576,21 @@ export function AdminInventoryPanel() {
           <MovementForm
             createState={createState}
             onCreate={handleCreateMovement}
-            products={loadState.products}
+            สินค้า={loadState.สินค้า}
           />
 
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <div className="rounded-lg border border-[var(--line)] bg-white p-5">
               <p className="text-sm font-semibold text-[var(--muted)]">
-                Products
+                สินค้า
               </p>
               <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-                {loadState.products.length}
+                {loadState.สินค้า.length}
               </p>
             </div>
             <div className="rounded-lg border border-[var(--line)] bg-white p-5">
               <p className="text-sm font-semibold text-[var(--muted)]">
-                Total stock
+                สินค้าคงเหลือทั้งหมด
               </p>
               <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
                 {stockSummary.totalStock}
@@ -605,7 +598,7 @@ export function AdminInventoryPanel() {
             </div>
             <div className="rounded-lg border border-[var(--line)] bg-white p-5">
               <p className="text-sm font-semibold text-[var(--muted)]">
-                Low stock
+                ใกล้หมด stock
               </p>
               <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
                 {stockSummary.lowStockCount}
@@ -616,10 +609,10 @@ export function AdminInventoryPanel() {
           <section className="mt-5 rounded-lg border border-[var(--line)] bg-white shadow-sm">
             <div className="border-b border-[var(--line)] p-5">
               <h2 className="text-xl font-bold text-[var(--foreground)]">
-                ความเคลื่อนไหวสต็อกล่าสุด
+                Recent inventory movements
               </h2>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Latest stock changes across all products.
+                Latest stock changes across all สินค้า.
               </p>
             </div>
 
@@ -628,12 +621,12 @@ export function AdminInventoryPanel() {
                 <table className="w-full min-w-[980px] border-collapse text-left text-sm">
                   <thead className="border-b border-[var(--line)] bg-slate-50 text-[var(--foreground)]">
                     <tr>
-                      <th className="px-4 py-3 font-semibold">Date</th>
-                      <th className="px-4 py-3 font-semibold">Product</th>
-                      <th className="px-4 py-3 font-semibold">Type</th>
-                      <th className="px-4 py-3 font-semibold">Quantity</th>
-                      <th className="px-4 py-3 font-semibold">Note</th>
-                      <th className="px-4 py-3 font-semibold">Created by</th>
+                      <th className="px-4 py-3 font-semibold">วันที่</th>
+                      <th className="px-4 py-3 font-semibold">สินค้า</th>
+                      <th className="px-4 py-3 font-semibold">ประเภท</th>
+                      <th className="px-4 py-3 font-semibold">จำนวน</th>
+                      <th className="px-4 py-3 font-semibold">หมายเหตุ</th>
+                      <th className="px-4 py-3 font-semibold">สร้างโดย</th>
                     </tr>
                   </thead>
                   <tbody>

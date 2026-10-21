@@ -59,7 +59,7 @@ function getStatusStyle(status: AdminProductCategory["status"]) {
 
 function validateCategoryInput(input: AdminProductCategoryUpdateInput) {
   if (!input.name.trim()) {
-    return "Category name is required.";
+    return "หมวดหมู่ name is required.";
   }
 
   return null;
@@ -91,7 +91,7 @@ function AddProductCategoryForm({
     <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
       <div className="border-b border-[var(--line)] pb-4">
         <p className="text-sm font-semibold text-[var(--brand)]">
-          เพิ่มหมวดหมู่สินค้า
+          เพิ่มหมวดสินค้า
         </p>
         <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
           New categories will appear in the product category dropdown.
@@ -101,7 +101,7 @@ function AddProductCategoryForm({
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px] md:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Category name
+            หมวดหมู่ name
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setName(event.target.value)}
@@ -119,8 +119,8 @@ function AddProductCategoryForm({
               }
               value={status}
             >
-              <option value="active">active</option>
-              <option value="inactive">inactive</option>
+              <option value="active">เปิดใช้งาน</option>
+              <option value="inactive">ปิดใช้งาน</option>
             </select>
           </label>
         </div>
@@ -140,7 +140,7 @@ function AddProductCategoryForm({
             disabled={isCreating}
             type="submit"
           >
-            {isCreating ? "Adding..." : "Add product category"}
+            {isCreating ? "กำลังเพิ่ม..." : "เพิ่มหมวดสินค้า"}
           </button>
 
           {createState.status === "error" ? (
@@ -209,14 +209,14 @@ function AdminProductCategoryRow({
           </p>
         </div>
         <p className="text-xs text-[var(--muted)]">
-          Updated {new Date(category.updated_at).toLocaleString("th-TH")}
+          แก้ไขล่าสุด {new Date(category.updated_at).toLocaleString("th-TH")}
         </p>
       </div>
 
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px] md:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Category name
+            หมวดหมู่ name
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setName(event.target.value)}
@@ -233,8 +233,8 @@ function AdminProductCategoryRow({
               }
               value={status}
             >
-              <option value="active">active</option>
-              <option value="inactive">inactive</option>
+              <option value="active">เปิดใช้งาน</option>
+              <option value="inactive">ปิดใช้งาน</option>
             </select>
           </label>
         </div>
@@ -254,7 +254,7 @@ function AdminProductCategoryRow({
             disabled={!hasChanges || isSaving}
             type="submit"
           >
-            {isSaving ? "Saving..." : "Save product category"}
+            {isSaving ? "กำลังบันทึก..." : "บันทึกหมวดสินค้า"}
           </button>
 
           {actionState.status === "error" &&
@@ -464,7 +464,7 @@ export function AdminProductCategoriesPanel() {
     });
     setCreateState({
       error: null,
-      message: "Product category added successfully.",
+      message: "หมวดสินค้า added successfully.",
       status: "created",
     });
   }
@@ -538,7 +538,7 @@ export function AdminProductCategoriesPanel() {
     setActionState({
       categoryId: category.id,
       error: null,
-      message: "Product category saved successfully.",
+      message: "หมวดสินค้า saved successfully.",
       status: "saved",
     });
   }
@@ -547,27 +547,20 @@ export function AdminProductCategoriesPanel() {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            อู่ช่างโอ
-          </p>
           <AppNav />
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              หมวดหมู่สินค้า
+              Admin สินค้า Categories
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Manage product category names, descriptions, and visibility for
-              product administration.
-            </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Link
               className="min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/admin/products"
+              href="/admin/สินค้า"
             >
-              Manage products
+              Manage สินค้า
             </Link>
             <Link
               className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
@@ -582,7 +575,7 @@ export function AdminProductCategoriesPanel() {
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            Loading product categories...
+            กำลังโหลดหมวดสินค้า...
           </div>
         </section>
       ) : null}
@@ -590,8 +583,8 @@ export function AdminProductCategoriesPanel() {
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">Login required</p>
-            <p className="mt-1">Sign in with an admin account.</p>
+            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
+            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
@@ -605,7 +598,7 @@ export function AdminProductCategoriesPanel() {
       {loadState.status === "access-denied" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">Access denied</p>
+            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
             <p className="mt-2">{loadState.access.reason}</p>
           </div>
         </section>
@@ -643,7 +636,7 @@ export function AdminProductCategoriesPanel() {
               <input
                 className="min-h-10 flex-1 rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
                 onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Search product category"
+                placeholder="ค้นหาหมวดสินค้า"
                 type="search"
                 value={searchInput}
               />

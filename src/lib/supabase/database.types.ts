@@ -1779,6 +1779,7 @@ export type Database = {
           color: string | null
           created_at: string
           customer_id: string
+          current_mileage: number | null
           id: string
           image_url: string | null
           license_plate: string
@@ -1791,6 +1792,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           customer_id: string
+          current_mileage?: number | null
           id?: string
           image_url?: string | null
           license_plate: string
@@ -1803,6 +1805,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           customer_id?: string
+          current_mileage?: number | null
           id?: string
           image_url?: string | null
           license_plate?: string

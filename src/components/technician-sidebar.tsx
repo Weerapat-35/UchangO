@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 
 const NAV_ITEMS = [
-  { href: "/technician/dashboard", label: "แดชบอร์ด", icon: "▦" },
+  { href: "/technician/dashboard", label: "Dashboard", icon: "▦" },
   { href: "/technician/work-orders", label: "งานซ่อมของฉัน", icon: "🔧" },
   { href: "/technician/profile", label: "โปรไฟล์ช่าง", icon: "👤" },
   { href: "/technician/notifications", label: "การแจ้งเตือน", icon: "🔔" },

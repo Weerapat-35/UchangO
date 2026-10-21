@@ -1,5 +1,4 @@
 "use client";
-import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
@@ -19,13 +18,7 @@ export default function NotificationsPage(){
  async function markRead(id:string){const now=new Date().toISOString(),supabase=createClient();const {error:e}=await (supabase as any).from("notifications").update({is_read:true,read_at:now}).eq("id",id);if(e){setError(e.message);return;}setItems(c=>c.map(x=>x.id===id?{...x,is_read:true,read_at:now}:x));}
  async function markAll(){if(!userId||!unread)return;setMarking(true);const now=new Date().toISOString(),supabase=createClient();const {error:e}=await (supabase as any).from("notifications").update({is_read:true,read_at:now}).eq("customer_id",userId).eq("is_read",false);setMarking(false);if(e){setError(e.message);return;}setItems(c=>c.map(x=>({...x,is_read:true,read_at:now})))}
  async function click(n:NotificationRow){if(!n.is_read)await markRead(n.id);const href=hrefFor(n);if(href)window.location.href=href;}
- return <main className="notifications-page"><PageHeader
-    className="ph--w1040"
-    actions={userId&&unread>0?<button className="ph-btn" disabled={marking} onClick={()=>void markAll()} type="button">{marking?"กำลังดำเนินการ...":"อ่านทั้งหมด"}</button>:null}
-    crumbs={[{label:"การแจ้งเตือน"}]}
-    description="ติดตามข่าวสาร การจอง งานซ่อม คำสั่งซื้อ และการชำระเงินของคุณ"
-    title="การแจ้งเตือน"
-  />
+ return <main className="notifications-page"><section className="notifications-hero"><div><p className="notifications-kicker">CUSTOMER CENTER</p><h1>การแจ้งเตือน</h1><p>ติดตามข่าวสาร การจอง งานซ่อม คำสั่งซื้อ และการชำระเงินของคุณ</p></div>{userId&&unread>0?<button className="notifications-mark-all" disabled={marking} onClick={()=>void markAll()} type="button">{marking?"กำลังดำเนินการ...":"อ่านทั้งหมด"}</button>:null}</section>
  {!userId?<section className="notifications-empty"><div className="notifications-empty-icon">🔔</div><h2>กรุณาเข้าสู่ระบบ</h2><p>เข้าสู่ระบบเพื่อดูการแจ้งเตือนทั้งหมดของบัญชี Customer ของคุณ</p><Link href="/auth" className="notifications-primary-button">เข้าสู่ระบบ</Link></section>:loading?<section className="notifications-empty"><p>กำลังโหลดการแจ้งเตือน...</p></section>:error?<section className="notifications-error"><strong>โหลดการแจ้งเตือนไม่สำเร็จ</strong><span>{error}</span></section>:items.length===0?<section className="notifications-empty"><div className="notifications-empty-icon">✓</div><h2>ยังไม่มีการแจ้งเตือน</h2><p>เมื่อมีความคืบหน้าเกี่ยวกับบริการ การจอง หรือคำสั่งซื้อ จะแสดงที่หน้านี้</p></section>:<section className="notifications-list" aria-label="รายการแจ้งเตือน">{items.map(n=><button key={n.id} className={`notification-card ${n.is_read?"is-read":"is-unread"}`} onClick={()=>void click(n)} type="button"><span className="notification-card__icon">{icons[n.type]??"🔔"}</span><span className="notification-card__body"><span className="notification-card__topline"><span className="notification-card__title">{n.title}</span>{!n.is_read?<span className="notification-card__dot"/>:null}</span>{n.message?<span className="notification-card__message">{n.message}</span>:null}<span className="notification-card__time">{timeText(n.created_at)}{hrefFor(n)?" · แตะเพื่อดูรายละเอียด":""}</span></span><span className="notification-card__arrow">›</span></button>)}</section>}
  </main>;
 }

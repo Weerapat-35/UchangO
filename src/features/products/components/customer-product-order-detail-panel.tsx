@@ -1,5 +1,4 @@
 "use client";
-import { PageHeader } from "@/components/page-header";
 import type { OrderStatus } from "@/components/order-status-stepper";
 
 /* eslint-disable @next/next/no-img-element */
@@ -417,7 +416,7 @@ function PaymentInstructionPanel({
               }
             />
             <div className="grid gap-3 text-sm">
-              <p className="font-semibold text-[var(--foreground)]">
+              <p className="font-semibold leading-6 text-[var(--foreground)]">
                 สแกน QR เพื่อชำระเงิน
               </p>
               <DetailItem
@@ -861,7 +860,7 @@ function PaymentSlipUploadPanel({
           </button>
         </form>
       ) : (
-        <div className="mt-5 rounded-md bg-[var(--color-concrete-2)] p-4 text-sm leading-6 text-[var(--muted)]">
+        <div className="mt-5 rounded-xl border border-[var(--line)] bg-[var(--color-concrete-2)] p-4 text-sm leading-6 text-[var(--muted)]">
           {order.payment_status === "paid"
             ? "ออเดอร์นี้ชำระเงินแล้ว จึงไม่ต้องส่งสลิปเพิ่ม"
             : latestPayment?.verification_status === "submitted"
@@ -1011,43 +1010,47 @@ export function CustomerProductOrderDetailPanel({
   }, [loadState.status]);
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6 lg:py-8">
-      <PageHeader
-        actions={
-          <>
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-8">
+      <header className="order-page-header">
+        <div className="order-page-header__inner">
+          <div>
+            <div>
+              <div className="order-page-kicker">คำสั่งซื้อสินค้า</div>
+              <h1 className="order-page-title">รายละเอียดคำสั่งซื้อ</h1>
+            </div>
+          </div>
+          <div className="order-page-actions">
             {loadState.status === "ready" && loadState.order.payment_status === "paid" ? (
               <Link
-                className="ph-btn"
+                className="order-action order-action--primary"
                 href={`/invoice/${loadState.order.id}`}
               >
-                ใบเสร็จ / PDF
+                🧾 ใบกำกับภาษี / PDF
               </Link>
             ) : null}
+            <Link
+              className="order-action order-action--ghost"
+              href="/my-product-orders"
+            >
+              กลับไปคำสั่งซื้อ
+            </Link>
             <button
-              className="ph-btn ph-btn--ghost"
+              className="order-action order-action--refresh"
               onClick={() => setRefreshKey((current) => current + 1)}
               type="button"
+              aria-label="รีเฟรชสถานะคำสั่งซื้อ"
+              title="รีเฟรชสถานะคำสั่งซื้อ"
             >
+              <span aria-hidden="true" className="order-action__refresh-icon">↻</span>
               รีเฟรช
             </button>
-          </>
-        }
-        crumbs={[
-          { href: "/my-product-orders", label: "คำสั่งซื้อ" },
-          { label: "รายละเอียด" },
-        ]}
-        description="ตรวจสอบสถานะ การชำระเงิน และรายการสินค้าของคำสั่งซื้อนี้"
-        title="รายละเอียดคำสั่งซื้อ"
-        titleExtra={
-          loadState.status === "ready" ? (
-            <span className="ph-tag">{loadState.order.order_number}</span>
-          ) : null
-        }
-      />
+          </div>
+        </div>
+      </header>
 
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="rounded-2xl border border-[var(--line)] bg-white px-6 py-5 text-sm text-[var(--muted)] shadow-sm">
+          <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
             กำลังโหลดคำสั่งซื้อ...
           </div>
         </section>
@@ -1055,10 +1058,10 @@ export function CustomerProductOrderDetailPanel({
 
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm leading-6 text-amber-800 shadow-sm">
-            <p className="font-bold">ต้องเข้าสู่ระบบก่อนดูคำสั่งซื้อ</p>
+          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
+            <p className="font-semibold">ต้องเข้าสู่ระบบก่อนดูคำสั่งซื้อ</p>
             <Link
-              className="mt-4 block min-h-10 rounded-xl bg-[var(--brand)] px-4 py-2 text-center text-sm font-bold text-white"
+              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
             >
               ไปที่หน้าบัญชี
@@ -1069,11 +1072,15 @@ export function CustomerProductOrderDetailPanel({
 
       {loadState.status === "not-found" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-2xl border border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)] shadow-sm">
-            <p className="font-bold text-[var(--foreground)]">ไม่พบคำสั่งซื้อ</p>
-            <p className="mt-1">ออเดอร์นี้อาจไม่มีอยู่ หรือไม่ได้เป็นของบัญชีที่เข้าสู่ระบบอยู่</p>
+          <div className="max-w-lg rounded-lg border border-[var(--line)] bg-white p-5 text-sm leading-6 text-[var(--muted)] shadow-sm">
+            <p className="font-semibold text-[var(--foreground)]">
+              ไม่พบคำสั่งซื้อ
+            </p>
+            <p className="mt-1">
+              ออเดอร์นี้อาจไม่มีอยู่ หรือไม่ได้เป็นของบัญชีที่เข้าสู่ระบบอยู่
+            </p>
             <Link
-              className="mt-4 block min-h-10 rounded-xl bg-[var(--brand)] px-4 py-2 text-center text-sm font-bold text-white"
+              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/my-product-orders"
             >
               กลับไปคำสั่งซื้อ
@@ -1084,174 +1091,200 @@ export function CustomerProductOrderDetailPanel({
 
       {loadState.status === "error" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-xl rounded-2xl border border-red-200 bg-white px-6 py-5 text-sm text-red-700 shadow-sm">
+          <div className="max-w-xl rounded-lg border border-red-200 bg-white px-5 py-4 text-sm text-red-700 shadow-sm">
             {loadState.error}
           </div>
         </section>
       ) : null}
 
       {loadState.status === "ready" ? (
-        <>
-          <section className="rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--brand)]">
-                  สถานะออเดอร์
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <h2 className="text-xl font-bold text-[var(--foreground)] sm:text-2xl">
-                    {loadState.order.order_number}
+        <section className="order-detail-grid grid gap-5 py-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <div>
+            <article className="order-card overflow-hidden rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm sm:p-6">
+              <div className="flex flex-col gap-4 border-b border-[var(--line)] pb-5 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold tracking-wide text-[var(--brand)]">
+                    เลขที่คำสั่งซื้อ · {loadState.order.order_number}
+                  </p>
+                  <h2 className="mt-2 text-xl font-bold text-[var(--foreground)] sm:text-2xl">
+                    {formatDateTime(loadState.order.created_at)}
                   </h2>
-                  <span className="text-sm text-[var(--muted)]">
-                    สั่งซื้อเมื่อ {formatDateTime(loadState.order.created_at)}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span
+                    className={`w-fit rounded-full px-3 py-1.5 text-xs font-bold ${getOrderStatusStyle(
+                      loadState.order.status,
+                    )}`}
+                  >
+                    {formatOrderStatus(loadState.order.status)}
+                  </span>
+                  <span
+                    className={`w-fit rounded-full px-3 py-1.5 text-xs font-bold ${getPaymentStatusStyle(
+                      loadState.order.payment_status,
+                    )}`}
+                  >
+                    {formatPaymentStatus(loadState.order.payment_status)}
                   </span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${getOrderStatusStyle(loadState.order.status)}`}>
-                  {formatOrderStatus(loadState.order.status)}
-                </span>
-                <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${getPaymentStatusStyle(loadState.order.payment_status)}`}>
-                  {formatPaymentStatus(loadState.order.payment_status)}
-                </span>
-              </div>
-            </div>
-            <div className="mt-6 border-t border-[var(--line)] pt-5">
-              <OrderStatusStepper status={loadState.order.status as OrderStatus} />
-            </div>
-            {loadState.order.status === "cancelled" ? (
-              <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
-                <p className="font-bold">คำสั่งซื้อนี้ถูกยกเลิกแล้ว</p>
-                <p className="mt-1">รายการสินค้านี้จะไม่ถูกจัดเตรียมหรือจัดส่ง หากมีข้อสงสัยเรื่องการชำระเงิน กรุณาติดต่ออู่</p>
-              </div>
-            ) : null}
-          </section>
 
-          <section className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_330px]">
-            <div className="min-w-0 space-y-6">
-              <article className="rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm sm:p-6">
-                <div className="flex items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-[var(--foreground)]">รายการสินค้า</h3>
-                    <p className="mt-1 text-sm text-[var(--muted)]">สินค้าที่อยู่ในคำสั่งซื้อนี้</p>
-                  </div>
-                  <span className="rounded-full bg-[var(--color-concrete-2)] px-3 py-1 text-xs font-bold text-[var(--muted)]">
-                    {loadState.order.items.length} รายการ
-                  </span>
+              <div className="mt-5">
+                <OrderStatusStepper status={loadState.order.status as OrderStatus} />
+              </div>
+
+              {loadState.order.status === "cancelled" ? (
+                <div className="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
+                  <p className="font-semibold">คำสั่งซื้อนี้ถูกยกเลิกแล้ว</p>
+                  <p className="mt-1">
+                    รายการสินค้านี้จะไม่ถูกจัดเตรียมหรือจัดส่ง หากมีข้อสงสัยเรื่องการชำระเงิน กรุณาติดต่ออู่
+                  </p>
                 </div>
+              ) : null}
 
-                <div className="mt-5 space-y-3">
-                  {loadState.order.items.length > 0 ? (
-                    loadState.order.items.map((item) => (
-                      <div
-                        className="grid gap-4 rounded-xl border border-[var(--line)] bg-[var(--color-concrete-2)] p-4 sm:grid-cols-[minmax(0,1fr)_90px_140px] sm:items-center"
-                        key={item.id}
-                      >
-                        <div className="flex min-w-0 items-center gap-4">
-                          <ProductImageThumb
-                            alt={`รูปสินค้า ${item.product?.name ?? "สินค้า"}`}
-                            size="md"
-                            src={item.product?.image_url}
-                          />
-                          <div className="min-w-0">
-                            <p className="font-bold text-[var(--foreground)]">{item.product?.name ?? "สินค้า"}</p>
-                            <p className="mt-1 text-sm text-[var(--muted)]">{item.product?.category?.name ?? "ไม่พบหมวดสินค้า"}</p>
-                            <p className="mt-1 text-xs text-[var(--muted)]">SKU: {item.product?.sku ?? "-"}</p>
-                          </div>
-                        </div>
-                        <div className="text-sm sm:text-center">
-                          <p className="text-xs text-[var(--muted)]">จำนวน</p>
-                          <p className="mt-1 font-bold text-[var(--foreground)]">{item.quantity}</p>
-                        </div>
-                        <div className="text-sm sm:text-right">
-                          <p className="text-xs text-[var(--muted)]">ราคารวม</p>
-                          <p className="mt-1 font-bold text-[var(--foreground)]">{currencyFormatter.format(item.total_price)}</p>
-                          <p className="mt-1 text-xs text-[var(--muted)]">{currencyFormatter.format(item.unit_price)} / ชิ้น</p>
+              <div className="mt-6 space-y-3">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-base font-bold text-[var(--foreground)]">รายการสินค้า</h3>
+                  <span className="rounded-full bg-[var(--color-concrete-2)] px-3 py-1 text-xs font-semibold text-[var(--muted)]">{loadState.order.items.length} รายการ</span>
+                </div>
+                {loadState.order.items.length > 0 ? (
+                  loadState.order.items.map((item) => (
+                    <div
+                      className="grid gap-4 rounded-xl border border-[var(--line)] bg-white p-4 transition-colors sm:grid-cols-[minmax(0,1fr)_90px_130px] sm:items-center"
+                      key={item.id}
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                        <ProductImageThumb
+                          alt={`รูปสินค้า ${item.product?.name ?? "สินค้า"}`}
+                          size="md"
+                          src={item.product?.image_url}
+                        />
+                        <div>
+                          <p className="font-semibold text-[var(--foreground)]">
+                            {item.product?.name ?? "สินค้า"}
+                          </p>
+                          <p className="mt-1 text-sm text-[var(--muted)]">
+                            {item.product?.category?.name ?? "ไม่พบหมวดสินค้า"}
+                          </p>
+                          <p className="mt-1 text-xs text-[var(--muted)]">
+                            SKU: {item.product?.sku ?? "-"}
+                          </p>
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-[var(--line)] bg-[var(--color-concrete-2)] p-5 text-sm text-[var(--muted)]">
-                      ไม่พบรายการสินค้าในคำสั่งซื้อนี้
+                      <div className="text-sm">
+                        <p className="text-[var(--muted)]">จำนวน</p>
+                        <p className="mt-1 font-semibold text-[var(--foreground)]">
+                          {item.quantity}
+                        </p>
+                      </div>
+                      <div className="text-sm sm:text-right">
+                        <p className="text-[var(--muted)]">รวม</p>
+                        <p className="mt-1 font-semibold text-[var(--foreground)]">
+                          {currencyFormatter.format(item.total_price)}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--muted)]">
+                          {currencyFormatter.format(item.unit_price)} / ชิ้น
+                        </p>
+                      </div>
                     </div>
-                  )}
-                </div>
-
-                {loadState.order.note ? (
-                  <div className="mt-5 rounded-xl bg-[var(--color-concrete-2)] p-4 text-sm leading-6 text-[var(--muted)]">
-                    <p className="font-bold text-[var(--foreground)]">หมายเหตุ</p>
-                    <p className="mt-1">{loadState.order.note}</p>
+                  ))
+                ) : (
+                  <div className="rounded-lg border border-dashed border-[var(--line)] bg-[var(--color-concrete-2)] p-4 text-sm text-[var(--muted)]">
+                    ไม่พบรายการสินค้าในคำสั่งซื้อนี้
                   </div>
-                ) : null}
-              </article>
+                )}
+              </div>
 
-              <PaymentSlipUploadPanel
-                onPaymentUpdated={(payment, orderPaymentStatus) => {
-                  setLoadState({
-                    ...loadState,
-                    order: {
-                      ...loadState.order,
-                      payment_status: orderPaymentStatus ?? loadState.order.payment_status,
-                      payments: [payment, ...loadState.order.payments.filter((item) => item.id !== payment.id)],
-                    },
-                  });
-                }}
-                order={loadState.order}
-                paymentSetting={loadState.paymentSetting}
-                userId={loadState.userId}
+              {loadState.order.note ? (
+                <div className="mt-5 rounded-md bg-[var(--color-concrete-2)] p-4 text-sm leading-6 text-[var(--muted)]">
+                  <p className="font-semibold text-[var(--foreground)]">
+                    หมายเหตุ
+                  </p>
+                  <p className="mt-2">{loadState.order.note}</p>
+                </div>
+              ) : null}
+
+              <p className="mt-5 break-all border-t border-dashed border-[var(--line)] pt-4 text-xs text-[var(--muted)]">
+                รหัสอ้างอิงระบบ: {loadState.order.id}
+              </p>
+            </article>
+
+            <PaymentSlipUploadPanel
+              onPaymentUpdated={(payment, orderPaymentStatus) => {
+                setLoadState({
+                  ...loadState,
+                  order: {
+                    ...loadState.order,
+                    payment_status:
+                      orderPaymentStatus ?? loadState.order.payment_status,
+                    payments: [
+                      payment,
+                      ...loadState.order.payments.filter(
+                        (item) => item.id !== payment.id,
+                      ),
+                    ],
+                  },
+                });
+              }}
+              order={loadState.order}
+              paymentSetting={loadState.paymentSetting}
+              userId={loadState.userId}
+            />
+          </div>
+
+          <aside className="order-summary h-fit rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm lg:sticky lg:top-6">
+            <p className="border-b border-[var(--line)] pb-4 text-base font-bold text-[var(--foreground)]">
+              สรุปคำสั่งซื้อ
+            </p>
+            <dl className="mt-4 space-y-4 text-sm">
+              <DetailItem
+                label="วิธีรับสินค้า"
+                value={formatDeliveryMethod(loadState.order.delivery_method)}
               />
-            </div>
+              <DetailItem
+                label="สร้างเมื่อ"
+                value={formatDateTime(loadState.order.created_at)}
+              />
+              <DetailItem
+                label="อัปเดตล่าสุด"
+                value={formatDateTime(loadState.order.updated_at)}
+              />
+              <div className="border-t border-[var(--line)] pt-4">
+                <dt className="text-sm text-[var(--muted)]">ยอดสินค้า</dt>
+                <dd className="mt-1 font-semibold text-[var(--foreground)]">
+                  {currencyFormatter.format(loadState.order.subtotal_amount)}
+                </dd>
+              </div>
+              <DetailItem
+                label="ค่าจัดส่ง"
+                value={currencyFormatter.format(loadState.order.delivery_fee)}
+              />
+              <div className="border-t border-[var(--line)] pt-4">
+                <dt className="text-sm text-[var(--muted)]">ยอดรวม</dt>
+                <dd className="mt-2 text-3xl font-extrabold text-[var(--brand)]">
+                  {currencyFormatter.format(loadState.order.total_amount)}
+                </dd>
+              </div>
+            </dl>
 
-            <aside className="space-y-4 lg:sticky lg:top-6">
-              <section className="rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <h3 className="font-bold text-[var(--foreground)]">สรุปยอดชำระ</h3>
-                  <span className="text-xs font-semibold text-[var(--muted)]">THB</span>
-                </div>
-                <dl className="mt-5 space-y-3 text-sm">
-                  <div className="flex justify-between gap-4"><dt className="text-[var(--muted)]">ยอดสินค้า</dt><dd className="font-semibold text-[var(--foreground)]">{currencyFormatter.format(loadState.order.subtotal_amount)}</dd></div>
-                  <div className="flex justify-between gap-4"><dt className="text-[var(--muted)]">ค่าจัดส่ง</dt><dd className="font-semibold text-[var(--foreground)]">{currencyFormatter.format(loadState.order.delivery_fee)}</dd></div>
-                  <div className="border-t border-[var(--line)] pt-4">
-                    <div className="flex items-end justify-between gap-4"><dt className="font-bold text-[var(--foreground)]">ยอดรวมทั้งหมด</dt><dd className="text-2xl font-black text-[var(--brand)]">{currencyFormatter.format(loadState.order.total_amount)}</dd></div>
-                  </div>
-                </dl>
-              </section>
+            {loadState.order.delivery_method === "delivery" ? (
+              <div className="mt-5 rounded-md bg-[var(--color-concrete-2)] p-4 text-sm leading-6 text-[var(--muted)]">
+                <p className="font-semibold text-[var(--foreground)]">
+                  ที่อยู่จัดส่ง
+                </p>
+                <p className="mt-2 whitespace-pre-line">
+                  {loadState.order.delivery_address ?? "-"}
+                </p>
+              </div>
+            ) : null}
 
-              <section className="rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm">
-                <h3 className="font-bold text-[var(--foreground)]">การรับสินค้า</h3>
-                <div className="mt-4 rounded-xl bg-[var(--color-concrete-2)] p-4">
-                  <p className="text-xs font-semibold text-[var(--muted)]">วิธีรับสินค้า</p>
-                  <p className="mt-1 font-bold text-[var(--foreground)]">{formatDeliveryMethod(loadState.order.delivery_method)}</p>
-                  {loadState.order.delivery_method === "delivery" ? (
-                    <div className="mt-4 border-t border-[var(--line)] pt-4">
-                      <p className="text-xs font-semibold text-[var(--muted)]">ที่อยู่จัดส่ง</p>
-                      <p className="mt-1 whitespace-pre-line text-sm leading-6 text-[var(--foreground)]">{loadState.order.delivery_address ?? "-"}</p>
-                    </div>
-                  ) : null}
-                </div>
-              </section>
-
-              <section className="rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm">
-                <h3 className="font-bold text-[var(--foreground)]">ข้อมูลคำสั่งซื้อ</h3>
-                <dl className="mt-4 space-y-3 text-sm">
-                  <DetailItem label="สร้างเมื่อ" value={formatDateTime(loadState.order.created_at)} />
-                  <DetailItem label="อัปเดตล่าสุด" value={formatDateTime(loadState.order.updated_at)} />
-                </dl>
-                <div className="mt-4 border-t border-[var(--line)] pt-4">
-                  <p className="text-xs font-semibold text-[var(--muted)]">รหัสคำสั่งซื้อ</p>
-                  <p className="mt-1 break-all font-mono text-xs text-[var(--foreground)]">{loadState.order.id}</p>
-                </div>
-              </section>
-
-              <Link
-                className="flex min-h-11 items-center justify-center rounded-xl border border-[var(--line)] bg-white px-4 py-2 text-sm font-bold text-[var(--foreground)] shadow-sm transition hover:border-[var(--brand)] hover:text-[var(--brand)]"
-                href="/products"
-              >
-                เลือกสินค้าเพิ่ม
-              </Link>
-            </aside>
-          </section>
-        </>
+            <Link
+              className="mt-5 flex min-h-11 items-center justify-center rounded-xl bg-[var(--brand)] px-4 text-sm font-bold text-white transition hover:opacity-90"
+              href="/products"
+            >
+              เลือกสินค้าเพิ่ม
+            </Link>
+          </aside>
+        </section>
       ) : null}
     </main>
   );

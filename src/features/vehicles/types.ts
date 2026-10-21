@@ -10,4 +10,5 @@ export type VehicleInput = {
   licensePlate: string;
   model: string;
   year: string;
+  mileage: string;
 };

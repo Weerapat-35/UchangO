@@ -50,6 +50,7 @@ export async function createVehicle(
       color: normalizeOptionalText(input.color),
       customer_id: input.customerId,
       license_plate: normalizeLicensePlate(input.licensePlate),
+      current_mileage: input.mileage.trim() ? Number(input.mileage) : null,
       model: normalizeRequiredVehicleText(input.model),
       year: normalizeYear(input.year),
     })
@@ -67,6 +68,7 @@ export async function updateCurrentUserVehicle(
       brand: normalizeRequiredVehicleText(input.brand),
       color: normalizeOptionalText(input.color),
       license_plate: normalizeLicensePlate(input.licensePlate),
+      current_mileage: input.mileage.trim() ? Number(input.mileage) : null,
       model: normalizeRequiredVehicleText(input.model),
       year: normalizeYear(input.year),
     })

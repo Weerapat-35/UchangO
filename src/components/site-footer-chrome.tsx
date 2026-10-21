@@ -7,8 +7,9 @@ export function SiteFooterChrome() {
   const pathname = usePathname();
   const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
   const isTechnician = pathname === "/technician" || pathname.startsWith("/technician/");
+  const isInvoice = pathname === "/invoice" || pathname.startsWith("/invoice/");
 
-  if (isAdmin || isTechnician) return null;
+  if (isAdmin || isTechnician || isInvoice) return null;
 
   return <SiteFooter />;
 }

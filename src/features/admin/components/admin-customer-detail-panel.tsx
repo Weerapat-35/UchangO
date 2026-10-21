@@ -175,19 +175,13 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            อู่ช่างโอ
-          </p>
           <AppNav />
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              รายละเอียดลูกค้า
+              ลูกค้า Detail
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Review profile, vehicles, and booking history for this customer.
-            </p>
           </div>
           <Link
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
@@ -201,7 +195,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            Loading customer...
+            กำลังโหลดข้อมูลลูกค้า...
           </div>
         </section>
       ) : null}
@@ -209,8 +203,8 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">Login required</p>
-            <p className="mt-1">Sign in with an admin account.</p>
+            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
+            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
@@ -224,7 +218,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
       {loadState.status === "access-denied" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">Access denied</p>
+            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
             <p className="mt-2">{loadState.access.reason}</p>
           </div>
         </section>
@@ -233,7 +227,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
       {loadState.status === "not-found" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-[var(--line)] bg-white p-5 text-sm leading-6 text-[var(--muted)] shadow-sm">
-            Customer not found.
+            ลูกค้า not found.
           </div>
         </section>
       ) : null}
@@ -250,32 +244,32 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
         <section className="grid gap-6 py-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <aside className="h-fit rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold text-[var(--brand)]">
-              ข้อมูลลูกค้า
+              ลูกค้า profile
             </p>
             <h2 className="mt-2 text-2xl font-bold text-[var(--foreground)]">
               {loadState.customer.full_name}
             </h2>
             <dl className="mt-5 space-y-4 text-sm">
               <div>
-                <dt className="text-[var(--muted)]">Phone</dt>
+                <dt className="text-[var(--muted)]">เบอร์โทรศัพท์</dt>
                 <dd className="mt-1 font-semibold text-[var(--foreground)]">
                   {loadState.customer.phone_number}
                 </dd>
               </div>
               <div>
-                <dt className="text-[var(--muted)]">Email</dt>
+                <dt className="text-[var(--muted)]">อีเมล</dt>
                 <dd className="mt-1 break-all font-semibold text-[var(--foreground)]">
                   {loadState.customer.email ?? "-"}
                 </dd>
               </div>
               <div>
-                <dt className="text-[var(--muted)]">Role</dt>
+                <dt className="text-[var(--muted)]">บทบาท</dt>
                 <dd className="mt-1 font-semibold text-[var(--foreground)]">
                   {loadState.customer.role}
                 </dd>
               </div>
               <div>
-                <dt className="text-[var(--muted)]">Joined</dt>
+                <dt className="text-[var(--muted)]">วันที่สมัคร</dt>
                 <dd className="mt-1 font-semibold text-[var(--foreground)]">
                   {formatDateTime(loadState.customer.created_at)}
                 </dd>
@@ -287,7 +281,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
             <section>
               <div className="mb-4 flex items-center justify-between gap-4">
                 <h2 className="text-xl font-bold text-[var(--foreground)]">
-                  รถของลูกค้า
+                  รถยนต์
                 </h2>
                 <p className="text-sm text-[var(--muted)]">
                   {loadState.customer.vehicles.length} records
@@ -322,7 +316,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
             <section>
               <div className="mb-4 flex items-center justify-between gap-4">
                 <h2 className="text-xl font-bold text-[var(--foreground)]">
-                  ประวัติการจอง
+                  การจองคิว
                 </h2>
                 <p className="text-sm text-[var(--muted)]">
                   {loadState.customer.bookings.length} records
@@ -350,11 +344,11 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
                             </span>
                           </div>
                           <h3 className="mt-2 text-lg font-bold text-[var(--foreground)]">
-                            {booking.booking_date} เวลา{" "}
+                            {booking.booking_date} at{" "}
                             {formatTime(booking.booking_time)}
                           </h3>
                           <p className="mt-2 text-sm text-[var(--muted)]">
-                            Vehicle: {booking.vehicle?.license_plate ?? "-"}
+                            รถยนต์: {booking.vehicle?.license_plate ?? "-"}
                           </p>
                         </div>
                         <Link

@@ -119,7 +119,7 @@ export function AppNav() {
       // channel name during that race can make Supabase reject .on() calls
       // with "cannot add callbacks ... after subscribe()".
       const channel = supabase
-        .channel(`notification-badge-${nextUser.id}-${setupToken}`)
+        .channel(`notification-badge-${nextUser.id}-${setupToken}-${Date.now()}-${Math.random().toString(36).slice(2)}`)
         .on(
           "postgres_changes",
           {

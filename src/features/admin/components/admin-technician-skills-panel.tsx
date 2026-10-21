@@ -118,8 +118,8 @@ function AddTechnicianSkillForm({
               }
               value={status}
             >
-              <option value="active">active</option>
-              <option value="inactive">inactive</option>
+              <option value="active">เปิดใช้งาน</option>
+              <option value="inactive">ปิดใช้งาน</option>
             </select>
           </label>
         </div>
@@ -140,7 +140,7 @@ function AddTechnicianSkillForm({
             disabled={isCreating}
             type="submit"
           >
-            {isCreating ? "Adding..." : "Add skill"}
+            {isCreating ? "กำลังเพิ่ม..." : "เพิ่มทักษะ"}
           </button>
 
           {createState.status === "error" ? (
@@ -209,7 +209,7 @@ function AdminTechnicianSkillRow({
           </p>
         </div>
         <p className="text-xs text-[var(--muted)]">
-          Updated {new Date(skill.updated_at).toLocaleString("th-TH")}
+          แก้ไขล่าสุด {new Date(skill.updated_at).toLocaleString("th-TH")}
         </p>
       </div>
 
@@ -233,8 +233,8 @@ function AdminTechnicianSkillRow({
               }
               value={status}
             >
-              <option value="active">active</option>
-              <option value="inactive">inactive</option>
+              <option value="active">เปิดใช้งาน</option>
+              <option value="inactive">ปิดใช้งาน</option>
             </select>
           </label>
         </div>
@@ -254,7 +254,7 @@ function AdminTechnicianSkillRow({
             disabled={!hasChanges || isSaving}
             type="submit"
           >
-            {isSaving ? "Saving..." : "Save skill"}
+            {isSaving ? "กำลังบันทึก..." : "บันทึกทักษะ"}
           </button>
 
           {actionState.status === "error" &&
@@ -547,20 +547,13 @@ export function AdminTechnicianSkillsPanel() {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            อู่ช่างโอ
-          </p>
           <AppNav />
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              ทักษะช่าง
+              Admin Technician Skills
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Manage the skill list technicians can select on their profiles
-              and admins can see while assigning work orders.
-            </p>
           </div>
           <Link
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
@@ -574,7 +567,7 @@ export function AdminTechnicianSkillsPanel() {
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            Loading technician skills...
+            กำลังโหลดทักษะช่าง...
           </div>
         </section>
       ) : null}
@@ -582,8 +575,8 @@ export function AdminTechnicianSkillsPanel() {
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">Login required</p>
-            <p className="mt-1">Sign in with an admin account.</p>
+            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
+            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
@@ -597,7 +590,7 @@ export function AdminTechnicianSkillsPanel() {
       {loadState.status === "access-denied" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">Access denied</p>
+            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
             <p className="mt-2">{loadState.access.reason}</p>
           </div>
         </section>
@@ -634,7 +627,7 @@ export function AdminTechnicianSkillsPanel() {
               <input
                 className="min-h-10 flex-1 rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
                 onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Search skill"
+                placeholder="ค้นหาทักษะ"
                 type="search"
                 value={searchInput}
               />

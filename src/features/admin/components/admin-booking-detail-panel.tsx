@@ -110,7 +110,7 @@ function getQuickActions(
         tone: "bg-[var(--brand)] text-white",
       },
       {
-        label: "Cancel",
+        label: "ยกเลิก",
         status: "cancelled",
         tone: "border border-red-200 bg-red-50 text-red-700",
       },
@@ -125,7 +125,7 @@ function getQuickActions(
         tone: "bg-[var(--brand)] text-white",
       },
       {
-        label: "Cancel",
+        label: "ยกเลิก",
         status: "cancelled",
         tone: "border border-red-200 bg-red-50 text-red-700",
       },
@@ -418,20 +418,13 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
       <header className="border-b border-[var(--line)] pb-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-            อู่ช่างโอ
-          </p>
           <AppNav />
         </div>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              รายละเอียดการจอง
+              Admin Booking Detail
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Review customer, vehicle, service, and status details for this
-              booking.
-            </p>
           </div>
           <Link
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
@@ -445,7 +438,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            Loading admin booking detail...
+            กำลังโหลดรายละเอียดการจอง...
           </div>
         </section>
       ) : null}
@@ -453,8 +446,8 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">Login required</p>
-            <p className="mt-1">Sign in with an admin account.</p>
+            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
+            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
@@ -468,7 +461,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
       {loadState.status === "access-denied" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">Access denied</p>
+            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
             <p className="mt-2">{loadState.access.reason}</p>
           </div>
         </section>
@@ -480,7 +473,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
             <p className="font-semibold text-[var(--foreground)]">
               Booking not found
             </p>
-            <p className="mt-1">This booking does not exist.</p>
+            <p className="mt-1">ไม่พบข้อมูลการจองนี้</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/admin/bookings"
@@ -508,7 +501,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
                   {loadState.booking.service?.name ?? "Service not found"}
                 </p>
                 <h2 className="mt-2 text-2xl font-bold text-[var(--foreground)]">
-                  {loadState.booking.booking_date} เวลา{" "}
+                  {loadState.booking.booking_date} at{" "}
                   {formatTime(loadState.booking.booking_time)}
                 </h2>
               </div>
@@ -544,13 +537,13 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
                 }
               />
               <DetailItem
-                label="Created"
+                label="วันที่สร้าง"
                 value={new Date(loadState.booking.created_at).toLocaleString(
                   "th-TH",
                 )}
               />
               <DetailItem
-                label="Updated"
+                label="อัปเดตล่าสุด"
                 value={new Date(loadState.booking.updated_at).toLocaleString(
                   "th-TH",
                 )}
@@ -580,11 +573,11 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
                   value={loadState.booking.customer?.full_name ?? "-"}
                 />
                 <DetailItem
-                  label="Phone"
+                  label="เบอร์โทรศัพท์"
                   value={loadState.booking.customer?.phone_number ?? "-"}
                 />
                 <DetailItem
-                  label="Email"
+                  label="อีเมล"
                   value={loadState.booking.customer?.email ?? "-"}
                 />
               </dl>
@@ -592,7 +585,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
 
             <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-[var(--brand)]">
-                รถ
+                รถยนต์
               </p>
               <dl className="mt-4 space-y-3 text-sm">
                 <DetailItem
@@ -622,14 +615,14 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
 
             <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-[var(--brand)]">
-                ใบงานซ่อม
+                Work order
               </p>
 
               {loadState.repairJob ? (
                 <div className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm leading-6 text-[var(--brand-strong)]">
-                  <p className="font-semibold">Repair job already created</p>
+                  <p className="font-semibold">สร้างงานซ่อมนี้แล้ว</p>
                   <p className="mt-1 break-all text-xs">
-                    Repair Job ID: {loadState.repairJob.id}
+                    รหัสงานซ่อม: {loadState.repairJob.id}
                   </p>
                   <Link
                     className="mt-3 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
@@ -671,13 +664,13 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
 
             <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-[var(--brand)]">
-                จัดการสถานะ
+                Status management
               </p>
 
               {isEditingStatus ? (
                 <div className="mt-4 rounded-md border border-[var(--line)] bg-slate-50 p-3">
                   <label className="text-sm font-semibold text-[var(--foreground)]">
-                    Edit status
+                    แก้ไขสถานะ
                     <select
                       className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
                       disabled={isUpdating}
@@ -710,7 +703,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
                       onClick={() => handleStatusChange(selectedStatus)}
                       type="button"
                     >
-                      {isUpdating ? "Saving..." : "Save status"}
+                      {isUpdating ? "กำลังบันทึก..." : "บันทึกสถานะ"}
                     </button>
                   </div>
                 </div>
@@ -739,7 +732,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
                     onClick={() => setIsEditingStatus(true)}
                     type="button"
                   >
-                    Edit status
+                    แก้ไขสถานะ
                   </button>
                 </div>
               )}

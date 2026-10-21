@@ -1,6 +1,5 @@
 "use client";
 
-import { PageHeader } from "@/components/page-header";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -387,14 +386,14 @@ export function CheckoutPanel() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8">
-      <PageHeader
-        crumbs={[
-          { href: "/cart", label: "ตะกร้าสินค้า" },
-          { label: "ยืนยันคำสั่งซื้อ" },
-        ]}
-        description="เลือกวิธีรับสินค้า ตรวจยอดรวม แล้วสร้างคำสั่งซื้อจากตะกร้าปัจจุบัน"
-        title="ยืนยันคำสั่งซื้อสินค้า"
-      />
+      <header className="border-b border-[var(--line)] pb-5">
+        <h1 className="text-3xl font-bold leading-tight text-[var(--foreground)]">
+          ยืนยันคำสั่งซื้อสินค้า
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+          เลือกวิธีรับสินค้า ตรวจยอดรวม แล้วสร้างคำสั่งซื้อจากตะกร้าปัจจุบัน
+        </p>
+      </header>
 
       {authState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">

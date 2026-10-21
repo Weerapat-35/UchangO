@@ -1,8 +1,7 @@
 "use client";
 
-import { PageHeader } from "@/components/page-header";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   getCustomerProductOrders,
   type ProductOrderWithItems,
@@ -182,7 +181,7 @@ function ProductOrderCard({ order }: { order: ProductOrderWithItems }) {
   const latestPayment = order.payments[0] ?? null;
 
   return (
-    <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
+    <article className="rounded-2xl border border-[var(--line)] bg-white p-4 shadow-sm transition hover:shadow-md sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-[var(--brand)]">
@@ -304,7 +303,7 @@ function ProductOrderCard({ order }: { order: ProductOrderWithItems }) {
           รหัสออเดอร์: {order.id}
         </p>
         <Link
-          className="min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-5 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
           href={`/my-product-orders/${order.id}`}
         >
           ดูรายละเอียด
@@ -315,6 +314,8 @@ function ProductOrderCard({ order }: { order: ProductOrderWithItems }) {
 }
 
 export function CustomerProductOrdersPanel() {
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [loadState, setLoadState] = useState<LoadState>({
     error: null,
     orders: null,
@@ -398,18 +399,41 @@ export function CustomerProductOrdersPanel() {
     };
   }, []);
 
+  const orders = loadState.status === "ready" ? loadState.orders : [];
+  const orderCounts = useMemo(() => ({
+    all: orders.length,
+    pending: orders.filter((order) => order.status === "pending").length,
+    active: orders.filter((order) => ["confirmed", "preparing", "ready_for_pickup", "out_for_delivery"].includes(order.status)).length,
+    completed: orders.filter((order) => order.status === "completed").length,
+    cancelled: orders.filter((order) => order.status === "cancelled").length,
+  }), [orders]);
+  const filteredOrders = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return orders.filter((order) => {
+      const matchesStatus = statusFilter === "all"
+        || (statusFilter === "active" && ["confirmed", "preparing", "ready_for_pickup", "out_for_delivery"].includes(order.status))
+        || order.status === statusFilter;
+      const matchesQuery = !query || `${order.order_number} ${order.items.map((item) => item.product?.name ?? "").join(" ")}`.toLowerCase().includes(query);
+      return matchesStatus && matchesQuery;
+    });
+  }, [orders, searchTerm, statusFilter]);
+
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
-      <PageHeader
-        actions={
-          <Link className="ph-btn" href="/products">
-            เลือกสินค้าเพิ่ม
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col bg-[#f7f7f8] px-4 py-6 sm:px-6 lg:px-8">
+      <header className="rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm sm:p-7">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-red-50 text-2xl text-red-600" aria-hidden="true">🛍️</div>
+            <div>
+              <h1 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">คำสั่งซื้อของฉัน</h1>
+              <p className="mt-1 text-sm leading-6 text-[var(--muted)]">ติดตามสถานะ ตรวจสอบยอดชำระ และดูรายการสินค้าที่คุณสั่งซื้อ</p>
+            </div>
+          </div>
+          <Link className="inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2" href="/products">
+            + เลือกซื้อสินค้า
           </Link>
-        }
-        crumbs={[{ label: "คำสั่งซื้อ" }]}
-        description="ดูประวัติการสั่งซื้อสินค้า สถานะออเดอร์ วิธีรับสินค้า และยอดรวมของบัญชีที่เข้าสู่ระบบอยู่"
-        title="คำสั่งซื้อสินค้า"
-      />
+        </div>
+      </header>
 
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">
@@ -443,27 +467,43 @@ export function CustomerProductOrdersPanel() {
       ) : null}
 
       {loadState.status === "ready" ? (
-        <section className="py-6">
+        <section className="py-5">
           {loadState.orders.length > 0 ? (
-            <div className="space-y-4">
-              {loadState.orders.map((order) => (
-                <ProductOrderCard key={order.id} order={order} />
-              ))}
-            </div>
+            <>
+              <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                {[
+                  { key: "all", label: "ทั้งหมด", count: orderCounts.all },
+                  { key: "pending", label: "รอดำเนินการ", count: orderCounts.pending },
+                  { key: "active", label: "กำลังดำเนินการ", count: orderCounts.active },
+                  { key: "completed", label: "สำเร็จ", count: orderCounts.completed },
+                  { key: "cancelled", label: "ยกเลิก", count: orderCounts.cancelled },
+                ].map((item) => (
+                  <button key={item.key} type="button" onClick={() => setStatusFilter(item.key)} className={`rounded-xl border p-3 text-left transition sm:p-4 ${statusFilter === item.key ? "border-red-500 bg-red-50 ring-1 ring-red-500" : "border-[var(--line)] bg-white hover:border-red-200"}`}>
+                    <span className="block text-xs text-[var(--muted)] sm:text-sm">{item.label}</span>
+                    <span className="mt-1 block text-xl font-bold text-[var(--foreground)]">{item.count}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[var(--line)] bg-white p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+                <label className="relative block w-full sm:max-w-sm">
+                  <span className="sr-only">ค้นหาคำสั่งซื้อ</span>
+                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[var(--muted)]">⌕</span>
+                  <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="ค้นหาเลขออเดอร์หรือชื่อสินค้า" className="min-h-11 w-full rounded-lg border border-[var(--line)] bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100" />
+                </label>
+                <p className="text-sm text-[var(--muted)]">แสดง {filteredOrders.length} จาก {orders.length} คำสั่งซื้อ</p>
+              </div>
+              {filteredOrders.length > 0 ? (
+                <div className="space-y-4">{filteredOrders.map((order) => <ProductOrderCard key={order.id} order={order} />)}</div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-[var(--line)] bg-white p-8 text-center text-sm text-[var(--muted)]">ไม่พบคำสั่งซื้อที่ตรงกับการค้นหา ลองเปลี่ยนคำค้นหาหรือเลือกสถานะอื่น</div>
+              )}
+            </>
           ) : (
-            <div className="rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              <p className="font-semibold text-[var(--foreground)]">
-                ยังไม่มีคำสั่งซื้อสินค้า
-              </p>
-              <p className="mt-1">
-                เริ่มจากหน้าเลือกสินค้า เพิ่มสินค้าเข้าตะกร้า แล้ว checkout
-              </p>
-              <Link
-                className="mt-4 inline-flex min-h-10 items-center rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white"
-                href="/products"
-              >
-                ไปเลือกสินค้า
-              </Link>
+            <div className="rounded-2xl border border-dashed border-[var(--line)] bg-white px-6 py-12 text-center shadow-sm">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-red-50 text-3xl" aria-hidden="true">🛒</div>
+              <p className="mt-4 text-lg font-bold text-[var(--foreground)]">ยังไม่มีคำสั่งซื้อสินค้า</p>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--muted)]">เมื่อคุณสั่งซื้อสินค้าแล้ว รายการคำสั่งซื้อและสถานะการจัดส่งจะแสดงที่หน้านี้</p>
+              <Link className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700" href="/products">ไปเลือกสินค้า</Link>
             </div>
           )}
         </section>
