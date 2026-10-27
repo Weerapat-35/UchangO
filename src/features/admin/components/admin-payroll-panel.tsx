@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   checkAdminAccess,
   deleteAdminPayroll,
@@ -85,6 +86,8 @@ export function AdminPayrollPanel() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [workingId, setWorkingId] = useState<string | null>(null);
+  // รายการที่รอให้ยืนยันในหน้าต่างยืนยัน (จ่ายแล้ว / ลบ)
+  const [pendingAction, setPendingAction] = useState<{ type: "pay" | "delete"; payroll: AdminPayroll } | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -175,7 +178,6 @@ export function AdminPayrollPanel() {
 
   async function remove(payroll: AdminPayroll) {
     if (payroll.status === "paid") return;
-    if (!window.confirm(`ยืนยันลบรายการเงินเดือนของ ${payroll.technician?.full_name ?? "ช่างคนนี้"} หรือไม่?`)) return;
     setWorkingId(payroll.id);
     setActionError("");
     const result = await deleteAdminPayroll(createClient(), payroll.id);
@@ -189,7 +191,6 @@ export function AdminPayrollPanel() {
 
   async function markPaid(payroll: AdminPayroll) {
     if (payroll.status === "paid") return;
-    if (!window.confirm(`ยืนยันว่าจ่ายเงินเดือนให้ ${payroll.technician?.full_name ?? "ช่างคนนี้"} แล้วหรือไม่? กรุณาตรวจสอบว่าโอนเงินจริงแล้วก่อนยืนยัน`)) return;
     setWorkingId(payroll.id);
     setActionError("");
     const supabase = createClient();
@@ -213,6 +214,13 @@ export function AdminPayrollPanel() {
     if (result.error) setActionError(result.error.message);
     else setReloadKey((value) => value + 1);
     setWorkingId(null);
+  }
+
+  async function confirmPendingAction() {
+    if (!pendingAction) return;
+    if (pendingAction.type === "pay") await markPaid(pendingAction.payroll);
+    else await remove(pendingAction.payroll);
+    setPendingAction(null);
   }
 
   const payrolls = useMemo(() => (loadState.status === "ready" ? loadState.data?.payrolls ?? [] : []), [loadState]);
@@ -363,7 +371,7 @@ export function AdminPayrollPanel() {
                       <td className="px-3 py-4 text-right tabular-nums text-red-700">{Number(payroll.deduction_amount) > 0 ? `−${currency.format(Number(payroll.deduction_amount))}` : currency.format(0)}</td>
                       <td className="px-3 py-4 text-right font-bold tabular-nums">{currency.format(Number(payroll.net_salary))}</td>
                       <td className="px-3 py-4"><span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-xs font-bold ${payroll.status === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}><span className={`h-1.5 w-1.5 rounded-full ${payroll.status === "paid" ? "bg-emerald-500" : "bg-amber-500"}`} />{payroll.status === "paid" ? "จ่ายแล้ว" : "รอจ่าย"}</span>{payroll.status === "paid" && payroll.paid_at ? <p className="mt-1 text-[10px] text-[var(--muted)]">{formatDate(payroll.paid_at)}</p> : null}</td>
-                      <td className="px-4 py-4"><div className="flex items-center justify-end gap-2"><button className="rounded-lg border border-[var(--line)] px-2.5 py-1.5 text-xs font-semibold hover:border-red-200 hover:bg-red-50 hover:text-red-700" type="button" onClick={() => editPayroll(payroll)}>แก้ไข</button>{payroll.status !== "paid" ? <><button className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50" disabled={workingId === payroll.id} type="button" onClick={() => void markPaid(payroll)}>{workingId === payroll.id ? "..." : "จ่ายแล้ว"}</button><button aria-label={`ลบเงินเดือน ${payroll.technician?.full_name ?? "ช่าง"}`} className="rounded-lg px-2 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50" disabled={workingId === payroll.id} type="button" onClick={() => void remove(payroll)}>ลบ</button></> : null}</div></td>
+                      <td className="px-4 py-4"><div className="flex items-center justify-end gap-2"><button className="rounded-lg border border-[var(--line)] px-2.5 py-1.5 text-xs font-semibold hover:border-red-200 hover:bg-red-50 hover:text-red-700" type="button" onClick={() => editPayroll(payroll)}>แก้ไข</button>{payroll.status !== "paid" ? <><button className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50" disabled={workingId === payroll.id} type="button" onClick={() => setPendingAction({ type: "pay", payroll })}>{workingId === payroll.id ? "..." : "จ่ายแล้ว"}</button><button aria-label={`ลบเงินเดือน ${payroll.technician?.full_name ?? "ช่าง"}`} className="rounded-lg px-2 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50" disabled={workingId === payroll.id} type="button" onClick={() => setPendingAction({ type: "delete", payroll })}>ลบ</button></> : null}</div></td>
                     </tr>
                   ))}
                 </tbody>
@@ -374,6 +382,32 @@ export function AdminPayrollPanel() {
           {actionError && loadState.status !== "ready" ? <p className="border-t border-red-100 bg-red-50 px-5 py-3 text-sm text-red-700">{actionError}</p> : null}
         </section>
       </div>
+
+      {pendingAction?.type === "pay" ? (
+        <ConfirmDialog
+          cancelLabel="ยังไม่จ่าย"
+          confirmLabel="ยืนยันจ่ายแล้ว"
+          description={`ยืนยันว่าจ่ายเงินเดือนให้ ${pendingAction.payroll.technician?.full_name ?? "ช่างคนนี้"} จำนวน ${currency.format(Number(pendingAction.payroll.net_salary))} แล้วหรือไม่? กรุณาตรวจสอบว่าโอนเงินจริงแล้วก่อนยืนยัน`}
+          isLoading={workingId === pendingAction.payroll.id}
+          loadingLabel="กำลังบันทึก..."
+          onCancel={() => setPendingAction(null)}
+          onConfirm={() => void confirmPendingAction()}
+          open
+          title="ยืนยันการจ่ายเงินเดือน?"
+          variant="primary"
+        />
+      ) : null}
+
+      {pendingAction?.type === "delete" ? (
+        <ConfirmDialog
+          description={`รายการเงินเดือนของ ${pendingAction.payroll.technician?.full_name ?? "ช่างคนนี้"} เดือน${formatMonth(pendingAction.payroll.payroll_month)} จะถูกลบถาวรและไม่สามารถกู้คืนได้ คุณแน่ใจหรือไม่?`}
+          isLoading={workingId === pendingAction.payroll.id}
+          onCancel={() => setPendingAction(null)}
+          onConfirm={() => void confirmPendingAction()}
+          open
+          title="ลบรายการเงินเดือนนี้?"
+        />
+      ) : null}
     </main>
   );
 }

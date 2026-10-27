@@ -649,6 +649,7 @@ export type Database = {
           quantity: number
           reference_id: string | null
           reference_type: string | null
+          unit_cost: number | null
         }
         Insert: {
           created_at?: string
@@ -660,6 +661,7 @@ export type Database = {
           quantity: number
           reference_id?: string | null
           reference_type?: string | null
+          unit_cost?: number | null
         }
         Update: {
           created_at?: string
@@ -671,6 +673,7 @@ export type Database = {
           quantity?: number
           reference_id?: string | null
           reference_type?: string | null
+          unit_cost?: number | null
         }
         Relationships: [
           {
@@ -1240,6 +1243,45 @@ export type Database = {
           phone_number?: string
           role?: string
           technician_specialty?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      recurring_expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          created_by: string | null
+          day_of_month: number
+          id: string
+          is_active: boolean
+          name: string
+          start_month: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          category: string
+          created_at?: string
+          created_by?: string | null
+          day_of_month: number
+          id?: string
+          is_active?: boolean
+          name: string
+          start_month?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          day_of_month?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          start_month?: string
           updated_at?: string
         }
         Relationships: []
@@ -1905,6 +1947,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_recurring_expenses: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       add_repair_job_part: {
         Args: {
           p_product_id: string

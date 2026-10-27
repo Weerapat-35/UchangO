@@ -20,3 +20,4 @@ Dockerfile
 docker-compose*.yml
 deploy
 supabase
+figma-export

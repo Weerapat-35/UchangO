@@ -36,3 +36,6 @@ supabase/.temp/
 src/features/auth/components/auth-panel.tsx.bak
 
 .scannerwork/
+
+# Figma export (contains real customer data)
+figma-export/

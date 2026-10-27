@@ -144,8 +144,18 @@ function MovementForm({
   const [movementType, setMovementType] = useState<MovementType>("stock_in");
   const [quantity, setQuantity] = useState("1");
   const [note, setNote] = useState("");
+  // ราคาทุนต่อชิ้น (เฉพาะรับเข้าสต็อก) เริ่มจากราคาทุนของสินค้า
+  const [unitCost, setUnitCost] = useState(String(สินค้า[0]?.cost_price ?? ""));
   const selectedProduct = สินค้า.find((product) => product.id === productId);
   const isSaving = createState.status === "saving";
+  const isStockIn = movementType === "stock_in";
+  const purchaseTotal = Math.max(0, Number(quantity) || 0) * Math.max(0, Number(unitCost) || 0);
+
+  function handleProductChange(nextProductId: string) {
+    setProductId(nextProductId);
+    const nextProduct = สินค้า.find((product) => product.id === nextProductId);
+    setUnitCost(String(nextProduct?.cost_price ?? ""));
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -154,6 +164,7 @@ function MovementForm({
       note: note.trim() || null,
       product_id: productId,
       quantity: Number(quantity),
+      unit_cost: isStockIn && Number(unitCost) > 0 ? Number(unitCost) : null,
     });
   }
 
@@ -174,7 +185,7 @@ function MovementForm({
             สินค้า
             <select
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setProductId(event.target.value)}
+              onChange={(event) => handleProductChange(event.target.value)}
               value={productId}
             >
               {สินค้า.map((product) => (
@@ -213,6 +224,34 @@ function MovementForm({
             />
           </label>
         </div>
+
+        {isStockIn ? (
+          <div className="grid gap-3 rounded-md border border-[var(--line)] bg-slate-50 p-3 sm:grid-cols-[200px_minmax(0,1fr)] sm:items-end">
+            <label className="text-sm font-semibold text-[var(--foreground)]">
+              ราคาทุนต่อชิ้น (บาท)
+              <input
+                className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
+                min={0}
+                onChange={(event) => setUnitCost(event.target.value)}
+                step="0.01"
+                type="number"
+                value={unitCost}
+              />
+            </label>
+            <p className="text-sm leading-6 text-[var(--muted)]">
+              {purchaseTotal > 0 ? (
+                <>
+                  บันทึกเป็น<span className="font-semibold text-red-700">เงินออก หมวดค่าอะไหล่</span> อัตโนมัติ รวม{" "}
+                  <span className="font-semibold text-[var(--foreground)]">
+                    {purchaseTotal.toLocaleString("th-TH", { style: "currency", currency: "THB" })}
+                  </span>
+                </>
+              ) : (
+                "ใส่ 0 หรือเว้นว่างถ้าไม่ต้องบันทึกเป็นเงินออก"
+              )}
+            </p>
+          </div>
+        ) : null}
 
         <label className="text-sm font-semibold text-[var(--foreground)]">
           หมายเหตุ
@@ -496,7 +535,9 @@ export function AdminInventoryPanel() {
     await loadInventory();
     setCreateState({
       error: null,
-      message: "บันทึกรายการสต็อกเรียบร้อยแล้ว",
+      message: input.unit_cost
+        ? "บันทึกรายการสต็อกเรียบร้อยแล้ว และบันทึกเงินออกค่าอะไหล่ในหน้าการเงินแล้ว"
+        : "บันทึกรายการสต็อกเรียบร้อยแล้ว",
       status: "saved",
     });
   }

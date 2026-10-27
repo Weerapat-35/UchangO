@@ -45,6 +45,8 @@ import type {
   AdminFinanceDailySummary,
   AdminPayroll,
   AdminPayrollInput,
+  AdminRecurringExpense,
+  AdminRecurringExpenseInput,
   RepairJob,
 } from "./types";
 
@@ -1900,6 +1902,8 @@ export async function createAdminInventoryMovement(
       quantity: input.quantity,
       reference_id: input.reference_id ?? null,
       reference_type: input.reference_type ?? null,
+      // ส่งเฉพาะเมื่อมีราคาทุน: ฐานข้อมูลที่ยังไม่ได้รัน 20261028_auto_expenses.sql จะยังบันทึกสต็อกได้
+      ...(input.unit_cost ? { unit_cost: input.unit_cost } : {}),
     })
     .select("*")
     .single();
@@ -2738,6 +2742,63 @@ export async function deleteAdminFinanceTransaction(
     .from("finance_transactions")
     .delete()
     .eq("id", transactionId);
+}
+
+// บันทึกค่าใช้จ่ายประจำของเดือนที่ถึงกำหนดแล้วลงการเงิน (เรียกซ้ำได้ ไม่บันทึกซ้ำ)
+export async function generateAdminRecurringExpenses(
+  supabase: BCareSupabaseClient,
+) {
+  return supabase.rpc("generate_recurring_expenses");
+}
+
+export async function getAdminRecurringExpenses(
+  supabase: BCareSupabaseClient,
+) {
+  const result = await supabase
+    .from("recurring_expenses")
+    .select("*")
+    .order("day_of_month", { ascending: true })
+    .order("name", { ascending: true });
+
+  return {
+    data: (result.data ?? null) as AdminRecurringExpense[] | null,
+    error: result.error,
+  };
+}
+
+export async function createAdminRecurringExpense(
+  supabase: BCareSupabaseClient,
+  userId: string,
+  input: AdminRecurringExpenseInput,
+) {
+  return supabase.from("recurring_expenses").insert({
+    amount: input.amount,
+    category: input.category.trim(),
+    created_by: userId,
+    day_of_month: input.dayOfMonth,
+    name: input.name.trim(),
+  });
+}
+
+export async function setAdminRecurringExpenseActive(
+  supabase: BCareSupabaseClient,
+  recurringExpenseId: string,
+  isActive: boolean,
+) {
+  return supabase
+    .from("recurring_expenses")
+    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .eq("id", recurringExpenseId);
+}
+
+export async function deleteAdminRecurringExpense(
+  supabase: BCareSupabaseClient,
+  recurringExpenseId: string,
+) {
+  return supabase
+    .from("recurring_expenses")
+    .delete()
+    .eq("id", recurringExpenseId);
 }
 
 export async function getAdminPayrolls(

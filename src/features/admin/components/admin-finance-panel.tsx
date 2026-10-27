@@ -1,15 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   checkAdminAccess,
   createAdminFinanceTransaction,
+  createAdminRecurringExpense,
   deleteAdminFinanceTransaction,
+  deleteAdminRecurringExpense,
+  generateAdminRecurringExpenses,
   getAdminFinanceTransactions,
+  getAdminRecurringExpenses,
+  setAdminRecurringExpenseActive,
   type AdminAccessResult,
   type AdminFinanceTransaction,
   type AdminFinanceTransactionInput,
   type AdminFinanceTransactionType,
+  type AdminRecurringExpense,
+  type AdminRecurringExpenseInput,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -50,6 +58,31 @@ const emptyForm: AdminFinanceTransactionInput = {
   transactionType: "expense",
 };
 
+const INCOME_CATEGORIES = ["ค่าบริการซ่อม", "ขายสินค้า", "รายรับอื่น ๆ"];
+const EXPENSE_CATEGORIES = ["ค่าอะไหล่", "ค่าน้ำมัน", "ค่าไฟ", "ค่าน้ำ", "ค่าเช่า", "ค่าอินเทอร์เน็ต", "เงินเดือนช่าง", "ค่าใช้จ่ายทั่วไป", "ค่าใช้จ่ายอื่น ๆ"];
+
+// รายการอัตโนมัติที่แอดมินลบได้ (ลบแล้วระบบไม่สร้างซ้ำ) ส่วนรายรับจากการชำระเงินและเงินเดือนลบได้จากต้นทางเท่านั้น
+const DELETABLE_AUTO_REFERENCES = ["recurring_expense", "inventory_movement"];
+
+const AUTO_REFERENCE_LABELS: Record<string, string> = {
+  booking_payment: "อัตโนมัติ: ชำระค่าบริการ",
+  inventory_movement: "อัตโนมัติ: รับเข้าสต็อก",
+  product_payment: "อัตโนมัติ: ขายสินค้า",
+  recurring_expense: "อัตโนมัติ: ค่าใช้จ่ายประจำ",
+  technician_payroll: "อัตโนมัติ: เงินเดือนช่าง",
+};
+
+const emptyRecurringForm: AdminRecurringExpenseInput = {
+  amount: 0,
+  category: "ค่าเช่า",
+  dayOfMonth: 1,
+  name: "",
+};
+
+type PendingDelete =
+  | { type: "transaction"; transaction: AdminFinanceTransaction }
+  | { type: "recurring"; recurring: AdminRecurringExpense };
+
 export function AdminFinancePanel() {
   const [startDate, setStartDate] = useState(monthStart());
   const [endDate, setEndDate] = useState(monthEnd());
@@ -63,6 +96,12 @@ export function AdminFinancePanel() {
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [recurringExpenses, setRecurringExpenses] = useState<AdminRecurringExpense[]>([]);
+  const [recurringError, setRecurringError] = useState("");
+  const [recurringForm, setRecurringForm] = useState<AdminRecurringExpenseInput>(emptyRecurringForm);
+  const [recurringSaving, setRecurringSaving] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -85,12 +124,24 @@ export function AdminFinancePanel() {
         return;
       }
 
-      const result = await getAdminFinanceTransactions(supabase, startDate, endDate);
+      // บันทึกค่าใช้จ่ายประจำที่ถึงกำหนดก่อน แล้วค่อยโหลดรายการ จะได้เห็นยอดล่าสุด
+      const generated = await generateAdminRecurringExpenses(supabase);
+      const [result, recurringResult] = await Promise.all([
+        getAdminFinanceTransactions(supabase, startDate, endDate),
+        getAdminRecurringExpenses(supabase),
+      ]);
       if (result.error) {
         setLoadState({ status: "error", access: null, error: result.error.message, data: null });
         return;
       }
 
+      const recurringLoadError = generated.error ?? recurringResult.error;
+      setRecurringError(
+        recurringLoadError
+          ? `ใช้ค่าใช้จ่ายประจำไม่ได้: ${recurringLoadError.message} (ตรวจว่ารัน supabase/20261028_auto_expenses.sql แล้ว)`
+          : "",
+      );
+      setRecurringExpenses(recurringResult.data ?? []);
       setLoadState({ status: "ready", access, error: null, data: result.data });
     }
 
@@ -126,18 +177,59 @@ export function AdminFinancePanel() {
     setSaving(false);
   }
 
-  async function handleDelete(transaction: AdminFinanceTransaction) {
-    if (transaction.reference_id) {
-      return;
+  function canDelete(transaction: AdminFinanceTransaction) {
+    return !transaction.reference_id || DELETABLE_AUTO_REFERENCES.includes(transaction.reference_type ?? "");
+  }
+
+  async function handleConfirmDelete() {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    setActionError("");
+    const supabase = createClient();
+    const result = pendingDelete.type === "transaction"
+      ? await deleteAdminFinanceTransaction(supabase, pendingDelete.transaction.id)
+      : await deleteAdminRecurringExpense(supabase, pendingDelete.recurring.id);
+    if (result.error) {
+      setActionError(result.error.message);
+    } else {
+      setReloadKey((value) => value + 1);
     }
-    if (!window.confirm("ต้องการลบรายการนี้หรือไม่?")) {
+    setDeleting(false);
+    setPendingDelete(null);
+  }
+
+  async function handleRecurringSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!recurringForm.name.trim() || recurringForm.amount <= 0) {
+      setRecurringError("กรุณาระบุชื่อรายการและจำนวนเงินให้ถูกต้อง");
       return;
     }
 
+    setRecurringSaving(true);
+    setRecurringError("");
     const supabase = createClient();
-    const result = await deleteAdminFinanceTransaction(supabase, transaction.id);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session?.user.id;
+    if (!userId) {
+      setRecurringError("กรุณาเข้าสู่ระบบใหม่");
+      setRecurringSaving(false);
+      return;
+    }
+
+    const result = await createAdminRecurringExpense(supabase, userId, recurringForm);
     if (result.error) {
-      setActionError(result.error.message);
+      setRecurringError(result.error.message);
+    } else {
+      setRecurringForm(emptyRecurringForm);
+      setReloadKey((value) => value + 1);
+    }
+    setRecurringSaving(false);
+  }
+
+  async function toggleRecurring(recurring: AdminRecurringExpense) {
+    const result = await setAdminRecurringExpenseActive(createClient(), recurring.id, !recurring.is_active);
+    if (result.error) {
+      setRecurringError(result.error.message);
       return;
     }
     setReloadKey((value) => value + 1);
@@ -149,9 +241,7 @@ export function AdminFinancePanel() {
     : { income: 0, expense: 0, net: 0 };
 
   const categories = useMemo(
-    () => (form.transactionType === "income"
-      ? ["ค่าบริการซ่อม", "ขายสินค้า", "รายรับอื่น ๆ"]
-      : ["ค่าอะไหล่", "ค่าน้ำมัน", "ค่าไฟ", "เงินเดือนช่าง", "ค่าใช้จ่ายทั่วไป", "ค่าใช้จ่ายอื่น ๆ"]),
+    () => (form.transactionType === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES),
     [form.transactionType],
   );
 
@@ -293,7 +383,12 @@ export function AdminFinancePanel() {
                       <td className="px-3 py-3">{transaction.category}</td>
                       <td className="max-w-xs px-3 py-3 text-[var(--muted)]">{transaction.description ?? "-"}</td>
                       <td className="px-3 py-3 text-right font-semibold">{currency.format(Number(transaction.amount))}</td>
-                      <td className="px-3 py-3 text-right">{transaction.reference_id ? <span className="text-xs text-[var(--muted)]">อัตโนมัติ</span> : <button className="text-xs font-semibold text-red-700" type="button" onClick={() => void handleDelete(transaction)}>ลบ</button>}</td>
+                      <td className="px-3 py-3 text-right">
+                        <div className="flex flex-col items-end gap-1">
+                          {transaction.reference_type ? <span className="whitespace-nowrap text-xs text-[var(--muted)]">{AUTO_REFERENCE_LABELS[transaction.reference_type] ?? "อัตโนมัติ"}</span> : null}
+                          {canDelete(transaction) ? <button className="text-xs font-semibold text-red-700" type="button" onClick={() => setPendingDelete({ type: "transaction", transaction })}>ลบ</button> : null}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -302,6 +397,89 @@ export function AdminFinancePanel() {
           </div>
         </section>
       </div>
+
+      <section className="mt-6 rounded-xl border border-[var(--line)] bg-white p-5">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-xl font-bold">ค่าใช้จ่ายประจำเดือน</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              ตั้งไว้ครั้งเดียว ระบบบันทึกเป็นเงินออกให้ทุกเดือนเมื่อถึงวันที่กำหนด (บันทึกตอนเปิดหน้าการเงิน)
+            </p>
+          </div>
+          <span className="text-sm text-[var(--muted)]">
+            รวมต่อเดือน {currency.format(recurringExpenses.filter((item) => item.is_active).reduce((sum, item) => sum + Number(item.amount), 0))}
+          </span>
+        </div>
+
+        <form className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_150px_130px_auto] md:items-end" onSubmit={handleRecurringSubmit}>
+          <label className="text-sm font-semibold">
+            ชื่อรายการ
+            <input className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] px-3" placeholder="เช่น ค่าเช่าอู่" value={recurringForm.name} onChange={(e) => setRecurringForm({ ...recurringForm, name: e.target.value })} />
+          </label>
+          <label className="text-sm font-semibold">
+            หมวด
+            <select className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] px-3" value={recurringForm.category} onChange={(e) => setRecurringForm({ ...recurringForm, category: e.target.value })}>
+              {EXPENSE_CATEGORIES.map((category) => <option key={category}>{category}</option>)}
+            </select>
+          </label>
+          <label className="text-sm font-semibold">
+            จำนวนเงิน (บาท)
+            <input className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] px-3" min="0.01" step="0.01" type="number" value={recurringForm.amount || ""} onChange={(e) => setRecurringForm({ ...recurringForm, amount: Number(e.target.value) })} />
+          </label>
+          <label className="text-sm font-semibold">
+            ทุกวันที่
+            <select className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] px-3" value={recurringForm.dayOfMonth} onChange={(e) => setRecurringForm({ ...recurringForm, dayOfMonth: Number(e.target.value) })}>
+              {Array.from({ length: 28 }, (_, index) => index + 1).map((day) => <option key={day} value={day}>{day}</option>)}
+            </select>
+          </label>
+          <button className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:opacity-60" disabled={recurringSaving} type="submit">
+            {recurringSaving ? "กำลังบันทึก..." : "เพิ่มรายการ"}
+          </button>
+        </form>
+        {recurringError ? <p className="mt-3 text-sm text-red-700">{recurringError}</p> : null}
+
+        <div className="mt-5 overflow-x-auto">
+          {recurringExpenses.length === 0 ? (
+            <p className="py-6 text-center text-sm text-[var(--muted)]">ยังไม่มีค่าใช้จ่ายประจำ</p>
+          ) : (
+            <table className="w-full min-w-[640px] text-sm">
+              <thead><tr className="border-b border-[var(--line)] text-left text-[var(--muted)]"><th className="px-3 py-3">รายการ</th><th className="px-3 py-3">หมวด</th><th className="px-3 py-3">ทุกวันที่</th><th className="px-3 py-3 text-right">จำนวน</th><th className="px-3 py-3">สถานะ</th><th className="px-3 py-3"></th></tr></thead>
+              <tbody>
+                {recurringExpenses.map((item) => (
+                  <tr className={`border-b border-[var(--line)] last:border-0 ${item.is_active ? "" : "text-[var(--muted)]"}`} key={item.id}>
+                    <td className="px-3 py-3 font-semibold">{item.name}</td>
+                    <td className="px-3 py-3">{item.category}</td>
+                    <td className="px-3 py-3">{item.day_of_month} ของทุกเดือน</td>
+                    <td className="px-3 py-3 text-right font-semibold">{currency.format(Number(item.amount))}</td>
+                    <td className="px-3 py-3">{item.is_active ? <span className="text-emerald-700">ใช้งาน</span> : "หยุดชั่วคราว"}</td>
+                    <td className="px-3 py-3 text-right">
+                      <div className="flex justify-end gap-3">
+                        <button className="text-xs font-semibold text-[var(--foreground)]" type="button" onClick={() => void toggleRecurring(item)}>{item.is_active ? "หยุด" : "เปิดใช้"}</button>
+                        <button className="text-xs font-semibold text-red-700" type="button" onClick={() => setPendingDelete({ type: "recurring", recurring: item })}>ลบ</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+
+      <ConfirmDialog
+        description={
+          pendingDelete?.type === "recurring"
+            ? `"${pendingDelete.recurring.name}" จะไม่ถูกบันทึกในเดือนต่อ ๆ ไป รายการเงินออกที่บันทึกไปแล้วยังอยู่ในหน้าการเงิน คุณแน่ใจหรือไม่?`
+            : pendingDelete?.type === "transaction"
+              ? `รายการ${pendingDelete.transaction.transaction_type === "income" ? "เงินเข้า" : "เงินออก"} "${pendingDelete.transaction.category}" ${currency.format(Number(pendingDelete.transaction.amount))} จะถูกลบถาวรและไม่สามารถกู้คืนได้ คุณแน่ใจหรือไม่?`
+              : ""
+        }
+        isLoading={deleting}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => void handleConfirmDelete()}
+        open={pendingDelete !== null}
+        title={pendingDelete?.type === "recurring" ? "ลบค่าใช้จ่ายประจำนี้?" : "ลบรายการนี้?"}
+      />
     </main>
   );
 }

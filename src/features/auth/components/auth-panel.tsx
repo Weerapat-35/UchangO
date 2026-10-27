@@ -297,9 +297,12 @@ export function AuthPanel() {
               </div>
             ) : null}
 
-            <Field label="อีเมล" icon={<MailIcon />} type="email" inputMode="email" autoComplete="email" onChange={(e) => setEmail(e.target.value)} placeholder="example@email.com" value={email} />
+            {/* id/name + autoComplete="username" ให้ตัวจัดการรหัสผ่านของเบราว์เซอร์จดจำบัญชีได้ */}
+            <Field label="อีเมล" icon={<MailIcon />} id="auth-email" name="email" type="email" inputMode="email" autoComplete={isLogin ? "username" : "email"} onChange={(e) => setEmail(e.target.value)} placeholder="example@email.com" value={email} />
 
             <Field
+              id="auth-password"
+              name="password"
               label="รหัสผ่าน"
               hint={isLogin ? undefined : "อย่างน้อย 6 ตัวอักษร"}
               icon={<LockIcon />}

@@ -52,11 +52,18 @@ type StaffSidebarProps = {
 
 export function StaffSidebar({ groups: allGroups, homeHref, subtitle, ariaLabel, searchable = false }: StaffSidebarProps) {
   const pathname = usePathname();
+  // open = ลิ้นชักบนจอเล็ก, collapsed = ซ่อนเมนูบนจอกว้าง
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState("");
+  // หมวดที่ผู้ใช้กดเปิด/ปิดเอง; หมวดที่ยังไม่เคยกดจะเปิดเฉพาะหมวดของหน้าปัจจุบัน
+  const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const toggle = () => setOpen((value) => !value);
+    const toggle = () => {
+      if (window.matchMedia("(min-width: 1024px)").matches) setCollapsed((value) => !value);
+      else setOpen((value) => !value);
+    };
     const close = () => setOpen(false);
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
@@ -97,7 +104,7 @@ export function StaffSidebar({ groups: allGroups, homeHref, subtitle, ariaLabel,
   return (
     <>
       <button className={`staff-sidebar__backdrop${open ? " is-open" : ""}`} type="button" aria-label="ปิดเมนู" tabIndex={open ? 0 : -1} onClick={() => setOpen(false)} />
-      <aside id="staff-sidebar" className={`staff-sidebar${open ? " is-open" : ""}`} aria-label={ariaLabel}>
+      <aside id="staff-sidebar" className={`staff-sidebar${open ? " is-open" : ""}${collapsed ? " is-collapsed" : ""}`} aria-label={ariaLabel}>
         <div className="staff-sidebar__head">
           <Link href={homeHref} className="staff-sidebar__title" onClick={() => setOpen(false)}>
             <Image src="/brand/ouchang-o-logo.png" alt="อู่ช่างโอ" width={800} height={374} className="staff-sidebar__logo" priority />
@@ -117,10 +124,24 @@ export function StaffSidebar({ groups: allGroups, homeHref, subtitle, ariaLabel,
         ) : null}
 
         <nav className="staff-sidebar__nav">
-          {groups.map((group) => (
+          {groups.map((group, index) => {
+            const hasActive = group.items.some((item) => isNavActive(item.href, pathname, homeHref));
+            // ตอนค้นหาเมนู เปิดทุกหมวดเพื่อให้เห็นผลลัพธ์
+            const isGroupOpen = keyword ? true : (groupOpen[group.label] ?? hasActive);
+            const itemsId = `staff-nav-group-${index}`;
+            return (
             <div key={group.label} className="staff-nav-group">
-              <p className="staff-nav-group__label">{group.label}</p>
-              <div className="staff-nav-group__items">
+              <button
+                type="button"
+                className={`staff-nav-group__toggle${isGroupOpen ? " is-open" : ""}`}
+                aria-expanded={isGroupOpen}
+                aria-controls={itemsId}
+                onClick={() => setGroupOpen((state) => ({ ...state, [group.label]: !isGroupOpen }))}
+              >
+                <span>{group.label}</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+              <div id={itemsId} className="staff-nav-group__items" hidden={!isGroupOpen}>
                 {group.items.map((item) => {
                   const isActive = isNavActive(item.href, pathname, homeHref);
                   return (
@@ -138,15 +159,12 @@ export function StaffSidebar({ groups: allGroups, homeHref, subtitle, ariaLabel,
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
           {groups.length === 0 ? <p className="staff-sidebar__empty">ไม่พบเมนู “{query.trim()}”</p> : null}
         </nav>
 
         <div className="staff-sidebar__footer">
-          <Link href="/" className="staff-sidebar__link">
-            <span className="staff-nav-item__icon" aria-hidden="true"><Icon name="store" /></span>
-            <span>ดูหน้าเว็บไซต์</span>
-          </Link>
           <button onClick={handleSignOut} type="button" className="staff-signout">
             <span className="staff-nav-item__icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11" /></svg>
@@ -185,7 +203,7 @@ export function StaffTopbar({ groups, homeHref, fallbackTitle, fallbackSection, 
         <button
           className="staff-topbar__menu"
           type="button"
-          aria-label="เปิดเมนู"
+          aria-label="เปิด/ปิดเมนู"
           aria-controls="staff-sidebar"
           onClick={() => window.dispatchEvent(new Event(TOGGLE_EVENT))}
         >

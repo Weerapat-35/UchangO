@@ -81,6 +81,9 @@ export type AdminService = Service & {
 };
 
 export type AdminServiceUpdateInput = {
+  /** ไม่ส่งมา = ไม่เปลี่ยนชื่อ/รายละเอียด */
+  name?: string;
+  description?: string | null;
   image_url: string | null;
   base_price: number;
   estimated_duration_minutes: number;
@@ -172,6 +175,8 @@ export type AdminInventoryMovementCreateInput = {
   quantity: number;
   reference_id?: string | null;
   reference_type?: string | null;
+  /** ราคาทุนต่อชิ้นของรายการรับเข้าสต็อก ระบบบันทึกเป็นเงินออกค่าอะไหล่ให้อัตโนมัติ */
+  unit_cost?: number | null;
 };
 
 export type AdminGarageCapacity = GarageCapacity & {
@@ -362,6 +367,17 @@ export type AdminFinanceTransactionInput = {
   description: string | null;
   transactionDate: string;
   transactionType: AdminFinanceTransactionType;
+};
+
+// ค่าใช้จ่ายประจำเดือน ระบบบันทึกเป็นเงินออกให้เองเมื่อถึงวันที่กำหนด
+export type AdminRecurringExpense =
+  Database["public"]["Tables"]["recurring_expenses"]["Row"];
+
+export type AdminRecurringExpenseInput = {
+  amount: number;
+  category: string;
+  dayOfMonth: number;
+  name: string;
 };
 
 export type AdminFinanceSummary = {
