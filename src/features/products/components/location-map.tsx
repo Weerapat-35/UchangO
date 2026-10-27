@@ -63,9 +63,12 @@ export function LocationMap({ value, onChange, onAddressDetails, searchQuery }: 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
+  // Follow the parent search text when it changes (React: adjust state on prop change, no effect needed).
+  const [prevSearchQuery, setPrevSearchQuery] = useState(searchQuery);
+  if (searchQuery !== prevSearchQuery) {
+    setPrevSearchQuery(searchQuery);
     if (searchQuery?.trim()) setSearch(searchQuery);
-  }, [searchQuery]);
+  }
 
   async function reverseGeocode(lat: number, lng: number) {
     setLoading(true);
@@ -107,6 +110,11 @@ export function LocationMap({ value, onChange, onAddressDetails, searchQuery }: 
     lat: string;
     lon: string;
     display_name: string;
+  };
+
+  type PhotonFeature = {
+    geometry?: { coordinates?: number[] };
+    properties?: Partial<Record<"name" | "street" | "district" | "city" | "state" | "postcode", string>>;
   };
 
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -162,10 +170,10 @@ export function LocationMap({ value, onChange, onAddressDetails, searchQuery }: 
     );
     if (!response.ok) return [] as SearchResult[];
 
-    const data = await response.json();
+    const data = (await response.json()) as { features?: PhotonFeature[] };
     return (data.features ?? [])
-      .filter((item: any) => Array.isArray(item.geometry?.coordinates))
-      .map((item: any) => ({
+      .filter((item): item is PhotonFeature & { geometry: { coordinates: number[] } } => Array.isArray(item.geometry?.coordinates))
+      .map((item) => ({
         lat: String(item.geometry.coordinates[1]),
         lon: String(item.geometry.coordinates[0]),
         display_name: [
@@ -270,7 +278,7 @@ export function LocationMap({ value, onChange, onAddressDetails, searchQuery }: 
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
-              searchPlace();
+              void searchPlace();
             }
           }}
           placeholder="ค้นหาที่อยู่ เช่น ตลาดแม่กลอง"

@@ -226,12 +226,20 @@ export type Database = {
           created_at: string
           customer_id: string
           district: string
+          house_number: string | null
           id: string
           is_default: boolean
+          latitude: number | null
+          longitude: number | null
+          moo: string | null
           phone_number: string
+          place_id: string | null
           postal_code: string
           province: string
           recipient_name: string
+          road: string | null
+          soi: string | null
+          subdistrict: string | null
           updated_at: string
         }
         Insert: {
@@ -239,12 +247,20 @@ export type Database = {
           created_at?: string
           customer_id: string
           district: string
+          house_number?: string | null
           id?: string
           is_default?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          moo?: string | null
           phone_number: string
+          place_id?: string | null
           postal_code: string
           province: string
           recipient_name: string
+          road?: string | null
+          soi?: string | null
+          subdistrict?: string | null
           updated_at?: string
         }
         Update: {
@@ -252,12 +268,20 @@ export type Database = {
           created_at?: string
           customer_id?: string
           district?: string
+          house_number?: string | null
           id?: string
           is_default?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          moo?: string | null
           phone_number?: string
+          place_id?: string | null
           postal_code?: string
           province?: string
           recipient_name?: string
+          road?: string | null
+          soi?: string | null
+          subdistrict?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -719,6 +743,53 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          customer_id: string
+          id: string
+          is_read: boolean
+          message: string | null
+          read_at: string | null
+          reference_id: string | null
+          reference_type: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          read_at?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          title: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          read_at?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_settings: {
         Row: {
           bank_account_name: string | null
@@ -858,6 +929,8 @@ export type Database = {
       }
       product_orders: {
         Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
           created_at: string
           customer_id: string
           delivery_address: string | null
@@ -875,6 +948,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           created_at?: string
           customer_id: string
           delivery_address?: string | null
@@ -892,6 +967,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           created_at?: string
           customer_id?: string
           delivery_address?: string | null
@@ -1874,6 +1951,10 @@ export type Database = {
       }
       cancel_own_product_order_with_inventory_return: {
         Args: { target_order_id: string }
+        Returns: number
+      }
+      cancel_own_product_order_with_reason: {
+        Args: { reason: string; target_order_id: string }
         Returns: number
       }
       cancel_product_order_with_inventory_return: {

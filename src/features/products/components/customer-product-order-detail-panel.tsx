@@ -7,6 +7,7 @@ import Link from "next/link";
 import type { FormEvent, ReactNode, SyntheticEvent } from "react";
 import { useEffect, useState } from "react";
 import {
+  cancelOwnProductOrder,
   getActivePaymentSetting,
   getCustomerProductOrderById,
   submitProductPaymentSlip,
@@ -17,6 +18,8 @@ import {
 import { createClient } from "@/lib/supabase/browser";
 import { ProductImageThumb } from "./product-image-thumb";
 import { OrderStatusStepper } from "@/components/order-status-stepper";
+import { CancelOrderDialog } from "@/components/cancel-order-dialog";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 type LoadState =
   | {
@@ -111,7 +114,7 @@ function getPaymentDisplaySettings(
       bankBranch: mockPaymentSettings.bank.branch,
       bankName: mockPaymentSettings.bank.bankName,
       bankTransferEnabled: true,
-      instructions: "ข้อมูลนี้เป็นข้อมูลทดสอบชั่วคราว ก่อนทำหน้า Payment Settings",
+      instructions: "ข้อมูลนี้เป็นข้อมูลทดสอบชั่วคราว ร้านยังไม่ได้ตั้งค่าการชำระเงิน",
       isFallback: true,
       promptPayDisplayName: mockPaymentSettings.promptPay.displayName,
       promptPayEnabled: true,
@@ -389,7 +392,7 @@ function handleQrImageError(event: SyntheticEvent<HTMLImageElement>) {
   }
 
   image.src = "/mock-promptpay-qr.svg";
-  image.alt = "Fallback PromptPay QR code";
+  image.alt = "QR พร้อมเพย์ (สำรอง)";
 }
 
 function PaymentInstructionPanel({
@@ -407,7 +410,7 @@ function PaymentInstructionPanel({
         {paymentMethod === "promptpay" ? (
           <>
             <img
-              alt="PromptPay QR code"
+              alt="QR พร้อมเพย์"
               className="h-40 w-40 rounded-md border border-[var(--line)] bg-white p-2"
               onError={handleQrImageError}
               src={
@@ -889,6 +892,9 @@ export function CustomerProductOrderDetailPanel({
     userId: null,
   });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -981,13 +987,13 @@ export function CustomerProductOrderDetailPanel({
       });
     }
 
-    loadOrder();
+    void loadOrder();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
-        loadOrder();
+        void loadOrder();
       }
     });
 
@@ -1008,6 +1014,33 @@ export function CustomerProductOrderDetailPanel({
       });
     });
   }, [loadState.status]);
+
+  async function handleCancelOrder(reason: string) {
+    if (loadState.status !== "ready") {
+      return;
+    }
+
+    setIsCancelling(true);
+    setCancelError(null);
+
+    const { error } = await cancelOwnProductOrder(createClient(), loadState.order.id, reason);
+
+    setIsCancelling(false);
+
+    if (error) {
+      setCancelError(
+        /still pending/i.test(error.message)
+          ? "ยกเลิกไม่ได้ เพราะคำสั่งซื้อนี้อยู่ระหว่างดำเนินการแล้ว กรุณาติดต่ออู่"
+          : /already been paid/i.test(error.message)
+            ? "คำสั่งซื้อนี้ชำระเงินแล้ว ยกเลิกเองไม่ได้ กรุณาติดต่ออู่"
+            : `ยกเลิกคำสั่งซื้อไม่สำเร็จ: ${error.message}`,
+      );
+      return;
+    }
+
+    setIsCancelOpen(false);
+    setRefreshKey((value) => value + 1);
+  }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6 sm:py-8">
@@ -1058,15 +1091,7 @@ export function CustomerProductOrderDetailPanel({
 
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">ต้องเข้าสู่ระบบก่อนดูคำสั่งซื้อ</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              ไปที่หน้าบัญชี
-            </Link>
-          </div>
+          <SignInPrompt title="ต้องเข้าสู่ระบบก่อนดูคำสั่งซื้อ" message="เข้าสู่ระบบเพื่อดูรายละเอียดและสถานะคำสั่งซื้อของคุณ" />
         </section>
       ) : null}
 
@@ -1135,9 +1160,38 @@ export function CustomerProductOrderDetailPanel({
               {loadState.order.status === "cancelled" ? (
                 <div className="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
                   <p className="font-semibold">คำสั่งซื้อนี้ถูกยกเลิกแล้ว</p>
+                  {loadState.order.cancellation_reason ? (
+                    <p className="mt-1">
+                      เหตุผลที่ยกเลิก: <span className="font-semibold">{loadState.order.cancellation_reason}</span>
+                    </p>
+                  ) : null}
                   <p className="mt-1">
                     รายการสินค้านี้จะไม่ถูกจัดเตรียมหรือจัดส่ง หากมีข้อสงสัยเรื่องการชำระเงิน กรุณาติดต่ออู่
                   </p>
+                  <Link
+                    className="mt-3 inline-flex min-h-10 items-center rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white"
+                    href="/products"
+                  >
+                    เลือกสินค้าใหม่
+                  </Link>
+                </div>
+              ) : null}
+
+              {loadState.order.status === "pending" && loadState.order.payment_status !== "paid" ? (
+                <div className="mt-5 flex flex-col gap-3 rounded-md border border-[var(--line)] p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm leading-6 text-[var(--muted)]">
+                    ต้องการเปลี่ยนที่อยู่หรือแก้ไขรายการ? ยกเลิกคำสั่งซื้อนี้แล้วสั่งซื้อใหม่ได้ ก่อนที่อู่จะยืนยันการชำระเงิน
+                  </p>
+                  <button
+                    className="min-h-10 shrink-0 rounded-full border border-red-200 bg-white px-5 text-sm font-semibold text-red-700 hover:bg-red-600 hover:text-white"
+                    onClick={() => {
+                      setCancelError(null);
+                      setIsCancelOpen(true);
+                    }}
+                    type="button"
+                  >
+                    ยกเลิกคำสั่งซื้อ
+                  </button>
                 </div>
               ) : null}
 
@@ -1286,6 +1340,15 @@ export function CustomerProductOrderDetailPanel({
           </aside>
         </section>
       ) : null}
+      <CancelOrderDialog
+        error={cancelError}
+        isLoading={isCancelling}
+        onClose={() => setIsCancelOpen(false)}
+        onConfirm={(reason) => {
+          void handleCancelOrder(reason);
+        }}
+        open={isCancelOpen}
+      />
     </main>
   );
 }

@@ -212,8 +212,8 @@ export function AdminAccessPanel() {
       if (bookingsResult.error) { setLoadState({access:null,bookings:null,overview:null,error:bookingsResult.error.message,status:"error"}); return; }
       setLoadState({access,bookings:bookingsResult.data ?? [],overview:overviewResult.data,error:null,status:"ready"});
     }
-    loadDashboard();
-    const { data:{subscription} } = supabase.auth.onAuthStateChange(() => { loadDashboard(); });
+    void loadDashboard();
+    const { data:{subscription} } = supabase.auth.onAuthStateChange(() => { void loadDashboard(); });
     return () => { isMounted=false; subscription.unsubscribe(); };
   }, []);
 

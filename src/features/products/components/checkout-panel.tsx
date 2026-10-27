@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { isValidThaiPhone, normalizeThaiPhone } from "@/lib/validation";
 import {
   createProductOrderFromCart,
   getCartDetails,
@@ -19,7 +21,18 @@ const LocationMap = dynamic(
   () => import("./location-map").then((module) => module.LocationMap),
   { ssr: false },
 );
-import { emptyThaiAddress, ThaiAddressForm, type ThaiAddressValue } from "./thai-address-form";
+import {
+  emptyThaiAddress,
+  loadThaiAddressJson,
+  ThaiAddressForm,
+  thaiNameOf,
+  thaiZipOf,
+  type ThaiAddressValue,
+  type ThaiDistrict,
+  type ThaiProvince,
+  type ThaiSubdistrict,
+} from "./thai-address-form";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 type AuthState =
   | { status: "loading"; user: null; error: null }
@@ -46,6 +59,33 @@ const emptyCartDetails: CartDetails = {
   subtotal: 0,
 };
 
+// ที่อยู่จัดส่งที่ลูกค้าบันทึกไว้ (ตาราง delivery_addresses)
+type SavedAddress = {
+  address_line: string;
+  created_at: string;
+  id: string;
+  is_default: boolean;
+  phone_number: string;
+  recipient_name: string;
+};
+
+// จำที่อยู่ที่ใช้ล่าสุดไว้ (is_default) เพื่อเลือกให้อัตโนมัติในการสั่งซื้อครั้งต่อไป
+async function markDefaultAddress(
+  supabase: ReturnType<typeof createClient>,
+  customerId: string,
+  addressId: string,
+) {
+  await supabase
+    .from("delivery_addresses")
+    .update({ is_default: false })
+    .eq("customer_id", customerId)
+    .neq("id", addressId);
+  await supabase
+    .from("delivery_addresses")
+    .update({ is_default: true })
+    .eq("id", addressId);
+}
+
 const currencyFormatter = new Intl.NumberFormat("th-TH", {
   currency: "THB",
   maximumFractionDigits: 0,
@@ -68,7 +108,13 @@ export function CheckoutPanel() {
   });
   const [deliveryMethod, setDeliveryMethod] =
     useState<CheckoutDeliveryMethod>("pickup");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [addressesLoaded, setAddressesLoaded] = useState(false);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("new");
+  const [saveNewAddress, setSaveNewAddress] = useState(true);
+  const [addressToDelete, setAddressToDelete] = useState<SavedAddress | null>(null);
+  const [isDeletingAddress, setIsDeletingAddress] = useState(false);
+  const [addressMessage, setAddressMessage] = useState<string | null>(null);
   const [recipientName, setRecipientName] = useState("");
   const [thaiAddress, setThaiAddress] = useState<ThaiAddressValue>(emptyThaiAddress());
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -100,39 +146,32 @@ export function CheckoutPanel() {
       .trim();
 
     try {
-      const base = "https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest";
-      const provinceRes = await fetch(`${base}/province.json`);
-      if (!provinceRes.ok) throw new Error("province lookup failed");
-      const provinces = (await provinceRes.json()) as Array<{ id: number; name_th: string }>;
+      const provinces = await loadThaiAddressJson<ThaiProvince[]>("province.json", "province lookup failed");
       const provinceName = normalize(details.province ?? "");
-      const province = provinces.find((p) => normalize(p.name_th) === provinceName);
+      const province = provinces.find((p) => normalize(thaiNameOf(p)) === provinceName);
 
       if (province) {
         next.provinceId = String(province.id);
-        next.province = province.name_th;
+        next.province = thaiNameOf(province);
 
-        const districtRes = await fetch(`${base}/district.json`);
-        if (!districtRes.ok) throw new Error("district lookup failed");
-        const districts = (await districtRes.json()) as Array<{ id: number; province_id: number; name_th: string }>;
+        const districts = await loadThaiAddressJson<ThaiDistrict[]>("district.json", "district lookup failed");
         const provinceDistricts = districts.filter((d) => d.province_id === province.id);
         const districtName = normalize(details.district ?? "");
-        const district = provinceDistricts.find((d) => normalize(d.name_th) === districtName);
+        const district = provinceDistricts.find((d) => normalize(thaiNameOf(d)) === districtName);
 
         if (district) {
           next.districtId = String(district.id);
-          next.district = district.name_th;
+          next.district = thaiNameOf(district);
 
-          const subRes = await fetch(`${base}/sub_district.json`);
-          if (!subRes.ok) throw new Error("subdistrict lookup failed");
-          const subdistricts = (await subRes.json()) as Array<{ id: number; district_id: number; zip_code: number | string; name_th: string }>;
+          const subdistricts = await loadThaiAddressJson<ThaiSubdistrict[]>("sub_district.json", "subdistrict lookup failed");
           const districtSubs = subdistricts.filter((s) => s.district_id === district.id);
           const subdistrictName = normalize(details.subdistrict ?? "");
-          const subdistrict = districtSubs.find((s) => normalize(s.name_th) === subdistrictName);
+          const subdistrict = districtSubs.find((s) => normalize(thaiNameOf(s)) === subdistrictName);
 
           if (subdistrict) {
             next.subdistrictId = String(subdistrict.id);
-            next.subdistrict = subdistrict.name_th;
-            if (!details.postalCode) next.postalCode = String(subdistrict.zip_code);
+            next.subdistrict = thaiNameOf(subdistrict);
+            if (!details.postalCode) next.postalCode = thaiZipOf(subdistrict);
           }
         }
       }
@@ -182,12 +221,12 @@ export function CheckoutPanel() {
       });
     }
 
-    loadAuthState();
+    void loadAuthState();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadAuthState();
+      void loadAuthState();
     });
 
     return () => {
@@ -238,12 +277,80 @@ export function CheckoutPanel() {
       });
     }
 
-    loadCart();
+    void loadCart();
 
     return () => {
       isMounted = false;
     };
   }, [authState]);
+
+  const customerId = authState.status === "ready" ? authState.user.id : null;
+
+  useEffect(() => {
+    if (!customerId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadAddresses() {
+      const { data } = await createClient()
+        .from("delivery_addresses")
+        .select("id, recipient_name, phone_number, address_line, is_default, created_at")
+        .eq("customer_id", customerId as string)
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: false });
+
+      if (!isMounted) {
+        return;
+      }
+
+      const list = (data ?? []) as SavedAddress[];
+      setSavedAddresses(list);
+      // เลือกที่อยู่ที่ใช้ล่าสุดให้อัตโนมัติ (ถ้ายังไม่มีที่อยู่ที่บันทึกไว้ จะเป็นฟอร์มกรอกใหม่)
+      setSelectedAddressId(list.length > 0 ? list[0].id : "new");
+      setAddressesLoaded(true);
+    }
+
+    void loadAddresses();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [customerId]);
+
+  const hasSavedAddresses = savedAddresses.length > 0;
+  const isNewAddress = !hasSavedAddresses || selectedAddressId === "new";
+
+  async function handleDeleteAddress() {
+    if (!addressToDelete) {
+      return;
+    }
+
+    setIsDeletingAddress(true);
+    const { data, error } = await createClient()
+      .from("delivery_addresses")
+      .delete()
+      .eq("id", addressToDelete.id)
+      .select("id");
+    setIsDeletingAddress(false);
+
+    if (error || !data || data.length === 0) {
+      setAddressMessage(
+        `ลบที่อยู่ไม่สำเร็จ${error ? `: ${error.message}` : " (ยังไม่ได้เปิดสิทธิ์ลบที่อยู่ในฐานข้อมูล)"}`,
+      );
+      setAddressToDelete(null);
+      return;
+    }
+
+    const remaining = savedAddresses.filter((address) => address.id !== addressToDelete.id);
+    setSavedAddresses(remaining);
+    if (selectedAddressId === addressToDelete.id) {
+      setSelectedAddressId(remaining.length > 0 ? remaining[0].id : "new");
+    }
+    setAddressMessage(null);
+    setAddressToDelete(null);
+  }
 
   const resolvedDeliveryFee =
     deliveryMethod === "delivery" && cartState.details.itemCount > 0
@@ -253,6 +360,7 @@ export function CheckoutPanel() {
   const canSubmit =
     cartState.details.items.length > 0 &&
     totalAmount > 0 &&
+    (deliveryMethod !== "delivery" || addressesLoaded) &&
     checkoutState.status !== "submitting" &&
     checkoutState.status !== "success";
 
@@ -271,71 +379,101 @@ export function CheckoutPanel() {
 
     const supabase = createClient();
 
+    let orderAddress: string | null = null;
+
     if (deliveryMethod === "delivery") {
-      if (!recipientName.trim() || !phoneNumber.trim()) {
-        setCheckoutState({
-          error: "กรุณากรอกชื่อผู้รับและเบอร์โทรศัพท์",
-          result: null,
-          status: "error",
-        });
-        return;
-      }
-      if (
-        !thaiAddress.houseNumber.trim() ||
-        !thaiAddress.provinceId ||
-        !thaiAddress.districtId ||
-        !thaiAddress.subdistrictId ||
-        !thaiAddress.postalCode ||
-        !location
-      ) {
-        setCheckoutState({
-          error: "กรุณากรอกบ้านเลขที่ และเลือกจังหวัด อำเภอ ตำบลให้ครบ พร้อมปักหมุดแผนที่",
-          result: null,
-          status: "error",
-        });
-        return;
-      }
+      const savedAddress =
+        hasSavedAddresses && selectedAddressId !== "new"
+          ? (savedAddresses.find((address) => address.id === selectedAddressId) ?? null)
+          : null;
 
-      const formattedAddress = [
-        thaiAddress.houseNumber && `บ้านเลขที่ ${thaiAddress.houseNumber}`,
-        thaiAddress.moo && `หมู่ ${thaiAddress.moo}`,
-        thaiAddress.soi && `ซอย${thaiAddress.soi}`,
-        thaiAddress.road && `ถนน${thaiAddress.road}`,
-        thaiAddress.subdistrict && `ตำบล${thaiAddress.subdistrict}`,
-        thaiAddress.district && `อำเภอ${thaiAddress.district}`,
-        thaiAddress.province && `จังหวัด${thaiAddress.province}`,
-        thaiAddress.postalCode,
-      ].filter(Boolean).join(" ");
+      if (savedAddress) {
+        orderAddress = `${savedAddress.recipient_name} ${savedAddress.phone_number} ${savedAddress.address_line}`;
+        // จำที่อยู่ที่ใช้ครั้งนี้ไว้เป็นค่าเริ่มต้นของครั้งต่อไป
+        await markDefaultAddress(supabase, authState.user.id, savedAddress.id);
+      } else {
+        if (!recipientName.trim() || !phoneNumber.trim()) {
+          setCheckoutState({
+            error: "กรุณากรอกชื่อผู้รับและเบอร์โทรศัพท์",
+            result: null,
+            status: "error",
+          });
+          return;
+        }
+        if (!isValidThaiPhone(phoneNumber)) {
+          setCheckoutState({
+            error: "เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก ขึ้นต้นด้วย 0 เช่น 0812345678",
+            result: null,
+            status: "error",
+          });
+          return;
+        }
+        if (
+          !thaiAddress.houseNumber.trim() ||
+          !thaiAddress.provinceId ||
+          !thaiAddress.districtId ||
+          !thaiAddress.subdistrictId ||
+          !thaiAddress.postalCode ||
+          !location
+        ) {
+          setCheckoutState({
+            error: "กรุณากรอกบ้านเลขที่ และเลือกจังหวัด อำเภอ ตำบลให้ครบ พร้อมปักหมุดแผนที่",
+            result: null,
+            status: "error",
+          });
+          return;
+        }
 
-      setDeliveryAddress(formattedAddress);
+        const formattedAddress = [
+          thaiAddress.houseNumber && `บ้านเลขที่ ${thaiAddress.houseNumber}`,
+          thaiAddress.moo && `หมู่ ${thaiAddress.moo}`,
+          thaiAddress.soi && `ซอย${thaiAddress.soi}`,
+          thaiAddress.road && `ถนน${thaiAddress.road}`,
+          thaiAddress.subdistrict && `ตำบล${thaiAddress.subdistrict}`,
+          thaiAddress.district && `อำเภอ${thaiAddress.district}`,
+          thaiAddress.province && `จังหวัด${thaiAddress.province}`,
+          thaiAddress.postalCode,
+        ].filter(Boolean).join(" ");
 
-      const { error: addressError } = await (supabase as any)
-        .from("delivery_addresses")
-        .insert({
-          customer_id: authState.user.id,
-          recipient_name: recipientName.trim(),
-          phone_number: phoneNumber.trim(),
-          address_line: formattedAddress,
-          house_number: thaiAddress.houseNumber.trim(),
-          moo: thaiAddress.moo.trim() || null,
-          soi: thaiAddress.soi.trim() || null,
-          road: thaiAddress.road.trim() || null,
-          subdistrict: thaiAddress.subdistrict,
-          district: thaiAddress.district,
-          province: thaiAddress.province,
-          postal_code: thaiAddress.postalCode,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          place_id: null,
-        });
+        orderAddress = `${recipientName.trim()} ${phoneNumber.trim()} ${formattedAddress}`;
 
-      if (addressError) {
-        setCheckoutState({
-          error: `บันทึกที่อยู่ไม่สำเร็จ: ${addressError.message}`,
-          result: null,
-          status: "error",
-        });
-        return;
+        // บันทึกที่อยู่ไว้ใช้ครั้งต่อไป (เฉพาะเมื่อลูกค้าติ๊กเลือกไว้)
+        if (saveNewAddress) {
+          const { data: savedRow, error: addressError } = await supabase
+            .from("delivery_addresses")
+            .insert({
+              customer_id: authState.user.id,
+              recipient_name: recipientName.trim(),
+              phone_number: phoneNumber.trim(),
+              address_line: formattedAddress,
+              house_number: thaiAddress.houseNumber.trim(),
+              moo: thaiAddress.moo.trim() || null,
+              soi: thaiAddress.soi.trim() || null,
+              road: thaiAddress.road.trim() || null,
+              subdistrict: thaiAddress.subdistrict,
+              district: thaiAddress.district,
+              province: thaiAddress.province,
+              postal_code: thaiAddress.postalCode,
+              latitude: location.latitude,
+              longitude: location.longitude,
+              place_id: null,
+            })
+            .select("id")
+            .single();
+
+          if (addressError) {
+            setCheckoutState({
+              error: `บันทึกที่อยู่ไม่สำเร็จ: ${addressError.message}`,
+              result: null,
+              status: "error",
+            });
+            return;
+          }
+
+          if (savedRow) {
+            await markDefaultAddress(supabase, authState.user.id, savedRow.id);
+          }
+        }
       }
     }
 
@@ -343,10 +481,7 @@ export function CheckoutPanel() {
       supabase,
       authState.user.id,
       {
-        deliveryAddress:
-          deliveryMethod === "delivery"
-            ? `${recipientName.trim()} ${phoneNumber.trim()} ${deliveryAddress.trim()}`
-            : null,
+        deliveryAddress: deliveryMethod === "delivery" ? orderAddress : null,
         deliveryFee: resolvedDeliveryFee,
         deliveryMethod,
         note: note.trim() || null,
@@ -405,15 +540,7 @@ export function CheckoutPanel() {
 
       {authState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-xl rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">ต้องเข้าสู่ระบบก่อน checkout</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              ไปที่หน้าบัญชี
-            </Link>
-          </div>
+          <SignInPrompt title="ต้องเข้าสู่ระบบก่อนสั่งซื้อ" message="เข้าสู่ระบบเพื่อยืนยันคำสั่งซื้อและติดตามการจัดส่งของคุณ" />
         </section>
       ) : null}
 
@@ -487,9 +614,97 @@ export function CheckoutPanel() {
               <section className="space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--color-concrete-2)] p-4 sm:p-5">
                 <div>
                   <p className="text-base font-bold text-[var(--foreground)]">📍 ที่อยู่จัดส่ง</p>
-                  <p className="mt-1 text-sm text-[var(--muted)]">กรอกข้อมูลผู้รับ แล้วเลือกตำแหน่งจากแผนที่</p>
+                  <p className="mt-1 text-sm text-[var(--muted)]">
+                    {hasSavedAddresses
+                      ? "เลือกที่อยู่ที่เคยบันทึกไว้ หรือเพิ่มที่อยู่ใหม่"
+                      : "กรอกข้อมูลผู้รับ แล้วเลือกตำแหน่งจากแผนที่"}
+                  </p>
                 </div>
 
+                {!addressesLoaded ? (
+                  <div className="rounded-xl border border-[var(--line)] bg-white p-4 text-sm text-[var(--muted)]">
+                    กำลังโหลดที่อยู่ที่บันทึกไว้...
+                  </div>
+                ) : null}
+
+                {addressMessage ? (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
+                    {addressMessage}
+                  </div>
+                ) : null}
+
+                {addressesLoaded && hasSavedAddresses ? (
+                  <ul aria-label="ที่อยู่ที่บันทึกไว้" className="grid gap-3">
+                    {savedAddresses.map((address) => {
+                      const selected = selectedAddressId === address.id;
+
+                      return (
+                        <li key={address.id}>
+                          <label
+                            className={`flex cursor-pointer gap-3 rounded-xl border bg-white p-4 transition-colors ${
+                              selected
+                                ? "border-[var(--brand)] ring-2 ring-[var(--brand)]/20"
+                                : "border-[var(--line)] hover:border-slate-300"
+                            }`}
+                          >
+                            <input
+                              checked={selected}
+                              className="mt-1"
+                              name="savedAddress"
+                              onChange={() => setSelectedAddressId(address.id)}
+                              type="radio"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <strong className="text-[15px] text-[var(--foreground)]">{address.recipient_name}</strong>
+                                <span className="text-sm text-[var(--muted)]">{address.phone_number}</span>
+                                {address.is_default ? (
+                                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-bold text-[var(--brand)]">
+                                    ใช้ล่าสุด
+                                  </span>
+                                ) : null}
+                              </span>
+                              <span className="mt-1 block break-words text-sm leading-6 text-[var(--muted)]">
+                                {address.address_line}
+                              </span>
+                            </span>
+                            <button
+                              className="self-start rounded-md px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setAddressToDelete(address);
+                              }}
+                              type="button"
+                            >
+                              ลบ
+                            </button>
+                          </label>
+                        </li>
+                      );
+                    })}
+                    <li>
+                      <label
+                        className={`flex cursor-pointer items-center gap-3 rounded-xl border border-dashed bg-white p-4 text-sm font-bold transition-colors ${
+                          selectedAddressId === "new"
+                            ? "border-[var(--brand)] text-[var(--brand)] ring-2 ring-[var(--brand)]/20"
+                            : "border-[var(--line)] text-[var(--foreground)] hover:border-slate-300"
+                        }`}
+                      >
+                        <input
+                          checked={selectedAddressId === "new"}
+                          name="savedAddress"
+                          onChange={() => setSelectedAddressId("new")}
+                          type="radio"
+                        />
+                        + เพิ่มที่อยู่ใหม่
+                      </label>
+                    </li>
+                  </ul>
+                ) : null}
+
+                {addressesLoaded && isNewAddress ? (
+                  <>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="grid gap-2 text-sm font-medium text-[var(--foreground)]">
                     ชื่อผู้รับ
@@ -505,9 +720,14 @@ export function CheckoutPanel() {
                     เบอร์โทรศัพท์
                     <input
                       className="min-h-11 rounded-xl border border-[var(--line)] bg-white px-3 text-sm outline-none focus:border-[var(--brand)]"
-                      onChange={(event) => setPhoneNumber(event.target.value)}
-                      placeholder="08x-xxx-xxxx"
+                      inputMode="tel"
+                      maxLength={10}
+                      onChange={(event) => setPhoneNumber(normalizeThaiPhone(event.target.value))}
+                      pattern="0[0-9]{9}"
+                      placeholder="เช่น 0812345678"
                       required
+                      title="ตัวเลข 10 หลัก ขึ้นต้นด้วย 0"
+                      type="tel"
                       value={phoneNumber}
                     />
                   </label>
@@ -533,6 +753,17 @@ export function CheckoutPanel() {
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
                     ✓ เลือกพิกัดแล้ว: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
                   </div>
+                ) : null}
+
+                <label className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-white px-4 py-3 text-sm text-[var(--foreground)]">
+                  <input
+                    checked={saveNewAddress}
+                    onChange={(event) => setSaveNewAddress(event.target.checked)}
+                    type="checkbox"
+                  />
+                  บันทึกที่อยู่นี้ไว้ใช้ในการสั่งซื้อครั้งต่อไป
+                </label>
+                  </>
                 ) : null}
               </section>
             ) : null}
@@ -572,7 +803,7 @@ export function CheckoutPanel() {
                   )}
                 </p>
                 <p className="mt-1">
-                  ระบบตัดสต๊อกและบันทึก inventory movement แล้ว
+                  ระบบตัดสต็อกสินค้าเรียบร้อยแล้ว
                 </p>
                 <p className="mt-1">กำลังพาไปหน้าชำระเงิน...</p>
               </div>
@@ -685,7 +916,6 @@ export function CheckoutPanel() {
                   disabled={!location}
                   onClick={() => {
                     if (location) {
-                      setDeliveryAddress(location.address);
                       setShowMap(false);
                     }
                   }}
@@ -698,6 +928,21 @@ export function CheckoutPanel() {
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        cancelLabel="เก็บไว้ก่อน"
+        confirmLabel="ยืนยันการลบ"
+        description={
+          addressToDelete
+            ? `ที่อยู่ของ ${addressToDelete.recipient_name} จะถูกลบออกจากรายการที่บันทึกไว้ (คำสั่งซื้อที่เคยสั่งแล้วไม่ได้รับผลกระทบ)`
+            : ""
+        }
+        isLoading={isDeletingAddress}
+        onCancel={() => setAddressToDelete(null)}
+        onConfirm={handleDeleteAddress}
+        open={addressToDelete !== null}
+        title="ลบที่อยู่นี้ใช่ไหม"
+      />
     </main>
   );
 }

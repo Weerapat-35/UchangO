@@ -7,6 +7,11 @@ export {
   createAdminProduct,
   createAdminProductCategory,
   deleteAdminGarageClosedDate,
+  deleteAdminProduct,
+  deleteAdminProductCategory,
+  deleteAdminService,
+  deleteAdminServiceCategory,
+  getAdminDeleteErrorMessage,
   createAdminRepairJobFromBooking,
   createAdminServiceCategory,
   createAdminService,
@@ -52,6 +57,7 @@ export {
   updateAdminBookingStatus,
   updateAdminRepairJobMechanic,
 } from "./queries";
+export type { AdminDeleteError, AdminDeleteResult } from "./queries";
 export type {
   AdminAccessResult,
   AdminBooking,

@@ -51,7 +51,7 @@ export function TechnicianRepairPartsPanel({
   useEffect(() => {
     let mounted = true;
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
+    void supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       if (!data.session?.user) {
         setLoading(false);
@@ -126,7 +126,7 @@ export function TechnicianRepairPartsPanel({
         <div>
           <h2 className="text-xl font-bold text-[var(--foreground)]">อะไหล่ที่ใช้ในงาน</h2>
           <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-            เลือกอะไหล่ที่ใช้ ระบบจะตัด Stock และบันทึกประวัติการเบิกให้อัตโนมัติ
+            เลือกอะไหล่ที่ใช้ ระบบจะตัดสต็อกและบันทึกประวัติการเบิกให้อัตโนมัติ
           </p>
         </div>
         <div className="text-right">
@@ -147,7 +147,7 @@ export function TechnicianRepairPartsPanel({
             >
               {products.map((product) => (
                 <option key={product.id} value={product.id}>
-                  {product.name} — Stock {product.stock_quantity}
+                  {product.name} — คงเหลือ {product.stock_quantity}
                 </option>
               ))}
             </select>

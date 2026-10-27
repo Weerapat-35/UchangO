@@ -2834,3 +2834,88 @@ export async function deleteAdminPayroll(
 ) {
   return supabase.from("technician_payrolls").delete().eq("id", payrollId);
 }
+
+
+export type AdminDeleteError = {
+  code?: string;
+  message: string;
+};
+
+export type AdminDeleteResult = {
+  error: AdminDeleteError | null;
+};
+
+const adminDeleteBlockedMessage =
+  "ลบไม่สำเร็จ: ไม่พบรายการ หรือบัญชีนี้ไม่มีสิทธิ์ลบ (ตรวจสอบ RLS policy สำหรับ delete ใน Supabase)";
+
+export function getAdminDeleteErrorMessage(
+  error: AdminDeleteError,
+  itemLabel: string,
+) {
+  // 23503 = foreign_key_violation
+  if (error.code === "23503") {
+    return `ไม่สามารถลบ${itemLabel}นี้ได้ เพราะมีข้อมูลอื่นอ้างอิงอยู่ (เช่น ออเดอร์ การจอง หรือรายการที่ใช้หมวดหมู่นี้) แนะนำให้เปลี่ยนสถานะเป็น "ปิดใช้งาน" แทน`;
+  }
+
+  return error.message;
+}
+
+function toAdminDeleteResult(result: {
+  data: { id: string }[] | null;
+  error: { code?: string; message: string } | null;
+}): AdminDeleteResult {
+  if (result.error) {
+    return { error: { code: result.error.code, message: result.error.message } };
+  }
+
+  // RLS blocks deletes silently (0 rows, no error), so verify a row was removed.
+  if (!result.data || result.data.length === 0) {
+    return { error: { code: "NO_ROWS_DELETED", message: adminDeleteBlockedMessage } };
+  }
+
+  return { error: null };
+}
+
+export async function deleteAdminProduct(
+  supabase: BCareSupabaseClient,
+  productId: string,
+): Promise<AdminDeleteResult> {
+  return toAdminDeleteResult(
+    await supabase.from("products").delete().eq("id", productId).select("id"),
+  );
+}
+
+export async function deleteAdminProductCategory(
+  supabase: BCareSupabaseClient,
+  categoryId: string,
+): Promise<AdminDeleteResult> {
+  return toAdminDeleteResult(
+    await supabase
+      .from("product_categories")
+      .delete()
+      .eq("id", categoryId)
+      .select("id"),
+  );
+}
+
+export async function deleteAdminService(
+  supabase: BCareSupabaseClient,
+  serviceId: string,
+): Promise<AdminDeleteResult> {
+  return toAdminDeleteResult(
+    await supabase.from("services").delete().eq("id", serviceId).select("id"),
+  );
+}
+
+export async function deleteAdminServiceCategory(
+  supabase: BCareSupabaseClient,
+  categoryId: string,
+): Promise<AdminDeleteResult> {
+  return toAdminDeleteResult(
+    await supabase
+      .from("service_categories")
+      .delete()
+      .eq("id", categoryId)
+      .select("id"),
+  );
+}

@@ -4,9 +4,12 @@ import Link from "next/link";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { AppNav } from "@/components/app-nav";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   checkAdminAccess,
   createAdminServiceCategory,
+  deleteAdminServiceCategory,
+  getAdminDeleteErrorMessage,
   getAdminServiceCategories,
   updateAdminServiceCategory,
   type AdminAccessResult,
@@ -15,6 +18,7 @@ import {
   type AdminServiceCategoryUpdateInput,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { recordStatusLabel } from "@/lib/status-labels";
 
 type LoadState =
   | { status: "loading"; access: null; categories: null; error: null }
@@ -36,6 +40,7 @@ type LoadState =
 type ActionState =
   | { status: "idle"; categoryId: null; error: null; message: null }
   | { status: "saving"; categoryId: string; error: null; message: null }
+  | { status: "deleting"; categoryId: string; error: null; message: null }
   | { status: "error"; categoryId: string; error: string; message: null }
   | { status: "saved"; categoryId: string; error: null; message: string };
 
@@ -59,7 +64,7 @@ function getStatusStyle(status: AdminServiceCategory["status"]) {
 
 function validateCategoryInput(input: AdminServiceCategoryUpdateInput) {
   if (!input.name.trim()) {
-    return "หมวดหมู่ name is required.";
+    return "กรุณากรอกชื่อหมวดหมู่";
   }
 
   return null;
@@ -94,24 +99,24 @@ function AddServiceCategoryForm({
           เพิ่มหมวดหมู่
         </p>
         <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-          New categories will appear in the service category dropdown.
+          หมวดหมู่ใหม่จะแสดงในตัวเลือกหมวดบริการทันที
         </p>
       </div>
 
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px] md:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            หมวดหมู่ name
+            ชื่อหมวดหมู่
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setName(event.target.value)}
-              placeholder="Example: ระบบแอร์"
+              placeholder="เช่น ระบบแอร์"
               value={name}
             />
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Status
+            สถานะ
             <select
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) =>
@@ -126,11 +131,11 @@ function AddServiceCategoryForm({
         </div>
 
         <label className="text-sm font-semibold text-[var(--foreground)]">
-          Description
+          รายละเอียด
           <textarea
             className="mt-2 min-h-20 w-full resize-y rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="Short description shown on the customer booking page"
+            placeholder="คำอธิบายสั้นๆ ที่แสดงในหน้าจองของลูกค้า"
             value={description}
           />
         </label>
@@ -162,10 +167,12 @@ function AddServiceCategoryForm({
 function AdminServiceCategoryRow({
   actionState,
   category,
+  onDelete,
   onSave,
 }: {
   actionState: ActionState;
   category: AdminServiceCategory;
+  onDelete: (category: AdminServiceCategory) => void;
   onSave: (
     category: AdminServiceCategory,
     input: AdminServiceCategoryUpdateInput,
@@ -177,6 +184,9 @@ function AdminServiceCategoryRow({
     useState<AdminServiceCategory["status"]>(category.status);
   const isSaving =
     actionState.status === "saving" && actionState.categoryId === category.id;
+  const isDeleting =
+    actionState.status === "deleting" && actionState.categoryId === category.id;
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const hasChanges =
     name.trim() !== category.name ||
     description.trim() !== (category.description ?? "") ||
@@ -191,8 +201,49 @@ function AdminServiceCategoryRow({
     });
   }
 
+  function handleDeleteClick() {
+    setIsConfirmOpen(true);
+  }
+
+  function handleConfirmDelete() {
+    setIsConfirmOpen(false);
+    onDelete(category);
+  }
+
   return (
     <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
+      <div className="mb-3 flex justify-end">
+        <button
+          aria-label="ลบหมวดหมู่บริการ"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-red-200 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isSaving || isDeleting}
+          onClick={handleDeleteClick}
+          title="ลบหมวดหมู่บริการ"
+          type="button"
+        >
+          {isDeleting ? (
+            <span className="text-xs">...</span>
+          ) : (
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="18"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              width="18"
+            >
+              <path d="M3 6h18" />
+              <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+            </svg>
+          )}
+        </button>
+      </div>
       <div className="flex flex-col gap-3 border-b border-[var(--line)] pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -201,7 +252,7 @@ function AdminServiceCategoryRow({
                 category.status,
               )}`}
             >
-              {category.status}
+              {recordStatusLabel(category.status)}
             </span>
           </div>
           <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
@@ -219,7 +270,7 @@ function AdminServiceCategoryRow({
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px] md:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            หมวดหมู่ name
+            ชื่อหมวดหมู่
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setName(event.target.value)}
@@ -228,7 +279,7 @@ function AdminServiceCategoryRow({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Status
+            สถานะ
             <select
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) =>
@@ -243,7 +294,7 @@ function AdminServiceCategoryRow({
         </div>
 
         <label className="text-sm font-semibold text-[var(--foreground)]">
-          Description
+          รายละเอียด
           <textarea
             className="mt-2 min-h-24 w-full resize-y rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
             onChange={(event) => setDescription(event.target.value)}
@@ -254,7 +305,7 @@ function AdminServiceCategoryRow({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
             className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!hasChanges || isSaving}
+            disabled={!hasChanges || isSaving || isDeleting}
             type="submit"
           >
             {isSaving ? "กำลังบันทึก..." : "บันทึกหมวดหมู่"}
@@ -273,6 +324,14 @@ function AdminServiceCategoryRow({
           ) : null}
         </div>
       </form>
+
+      <ConfirmDialog
+        description={`"${category.name}" จะถูกลบถาวร รวมถึงบริการทั้งหมดในหมวดนี้และการจองที่เกี่ยวข้อง และไม่สามารถกู้คืนได้ คุณแน่ใจหรือไม่?`}
+        onCancel={() => setIsConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        open={isConfirmOpen}
+        title="ลบหมวดหมู่บริการนี้?"
+      />
     </article>
   );
 }
@@ -379,12 +438,12 @@ export function AdminServiceCategoriesPanel() {
       });
     }
 
-    loadCategories();
+    void loadCategories();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadCategories();
+      void loadCategories();
     });
 
     return () => {
@@ -465,7 +524,7 @@ export function AdminServiceCategoriesPanel() {
     setActionState({
       categoryId: category.id,
       error: null,
-      message: "หมวดหมู่ saved successfully.",
+      message: "บันทึกหมวดหมู่เรียบร้อยแล้ว",
       status: "saved",
     });
   }
@@ -492,7 +551,7 @@ export function AdminServiceCategoriesPanel() {
 
     if (duplicateCategory) {
       setCreateState({
-        error: "This category name already exists.",
+        error: "มีชื่อหมวดหมู่นี้อยู่แล้ว",
         message: null,
         status: "error",
       });
@@ -525,8 +584,47 @@ export function AdminServiceCategoriesPanel() {
     });
     setCreateState({
       error: null,
-      message: "หมวดหมู่ added successfully.",
+      message: "เพิ่มหมวดหมู่เรียบร้อยแล้ว",
       status: "created",
+    });
+  }
+
+  async function handleDeleteCategory(category: AdminServiceCategory) {
+    if (loadState.status !== "ready") {
+      return;
+    }
+
+    setActionState({
+      error: null,
+      message: null,
+      categoryId: category.id,
+      status: "deleting",
+    });
+
+    const supabase = createClient();
+    const { error } = await deleteAdminServiceCategory(supabase, category.id);
+
+    if (error) {
+      setActionState({
+        error: getAdminDeleteErrorMessage(error, "หมวดหมู่บริการ"),
+        message: null,
+        categoryId: category.id,
+        status: "error",
+      });
+      return;
+    }
+
+    setLoadState({
+      ...loadState,
+      categories: loadState.categories.filter(
+        (current) => current.id !== category.id,
+      ),
+    });
+    setActionState({
+      error: null,
+      message: null,
+      categoryId: null,
+      status: "idle",
     });
   }
 
@@ -539,14 +637,14 @@ export function AdminServiceCategoriesPanel() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin Service Categories
+              หมวดบริการ
             </h1>
           </div>
           <Link
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
             href="/admin"
           >
-            Admin home
+            กลับแดชบอร์ด
           </Link>
         </div>
       </header>
@@ -568,7 +666,7 @@ export function AdminServiceCategoriesPanel() {
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
             >
-              Go to account
+              ไปหน้าเข้าสู่ระบบ
             </Link>
           </div>
         </section>
@@ -602,11 +700,11 @@ export function AdminServiceCategoriesPanel() {
           <div className="mt-5 flex flex-col gap-4 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-semibold text-[var(--foreground)]">
-                {filteredCategories.length} of {loadState.categories.length}{" "}
+                {filteredCategories.length} จาก {loadState.categories.length}{" "}
                 categories
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Inactive categories are hidden from the customer booking page.
+                หมวดที่ปิดใช้งานจะไม่แสดงในหน้าจองของลูกค้า
               </p>
             </div>
 
@@ -644,13 +742,14 @@ export function AdminServiceCategoriesPanel() {
                   actionState={actionState}
                   category={category}
                   key={category.id}
+                  onDelete={handleDeleteCategory}
                   onSave={handleSaveCategory}
                 />
               ))}
             </div>
           ) : (
             <div className="mt-5 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              No categories match the current filters.
+              ไม่พบหมวดหมู่ที่ตรงกับตัวกรอง
             </div>
           )}
         </section>

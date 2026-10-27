@@ -6,9 +6,12 @@ import Link from "next/link";
 import type { FormEvent, SyntheticEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { AppNav } from "@/components/app-nav";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   checkAdminAccess,
   createAdminProduct,
+  deleteAdminProduct,
+  getAdminDeleteErrorMessage,
   getAdminProductCategories,
   getAdminProducts,
   updateAdminProduct,
@@ -19,6 +22,7 @@ import {
   type AdminProductUpdateInput,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { recordStatusLabel } from "@/lib/status-labels";
 
 type LoadState =
   | {
@@ -60,6 +64,7 @@ type LoadState =
 type ActionState =
   | { status: "idle"; productId: null; error: null; message: null }
   | { status: "saving"; productId: string; error: null; message: null }
+  | { status: "deleting"; productId: string; error: null; message: null }
   | { status: "error"; productId: string; error: string; message: null }
   | { status: "saved"; productId: string; error: null; message: string };
 
@@ -97,19 +102,19 @@ function getStatusStyle(status: AdminProduct["status"]) {
 
 function validateProductInput(input: AdminProductUpdateInput) {
   if (!input.name.trim()) {
-    return "สินค้า name is required.";
+    return "กรุณากรอกชื่อสินค้า";
   }
 
   if (!input.product_category_id) {
-    return "หมวดหมู่ is required.";
+    return "กรุณาเลือกหมวดหมู่";
   }
 
   if (!Number.isFinite(input.unit_price) || input.unit_price < 0) {
-    return "ราคาขาย must be 0 or more.";
+    return "ราคาขายต้องเป็น 0 หรือมากกว่า";
   }
 
   if (!Number.isFinite(input.cost_price) || input.cost_price < 0) {
-    return "ต้นทุน price must be 0 or more.";
+    return "ราคาต้นทุนต้องเป็น 0 หรือมากกว่า";
   }
 
   return null;
@@ -166,7 +171,7 @@ function handleProductImageError(event: SyntheticEvent<HTMLImageElement>) {
   }
 
   image.src = productImagePlaceholder;
-  image.alt = "สินค้า image placeholder";
+  image.alt = "ยังไม่มีรูปสินค้า";
 }
 
 async function uploadProductImage(file: File) {
@@ -315,15 +320,14 @@ function AddProductForm({
       <div className="border-b border-[var(--line)] pb-4">
         <p className="text-sm font-semibold text-[var(--brand)]">เพิ่มสินค้า</p>
         <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-          New สินค้า start with 0 stock. สต็อก in/out adjustments will be
-          handled from inventory movements in the next part.
+          สินค้าใหม่เริ่มต้นที่สต็อก 0 ชิ้น การรับเข้า/จ่ายออกให้ทำที่หน้าคลังสินค้า
         </p>
       </div>
 
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_150px_150px_140px] lg:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            สินค้า name
+            ชื่อสินค้า
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setName(event.target.value)}
@@ -360,7 +364,7 @@ function AddProductForm({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            ต้นทุน price
+            ราคาต้นทุน
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               min={0}
@@ -372,7 +376,7 @@ function AddProductForm({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Status
+            สถานะ
             <select
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) =>
@@ -397,7 +401,7 @@ function AddProductForm({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Description
+            รายละเอียด
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setDescription(event.target.value)}
@@ -407,10 +411,10 @@ function AddProductForm({
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[96px_minmax(0,1fr)_220px] lg:items-end">
-          <สินค้าImagePreview imageUrl={imageUrl} label="New product preview" />
+          <สินค้าImagePreview imageUrl={imageUrl} label="ตัวอย่างรูปสินค้า" />
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            สินค้า image URL
+            ลิงก์รูปสินค้า
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setImageUrl(event.target.value)}
@@ -420,7 +424,7 @@ function AddProductForm({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Upload image
+            อัปโหลดรูปภาพ
             <input
               accept="image/png,image/jpeg,image/webp"
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)]"
@@ -479,11 +483,13 @@ function AddProductForm({
 function AdminProductRow({
   actionState,
   categories,
+  onDelete,
   onSave,
   product,
 }: {
   actionState: ActionState;
   categories: AdminProductCategory[];
+  onDelete: (product: AdminProduct) => void;
   onSave: (product: AdminProduct, input: AdminProductUpdateInput) => void;
   product: AdminProduct;
 }) {
@@ -505,6 +511,9 @@ function AdminProductRow({
     });
   const isSaving =
     actionState.status === "saving" && actionState.productId === product.id;
+  const isDeleting =
+    actionState.status === "deleting" && actionState.productId === product.id;
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const hasChanges =
     name.trim() !== product.name ||
     description.trim() !== (product.description ?? "") ||
@@ -562,25 +571,66 @@ function AdminProductRow({
     );
   }
 
+  function handleDeleteClick() {
+    setIsConfirmOpen(true);
+  }
+
+  function handleConfirmDelete() {
+    setIsConfirmOpen(false);
+    onDelete(product);
+  }
+
   return (
     <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
+      <div className="mb-3 flex justify-end">
+        <button
+          aria-label="ลบสินค้า"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-red-200 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isSaving || isDeleting}
+          onClick={handleDeleteClick}
+          title="ลบสินค้า"
+          type="button"
+        >
+          {isDeleting ? (
+            <span className="text-xs">...</span>
+          ) : (
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="18"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              width="18"
+            >
+              <path d="M3 6h18" />
+              <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+            </svg>
+          )}
+        </button>
+      </div>
       <div className="flex flex-col gap-3 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
           <สินค้าImagePreview
             imageUrl={product.image_url}
-            label={`${product.name} image`}
+            label={`รูป ${product.name}`}
           />
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--brand)]">
-                {product.category?.name ?? "No category"}
+                {product.category?.name ?? "ไม่มีหมวดหมู่"}
               </p>
               <span
                 className={`rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
                   product.status,
                 )}`}
               >
-                {product.status}
+                {recordStatusLabel(product.status)}
               </span>
             </div>
             <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
@@ -620,7 +670,7 @@ function AdminProductRow({
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_150px_150px_140px] lg:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            สินค้า name
+            ชื่อสินค้า
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setName(event.target.value)}
@@ -657,7 +707,7 @@ function AdminProductRow({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            ต้นทุน price
+            ราคาต้นทุน
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               min={0}
@@ -669,7 +719,7 @@ function AdminProductRow({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Status
+            สถานะ
             <select
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) =>
@@ -684,10 +734,10 @@ function AdminProductRow({
         </div>
 
         <div className="grid gap-3 lg:grid-cols-[96px_minmax(0,1fr)_220px] lg:items-end">
-          <สินค้าImagePreview imageUrl={imageUrl} label={`${name} preview`} />
+          <สินค้าImagePreview imageUrl={imageUrl} label={`ตัวอย่างรูป ${name}`} />
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            สินค้า image URL
+            ลิงก์รูปสินค้า
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setImageUrl(event.target.value)}
@@ -697,7 +747,7 @@ function AdminProductRow({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Upload image
+            อัปโหลดรูปภาพ
             <input
               accept="image/png,image/jpeg,image/webp"
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)]"
@@ -740,7 +790,7 @@ function AdminProductRow({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Description
+            รายละเอียด
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setDescription(event.target.value)}
@@ -750,7 +800,7 @@ function AdminProductRow({
 
           <button
             className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!hasChanges || isSaving}
+            disabled={!hasChanges || isSaving || isDeleting}
             type="submit"
           >
             {isSaving ? "กำลังบันทึก..." : "บันทึกสินค้า"}
@@ -771,6 +821,14 @@ function AdminProductRow({
           {actionState.message}
         </p>
       ) : null}
+
+      <ConfirmDialog
+        description={`"${product.name}" จะถูกลบถาวร รวมถึงข้อมูลที่เกี่ยวข้อง (เช่น ประวัติออเดอร์ สต็อก และรายการอะไหล่) และไม่สามารถกู้คืนได้ คุณแน่ใจหรือไม่?`}
+        onCancel={() => setIsConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        open={isConfirmOpen}
+        title="ลบสินค้านี้?"
+      />
     </article>
   );
 }
@@ -898,12 +956,12 @@ export function AdminProductsPanel() {
       });
     }
 
-    loadProducts();
+    void loadProducts();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadProducts();
+      void loadProducts();
     });
 
     return () => {
@@ -966,7 +1024,7 @@ export function AdminProductsPanel() {
 
     if (duplicateSku) {
       setCreateState({
-        error: "This SKU already exists.",
+        error: "รหัสสินค้า (SKU) นี้มีอยู่แล้ว",
         message: null,
         status: "error",
       });
@@ -1007,7 +1065,7 @@ export function AdminProductsPanel() {
     });
     setCreateState({
       error: null,
-      message: "สินค้า added successfully.",
+      message: "เพิ่มสินค้าเรียบร้อยแล้ว",
       status: "created",
     });
   }
@@ -1042,7 +1100,7 @@ export function AdminProductsPanel() {
 
     if (duplicateSku) {
       setActionState({
-        error: "This SKU already exists.",
+        error: "รหัสสินค้า (SKU) นี้มีอยู่แล้ว",
         message: null,
         productId: product.id,
         status: "error",
@@ -1090,9 +1148,48 @@ export function AdminProductsPanel() {
     });
     setActionState({
       error: null,
-      message: "สินค้า saved successfully.",
+      message: "บันทึกสินค้าเรียบร้อยแล้ว",
       productId: product.id,
       status: "saved",
+    });
+  }
+
+  async function handleDeleteProduct(product: AdminProduct) {
+    if (loadState.status !== "ready") {
+      return;
+    }
+
+    setActionState({
+      error: null,
+      message: null,
+      productId: product.id,
+      status: "deleting",
+    });
+
+    const supabase = createClient();
+    const { error } = await deleteAdminProduct(supabase, product.id);
+
+    if (error) {
+      setActionState({
+        error: getAdminDeleteErrorMessage(error, "สินค้า"),
+        message: null,
+        productId: product.id,
+        status: "error",
+      });
+      return;
+    }
+
+    setLoadState({
+      ...loadState,
+      สินค้า: loadState.สินค้า.filter(
+        (current) => current.id !== product.id,
+      ),
+    });
+    setActionState({
+      error: null,
+      message: null,
+      productId: null,
+      status: "idle",
     });
   }
 
@@ -1113,13 +1210,13 @@ export function AdminProductsPanel() {
               className="min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/admin/inventory"
             >
-              Manage inventory
+              จัดการคลังสินค้า
             </Link>
             <Link
               className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
               href="/admin/inventory-review"
             >
-              Review stock
+              ตรวจสต็อก
             </Link>
             <Link
               className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
@@ -1131,7 +1228,7 @@ export function AdminProductsPanel() {
               className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
               href="/admin"
             >
-              Admin home
+              กลับแดชบอร์ด
             </Link>
           </div>
         </div>
@@ -1154,7 +1251,7 @@ export function AdminProductsPanel() {
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
             >
-              Go to account
+              ไปหน้าเข้าสู่ระบบ
             </Link>
           </div>
         </section>
@@ -1197,7 +1294,7 @@ export function AdminProductsPanel() {
             </div>
             <div className="rounded-lg border border-[var(--line)] bg-white p-5">
               <p className="text-sm font-semibold text-[var(--muted)]">
-                Active สินค้า
+                สินค้าที่เปิดขาย
               </p>
               <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
                 {
@@ -1209,7 +1306,7 @@ export function AdminProductsPanel() {
             </div>
             <div className="rounded-lg border border-[var(--line)] bg-white p-5">
               <p className="text-sm font-semibold text-[var(--muted)]">
-                ใกล้หมด stock
+                สต็อกใกล้หมด
               </p>
               <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
                 {lowStockProducts.length}
@@ -1220,11 +1317,11 @@ export function AdminProductsPanel() {
           <div className="mt-5 flex flex-col gap-4 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-semibold text-[var(--foreground)]">
-                {filteredProducts.length} of {loadState.สินค้า.length}{" "}
+                {filteredProducts.length} จาก {loadState.สินค้า.length}{" "}
                 สินค้า
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                สต็อก is shown here but changed through inventory movements.
+                จำนวนสต็อกแสดงไว้ให้ดู การปรับเพิ่ม/ลดให้ทำที่หน้าคลังสินค้า
               </p>
             </div>
 
@@ -1262,6 +1359,7 @@ export function AdminProductsPanel() {
                   actionState={actionState}
                   categories={loadState.categories}
                   key={product.id}
+                  onDelete={handleDeleteProduct}
                   onSave={handleSaveProduct}
                   product={product}
                 />
@@ -1269,7 +1367,7 @@ export function AdminProductsPanel() {
             </div>
           ) : (
             <div className="mt-5 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              No สินค้า match the current filters.
+              ไม่พบสินค้าที่ตรงกับตัวกรอง
             </div>
           )}
         </section>

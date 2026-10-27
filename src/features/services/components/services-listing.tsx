@@ -13,6 +13,7 @@ import {
   type BookingSlotAvailability,
 } from "@/features/bookings";
 import { createClient } from "@/lib/supabase/browser";
+import { getCurrentUserVehicles, type Vehicle } from "@/features/vehicles";
 import {
   getServicesWithCategories,
   type Service,
@@ -23,14 +24,6 @@ type LoadState =
   | { status: "loading"; data: null; error: null }
   | { status: "ready"; data: ServiceCategoryWithServices[]; error: null }
   | { status: "error"; data: null; error: string };
-
-function WrenchIcon() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="text-safety">
-      <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6Z" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 type BookingFormValues = {
   customerName: string;
@@ -198,11 +191,11 @@ function getBookingErrorMessage(message: string) {
   }
 
   if (normalizedMessage.includes("get_garage_slot_availability")) {
-    return "ระบบตรวจเวลาว่างยังไม่พร้อมใช้งาน กรุณาให้ผู้ดูแลรัน SQL ของ Step 10 Part 1 ก่อน";
+    return "ระบบตรวจคิวว่างยังไม่พร้อมใช้งานชั่วคราว กรุณาติดต่ออู่เพื่อจองคิว";
   }
 
   if (normalizedMessage.includes("get_garage_operating_status")) {
-    return "ระบบตรวจวันเปิดร้านยังไม่พร้อมใช้งาน กรุณาให้ผู้ดูแลรัน SQL ของ Step 10 Part 5.1 ก่อน";
+    return "ระบบตรวจวันเปิดร้านยังไม่พร้อมใช้งานชั่วคราว กรุณาติดต่ออู่เพื่อจองคิว";
   }
 
   if (normalizedMessage.includes("not-null constraint")) {
@@ -302,6 +295,16 @@ function ServiceCard({
   );
 }
 
+const OTHER_PLATE_VALUE = "__other__";
+
+// ข้อความที่แสดงในรายการเลือกรถ เช่น "กก 1111 · Honda Civic (ดำ)"
+function formatVehicleOption(vehicle: Vehicle) {
+  const model = [vehicle.brand, vehicle.model].filter(Boolean).join(" ");
+  const color = vehicle.color ? ` (${vehicle.color})` : "";
+
+  return model ? `${vehicle.license_plate} · ${model}${color}` : `${vehicle.license_plate}${color}`;
+}
+
 function getInitialBookingValues(profile: Profile | null): BookingFormValues {
   return {
     customerName: profile?.full_name ?? "",
@@ -331,6 +334,9 @@ function BookingForm({
     error: null,
     status: "idle",
   });
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehiclesStatus, setVehiclesStatus] = useState<"loading" | "ready">("loading");
+  const [useOtherPlate, setUseOtherPlate] = useState(false);
   const [availabilityState, setAvailabilityState] =
     useState<AvailabilityState>({
       error: null,
@@ -460,12 +466,49 @@ function BookingForm({
       });
     }
 
-    loadAvailability();
+    void loadAvailability();
 
     return () => {
       isMounted = false;
     };
   }, [authState.status, values.preferredDate]);
+
+  // รถที่ลูกค้าเคยบันทึกไว้ ใช้เลือกทะเบียนแทนการพิมพ์เอง
+  const customerId = authState.status === "ready" ? authState.profile.id : null;
+
+  useEffect(() => {
+    if (!customerId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadVehicles() {
+      const { data, error } = await getCurrentUserVehicles(createClient(), customerId as string);
+
+      if (!isMounted) {
+        return;
+      }
+
+      const list = error ? [] : (data ?? []);
+      setVehicles(list);
+      setVehiclesStatus("ready");
+
+      if (list.length > 0) {
+        setValues((currentValues) =>
+          currentValues.vehiclePlate
+            ? currentValues
+            : { ...currentValues, vehiclePlate: list[0].license_plate },
+        );
+      }
+    }
+
+    void loadVehicles();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [customerId]);
 
   if (authState.status === "loading") {
     return (
@@ -539,7 +582,7 @@ function BookingForm({
     }
 
     if (!values.vehiclePlate.trim()) {
-      nextErrors.vehiclePlate = "กรุณากรอกทะเบียนรถ";
+      nextErrors.vehiclePlate = "กรุณาเลือกหรือกรอกทะเบียนรถ";
     }
 
     if (!values.preferredDate) {
@@ -697,12 +740,67 @@ function BookingForm({
         >
           ทะเบียนรถ
         </label>
-        <input
-          className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-          id="vehiclePlate"
-          onChange={(event) => updateValue("vehiclePlate", event.target.value)}
-          value={values.vehiclePlate}
-        />
+        {vehiclesStatus === "loading" ? (
+          <select
+            className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-[var(--color-concrete-2)] px-3 text-sm text-[var(--muted)] outline-none"
+            disabled
+            id="vehiclePlate"
+          >
+            <option>กำลังโหลดรถของคุณ...</option>
+          </select>
+        ) : vehicles.length > 0 && !useOtherPlate ? (
+          <select
+            className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
+            id="vehiclePlate"
+            onChange={(event) => {
+              if (event.target.value === OTHER_PLATE_VALUE) {
+                setUseOtherPlate(true);
+                updateValue("vehiclePlate", "");
+                return;
+              }
+
+              updateValue("vehiclePlate", event.target.value);
+            }}
+            value={values.vehiclePlate}
+          >
+            {vehicles.map((vehicle) => (
+              <option key={vehicle.id} value={vehicle.license_plate}>
+                {formatVehicleOption(vehicle)}
+              </option>
+            ))}
+            <option value={OTHER_PLATE_VALUE}>+ ใช้ทะเบียนอื่น (พิมพ์เอง)</option>
+          </select>
+        ) : (
+          <>
+            <input
+              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
+              id="vehiclePlate"
+              onChange={(event) => updateValue("vehiclePlate", event.target.value)}
+              placeholder="เช่น กก 1234"
+              value={values.vehiclePlate}
+            />
+            {vehicles.length > 0 ? (
+              <button
+                className="mt-1.5 text-xs font-semibold text-[var(--brand)] underline"
+                onClick={() => {
+                  setUseOtherPlate(false);
+                  updateValue("vehiclePlate", vehicles[0].license_plate);
+                }}
+                type="button"
+              >
+                เลือกจากรถของฉัน
+              </button>
+            ) : (
+              <p className="mt-1.5 text-xs leading-5 text-[var(--muted)]">
+                ยังไม่มีรถที่บันทึกไว้{" "}
+                <Link className="font-semibold text-[var(--brand)] underline" href="/my-vehicles">
+                  เพิ่มรถของฉัน
+                </Link>{" "}
+                ครั้งต่อไปจะเลือกได้เลย
+              </p>
+            )}
+          </>
+        )}
         {errors.vehiclePlate ? (
           <p className="mt-1 text-xs text-red-700">{errors.vehiclePlate}</p>
         ) : null}
@@ -926,7 +1024,7 @@ export function ServicesListing() {
       });
     }
 
-    loadServices();
+    void loadServices();
 
     return () => {
       isMounted = false;
@@ -1001,12 +1099,12 @@ export function ServicesListing() {
       });
     }
 
-    loadAuthState();
+    void loadAuthState();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadAuthState();
+      void loadAuthState();
     });
 
     return () => {
@@ -1033,12 +1131,12 @@ export function ServicesListing() {
     <main className="storefront-main services-page min-h-screen pb-12">
       <section className="services-page__hero">
         <div>
-          <span className="home-section__kicker">OUR SERVICES</span>
+          <span className="home-section__kicker">บริการของเรา</span>
           <h1>บริการของ อู่ช่างโอ</h1>
           <p>เลือกบริการที่ต้องการ ดูรายละเอียด ราคา และจองคิวได้จากหน้านี้</p>
         </div>
         <div className="services-page__count">
-          <strong>{getServicesCount(categories)}</strong>
+          <strong>{serviceCount}</strong>
           <span>บริการทั้งหมด</span>
         </div>
       </section>

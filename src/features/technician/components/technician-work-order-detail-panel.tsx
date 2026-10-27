@@ -11,6 +11,9 @@ import {
 } from "@/features/technician";
 import { createClient } from "@/lib/supabase/browser";
 import { TechnicianRepairPartsPanel } from "@/features/technician/components/technician-repair-parts-panel";
+import { repairJobStatusLabel } from "@/lib/status-labels";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 type LoadState =
   | { status: "loading"; result: null; error: null }
@@ -54,10 +57,15 @@ function formatDateTime(value: string | null) {
 
 function formatBookingSchedule(workOrder: TechnicianWorkOrder) {
   if (!workOrder.booking) {
-    return "-";
+    return "ยังไม่มีนัดหมาย";
   }
 
-  return `${workOrder.booking.booking_date} เวลา ${workOrder.booking.booking_time.slice(0, 5)} น.`;
+  // booking_date เป็น YYYY-MM-DD ให้อ่านเป็นเวลาท้องถิ่น เพื่อไม่ให้วันเลื่อนตามเขตเวลา
+  const date = new Date(`${workOrder.booking.booking_date}T00:00:00`);
+  const dateText = Number.isNaN(date.getTime())
+    ? workOrder.booking.booking_date
+    : date.toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  return `${dateText} · ${workOrder.booking.booking_time.slice(0, 5)} น.`;
 }
 
 function getStatusStyle(status: TechnicianRepairJobStatus) {
@@ -96,60 +104,46 @@ function getInitialFormState(workOrder: TechnicianWorkOrder): WorkOrderFormState
 }
 
 function WorkOrderSummary({ workOrder }: { workOrder: TechnicianWorkOrder }) {
+  const phone = workOrder.customer?.phone_number;
   return (
-    <section className="grid gap-4 rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm md:grid-cols-2">
-      <div>
-        <p className="text-sm font-semibold text-[var(--brand)]">
-          {workOrder.service?.name ?? "Service not found"}
-        </p>
-        <h2 className="mt-2 text-2xl font-bold text-[var(--foreground)]">
-          {formatBookingSchedule(workOrder)}
-        </h2>
-        <span
-          className={`mt-3 inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
-            workOrder.status,
-          )}`}
-        >
-          {workOrder.status}
+    <section className="rounded-lg border border-[var(--line)] bg-white p-5 sm:p-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(workOrder.status)}`}>
+          {statusLabels[workOrder.status] ?? repairJobStatusLabel(workOrder.status)}
         </span>
+        <p className="text-sm font-semibold text-[var(--brand)]">{workOrder.service?.name ?? "ไม่พบข้อมูลบริการ"}</p>
       </div>
+      <h2 className="mt-2 text-2xl font-bold text-[var(--foreground)]">{formatBookingSchedule(workOrder)}</h2>
 
-      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+      <div className="mt-5 grid gap-5 border-t border-[var(--line)] pt-5 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <dt className="text-[var(--muted)]">Customer</dt>
-          <dd className="mt-1 font-semibold text-[var(--foreground)]">
-            {workOrder.customer?.full_name ?? "-"}
-          </dd>
-          <dd className="mt-1 text-xs text-[var(--muted)]">
-            {workOrder.customer?.phone_number ?? "-"}
-          </dd>
+          <p className="text-sm text-[var(--muted)]">ลูกค้า</p>
+          <p className="mt-1 font-semibold text-[var(--foreground)]">{workOrder.customer?.full_name ?? "-"}</p>
+          {phone ? (
+            <a className="mt-1 inline-flex min-h-9 items-center gap-1.5 font-semibold text-[var(--brand)] hover:underline" href={`tel:${phone}`}>
+              <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 5 5L14 13l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" /></svg>
+              โทร {phone}
+            </a>
+          ) : null}
         </div>
         <div>
-          <dt className="text-[var(--muted)]">Vehicle</dt>
-          <dd className="mt-1 font-semibold text-[var(--foreground)]">
+          <p className="text-sm text-[var(--muted)]">รถ</p>
+          <p className="mt-1 inline-flex rounded-md border-2 border-[var(--foreground)] bg-white px-2.5 py-0.5 font-bold tracking-wide text-[var(--foreground)]">
             {workOrder.vehicle?.license_plate ?? "-"}
-          </dd>
-          <dd className="mt-1 text-xs text-[var(--muted)]">
-            {workOrder.vehicle
-              ? `${workOrder.vehicle.brand ?? "-"} / ${
-                  workOrder.vehicle.model ?? "-"
-                }`
-              : "-"}
-          </dd>
+          </p>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            {workOrder.vehicle ? [workOrder.vehicle.brand, workOrder.vehicle.model].filter(Boolean).join(" ") || "-" : "-"}
+          </p>
         </div>
         <div>
-          <dt className="text-[var(--muted)]">Started</dt>
-          <dd className="mt-1 font-semibold text-[var(--foreground)]">
-            {formatDateTime(workOrder.started_at)}
-          </dd>
+          <p className="text-sm text-[var(--muted)]">เริ่มงานเมื่อ</p>
+          <p className="mt-1 font-semibold text-[var(--foreground)]">{formatDateTime(workOrder.started_at)}</p>
         </div>
         <div>
-          <dt className="text-[var(--muted)]">Completed</dt>
-          <dd className="mt-1 font-semibold text-[var(--foreground)]">
-            {formatDateTime(workOrder.completed_at)}
-          </dd>
+          <p className="text-sm text-[var(--muted)]">เสร็จเมื่อ</p>
+          <p className="mt-1 font-semibold text-[var(--foreground)]">{formatDateTime(workOrder.completed_at)}</p>
         </div>
-      </dl>
+      </div>
     </section>
   );
 }
@@ -168,6 +162,7 @@ export function TechnicianWorkOrderDetailPanel({
     error: null,
     status: "idle",
   });
+  const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
   const [formState, setFormState] = useState<WorkOrderFormState>({
     diagnosis: "",
     repairNotes: "",
@@ -246,12 +241,12 @@ export function TechnicianWorkOrderDetailPanel({
       });
     }
 
-    loadWorkOrder();
+    void loadWorkOrder();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadWorkOrder();
+      void loadWorkOrder();
     });
 
     return () => {
@@ -341,23 +336,14 @@ export function TechnicianWorkOrderDetailPanel({
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            Loading work order...
+            กำลังโหลดใบงาน...
           </div>
         </section>
       ) : null}
 
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
-            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีช่างเพื่อดูงานซ่อม</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              ไปหน้าเข้าสู่ระบบ
-            </Link>
-          </div>
+          <SignInPrompt title="กรุณาเข้าสู่ระบบ" message="กรุณาเข้าสู่ระบบด้วยบัญชีช่างเพื่อดูงานซ่อม" showSignUp={false} />
         </section>
       ) : null}
 
@@ -395,58 +381,29 @@ export function TechnicianWorkOrderDetailPanel({
         <section className="space-y-5 py-6">
           <WorkOrderSummary workOrder={workOrder} />
 
-          <section className="grid gap-5 md:grid-cols-2">
-            <div className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-bold text-[var(--foreground)]">ข้อมูลลูกค้า</h2>
-              <dl className="mt-4 space-y-3 text-sm">
-                <div className="flex justify-between gap-4 border-b border-[var(--line)] pb-3">
-                  <dt className="text-[var(--muted)]">ชื่อ</dt>
-                  <dd className="text-right font-semibold">{workOrder.customer?.full_name ?? "-"}</dd>
-                </div>
-                <div className="flex justify-between gap-4 border-b border-[var(--line)] pb-3">
-                  <dt className="text-[var(--muted)]">เบอร์โทร</dt>
-                  <dd className="text-right font-semibold">{workOrder.customer?.phone_number ?? "-"}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-[var(--muted)]">บริการ</dt>
-                  <dd className="text-right font-semibold">{workOrder.service?.name ?? "-"}</dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-bold text-[var(--foreground)]">ข้อมูลรถ</h2>
-              <dl className="mt-4 space-y-3 text-sm">
-                <div className="flex justify-between gap-4 border-b border-[var(--line)] pb-3">
-                  <dt className="text-[var(--muted)]">ทะเบียน</dt>
-                  <dd className="text-right font-semibold">{workOrder.vehicle?.license_plate ?? "-"}</dd>
-                </div>
-                <div className="flex justify-between gap-4 border-b border-[var(--line)] pb-3">
-                  <dt className="text-[var(--muted)]">ยี่ห้อ / รุ่น</dt>
-                  <dd className="text-right font-semibold">{workOrder.vehicle ? `${workOrder.vehicle.brand ?? "-"} / ${workOrder.vehicle.model ?? "-"}` : "-"}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-[var(--muted)]">นัดหมาย</dt>
-                  <dd className="text-right font-semibold">{formatBookingSchedule(workOrder)}</dd>
-                </div>
-              </dl>
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
+          <section className="rounded-lg border border-[var(--line)] bg-white p-5 sm:p-6">
             <h2 className="text-lg font-bold text-[var(--foreground)]">ความคืบหน้างาน</h2>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              {technicianStatusOptions.map((status) => {
-                const active = workOrder.status === status;
+            <ol className="mt-5 grid gap-3 sm:grid-cols-3">
+              {technicianStatusOptions.map((status, index) => {
+                const currentIndex = technicianStatusOptions.indexOf(workOrder.status);
+                const state = currentIndex < 0 ? "upcoming" : index < currentIndex ? "done" : index === currentIndex ? "current" : "upcoming";
                 return (
-                  <div key={status} className={`rounded-lg border p-4 ${active ? "border-[var(--brand)] bg-red-50" : "border-[var(--line)] bg-white"}`}>
-                    <div className={`h-2 w-2 rounded-full ${active ? "bg-[var(--brand)]" : "bg-slate-300"}`} />
-                    <p className="mt-3 text-sm font-bold">{statusLabels[status]}</p>
-                    <p className="mt-1 text-xs text-[var(--muted)]">{active ? "สถานะปัจจุบัน" : "ยังไม่ถึงขั้นตอนนี้"}</p>
-                  </div>
+                  <li
+                    key={status}
+                    aria-current={state === "current" ? "step" : undefined}
+                    className={`flex items-center gap-3 rounded-xl border p-4 ${state === "current" ? "border-[var(--brand)] bg-red-50" : state === "done" ? "border-emerald-200 bg-emerald-50" : "border-[var(--line)] bg-white"}`}
+                  >
+                    <span className={`grid h-9 w-9 flex-none place-items-center rounded-full text-sm font-bold ${state === "current" ? "bg-[var(--brand)] text-white" : state === "done" ? "bg-emerald-600 text-white" : "bg-slate-100 text-[var(--muted)]"}`}>
+                      {state === "done" ? "✓" : index + 1}
+                    </span>
+                    <span>
+                      <span className="block text-sm font-bold text-[var(--foreground)]">{statusLabels[status]}</span>
+                      <span className="block text-xs text-[var(--muted)]">{state === "current" ? "สถานะปัจจุบัน" : state === "done" ? "ผ่านขั้นตอนนี้แล้ว" : "ขั้นตอนถัดไป"}</span>
+                    </span>
+                  </li>
                 );
               })}
-            </div>
+            </ol>
           </section>
 
           <TechnicianRepairPartsPanel repairJobId={workOrder.id} disabled={isClosed} />
@@ -473,11 +430,26 @@ export function TechnicianWorkOrderDetailPanel({
                 <button
                   className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isClosed || isSaving}
-                  onClick={() => handleSave("completed")}
+                  onClick={() => setIsCloseConfirmOpen(true)}
                   type="button"
                 >
                   ปิดงาน
                 </button>
+                <ConfirmDialog
+                  cancelLabel="ยังไม่ปิด"
+                  confirmLabel="ยืนยันปิดงาน"
+                  description="เมื่อปิดงานแล้วจะแก้ไขข้อมูลไม่ได้อีก คุณแน่ใจหรือไม่?"
+                  isLoading={isSaving}
+                  loadingLabel="กำลังปิดงาน..."
+                  onCancel={() => setIsCloseConfirmOpen(false)}
+                  onConfirm={async () => {
+                    await handleSave("completed");
+                    setIsCloseConfirmOpen(false);
+                  }}
+                  open={isCloseConfirmOpen}
+                  title="ยืนยันปิดงานนี้?"
+                  variant="primary"
+                />
               </div>
             </div>
 
@@ -544,8 +516,8 @@ export function TechnicianWorkOrderDetailPanel({
                 </button>
 
                 {saveState.status === "saved" ? (
-                  <p className="text-sm font-semibold text-[var(--brand-strong)]">
-                    บันทึกข้อมูลเรียบร้อยแล้ว
+                  <p className="text-sm font-semibold text-emerald-700" role="status">
+                    ✓ บันทึกข้อมูลเรียบร้อยแล้ว
                   </p>
                 ) : null}
 

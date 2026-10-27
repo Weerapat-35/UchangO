@@ -64,36 +64,36 @@ export function AdminFinancePanel() {
   const [actionError, setActionError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
-  async function load() {
-    const supabase = createClient();
-    setLoadState({ status: "loading", access: null, error: null, data: null });
-
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-      setLoadState({ status: "error", access: null, error: sessionError.message, data: null });
-      return;
-    }
-    if (!sessionData.session?.user) {
-      setLoadState({ status: "signed-out", access: null, error: null, data: null });
-      return;
-    }
-
-    const access = await checkAdminAccess(supabase, sessionData.session.user.id);
-    if (!access.allowed) {
-      setLoadState({ status: "denied", access, error: null, data: null });
-      return;
-    }
-
-    const result = await getAdminFinanceTransactions(supabase, startDate, endDate);
-    if (result.error) {
-      setLoadState({ status: "error", access: null, error: result.error.message, data: null });
-      return;
-    }
-
-    setLoadState({ status: "ready", access, error: null, data: result.data });
-  }
-
   useEffect(() => {
+    async function load() {
+      const supabase = createClient();
+      setLoadState({ status: "loading", access: null, error: null, data: null });
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        setLoadState({ status: "error", access: null, error: sessionError.message, data: null });
+        return;
+      }
+      if (!sessionData.session?.user) {
+        setLoadState({ status: "signed-out", access: null, error: null, data: null });
+        return;
+      }
+
+      const access = await checkAdminAccess(supabase, sessionData.session.user.id);
+      if (!access.allowed) {
+        setLoadState({ status: "denied", access, error: null, data: null });
+        return;
+      }
+
+      const result = await getAdminFinanceTransactions(supabase, startDate, endDate);
+      if (result.error) {
+        setLoadState({ status: "error", access: null, error: result.error.message, data: null });
+        return;
+      }
+
+      setLoadState({ status: "ready", access, error: null, data: result.data });
+    }
+
     void load();
   }, [startDate, endDate, reloadKey]);
 

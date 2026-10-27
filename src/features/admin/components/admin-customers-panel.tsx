@@ -10,6 +10,7 @@ import {
   type AdminCustomerSummary,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { bookingStatusLabel } from "@/lib/status-labels";
 
 type LoadState =
   | { status: "loading"; access: null; customers: null; error: null }
@@ -42,7 +43,7 @@ function ลูกค้าCard({ customer }: { customer: AdminCustomerSummary }
               {customer.role}
             </p>
             <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-              {customer.email ?? "No email"}
+              {customer.email ?? "ไม่มีอีเมล"}
             </span>
           </div>
           <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
@@ -57,7 +58,7 @@ function ลูกค้าCard({ customer }: { customer: AdminCustomerSummary }
           className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
           href={`/admin/customers/${customer.id}`}
         >
-          View customer
+          ดูข้อมูลลูกค้า
         </Link>
       </div>
 
@@ -86,7 +87,7 @@ function ลูกค้าCard({ customer }: { customer: AdminCustomerSummary }
           </dd>
           {customer.latestBooking ? (
             <dd className="mt-1 text-xs text-[var(--muted)]">
-              {customer.latestBooking.status}
+              {bookingStatusLabel(customer.latestBooking.status)}
             </dd>
           ) : null}
         </div>
@@ -191,12 +192,12 @@ export function AdminCustomersPanel() {
       });
     }
 
-    loadCustomers();
+    void loadCustomers();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadCustomers();
+      void loadCustomers();
     });
 
     return () => {
@@ -241,7 +242,7 @@ export function AdminCustomersPanel() {
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
             href="/admin"
           >
-            Admin home
+            กลับแดชบอร์ด
           </Link>
         </div>
       </header>
@@ -263,7 +264,7 @@ export function AdminCustomersPanel() {
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
             >
-              Go to account
+              ไปหน้าเข้าสู่ระบบ
             </Link>
           </div>
         </section>
@@ -291,11 +292,11 @@ export function AdminCustomersPanel() {
           <div className="flex flex-col gap-4 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-semibold text-[var(--foreground)]">
-                {filteredCustomers.length} of {loadState.customers.length}{" "}
+                {filteredCustomers.length} จาก {loadState.customers.length}{" "}
                 customers
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                ลูกค้า records are read-only in this part.
+                ข้อมูลลูกค้าในหน้านี้ดูได้อย่างเดียว
               </p>
             </div>
 
@@ -316,7 +317,7 @@ export function AdminCustomersPanel() {
             </div>
           ) : (
             <div className="mt-5 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              No customers match the current search.
+              ไม่พบลูกค้าที่ตรงกับคำค้นหา
             </div>
           )}
         </section>

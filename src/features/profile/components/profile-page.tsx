@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
+import { randomId } from "@/lib/random-id";
 import type { ProfileWithAvatar } from "@/features/profile-types";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
@@ -19,7 +20,7 @@ function isAdminRole(role: string | null | undefined) {
 
 function readableError(message: string) {
   if (/row-level security|permission denied|not allowed/i.test(message)) {
-    return "ไม่มีสิทธิ์บันทึกข้อมูล กรุณาตรวจสอบนโยบายสิทธิ์ (RLS) ของ Supabase";
+    return "ไม่มีสิทธิ์บันทึกข้อมูล กรุณาเข้าสู่ระบบใหม่แล้วลองอีกครั้ง";
   }
   if (/bucket not found/i.test(message)) {
     return "ยังไม่มี Storage bucket ชื่อ avatars ใน Supabase กรุณาสร้าง bucket ก่อนอัปโหลดรูป";
@@ -35,63 +36,67 @@ export function ProfilePage({ adminMode = false }: { adminMode?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [signedOut, setSignedOut] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  const loadProfile = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    setSignedOut(false);
-    setAccessDenied(false);
-    const supabase = createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError) {
-      setError(readableError(authError.message));
+  useEffect(() => {
+    async function loadProfile() {
+      setLoading(true);
+      setError("");
+      setSignedOut(false);
+      setAccessDenied(false);
+      const supabase = createClient();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // ยังไม่ได้ล็อกอิน Supabase จะตอบเป็น error "Auth session missing" ให้ถือว่าออกจากระบบอยู่
+      if (authError && !/session missing/i.test(authError.message)) {
+        setError(readableError(authError.message));
+        setLoading(false);
+        return;
+      }
+      if (!user) {
+        setProfile(null);
+        setSignedOut(true);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name, phone_number, email, role, avatar_url, technician_specialty")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        setError(readableError(profileError.message));
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+      if (!data) {
+        setProfile(null);
+        setError("ไม่พบข้อมูลโปรไฟล์ของบัญชีนี้ กรุณาติดต่ออู่");
+        setLoading(false);
+        return;
+      }
+      if (adminMode && !isAdminRole(data.role)) {
+        setProfile(null);
+        setAccessDenied(true);
+        setLoading(false);
+        return;
+      }
+
+      const nextProfile = { ...data, email: data.email ?? user.email ?? null } as ProfileWithAvatar;
+      setProfile(nextProfile);
+      setName(nextProfile.full_name ?? "");
+      setPhone(nextProfile.phone_number ?? "");
       setLoading(false);
-      return;
-    }
-    if (!user) {
-      setProfile(null);
-      setSignedOut(true);
-      setLoading(false);
-      return;
     }
 
-    const { data, error: profileError } = await supabase
-      .from("profiles")
-      .select("id, full_name, phone_number, email, role, avatar_url, technician_specialty")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      setError(readableError(profileError.message));
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
-    if (!data) {
-      setProfile(null);
-      setError("ไม่พบข้อมูลโปรไฟล์ในฐานข้อมูล profiles กรุณาตรวจสอบการสร้างโปรไฟล์ของผู้ใช้ใน Supabase");
-      setLoading(false);
-      return;
-    }
-    if (adminMode && !isAdminRole(data.role)) {
-      setProfile(null);
-      setAccessDenied(true);
-      setLoading(false);
-      return;
-    }
-
-    const nextProfile = { ...data, email: data.email ?? user.email ?? null } as ProfileWithAvatar;
-    setProfile(nextProfile);
-    setName(nextProfile.full_name ?? "");
-    setPhone(nextProfile.phone_number ?? "");
-    setLoading(false);
-  }, [adminMode]);
-
-  useEffect(() => { void loadProfile(); }, [loadProfile]);
+    void loadProfile();
+  }, [adminMode, reloadKey]);
 
   async function saveProfile(event: React.FormEvent) {
     event.preventDefault();
@@ -145,7 +150,7 @@ export function ProfilePage({ adminMode = false }: { adminMode?: boolean }) {
     const extensionByType: Record<string, string> = {
       "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
     };
-    const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extensionByType[file.type]}`;
+    const path = `${user.id}/${Date.now()}-${randomId(6)}.${extensionByType[file.type]}`;
     const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, {
       cacheControl: "3600", contentType: file.type, upsert: false,
     });
@@ -209,15 +214,20 @@ export function ProfilePage({ adminMode = false }: { adminMode?: boolean }) {
     setUploading(false);
   }
 
+  async function signOut() {
+    await createClient().auth.signOut();
+    window.location.href = "/";
+  }
+
   if (loading) return <main className="profile-page"><div className="profile-card profile-loading">กำลังโหลดโปรไฟล์...</div></main>;
   if (accessDenied) return <main className="profile-page"><div className="profile-card"><h1>ไม่มีสิทธิ์เข้าถึง</h1><p>หน้านี้สำหรับผู้ดูแลระบบเท่านั้น</p><Link href="/" className="profile-primary-button">กลับหน้าหลัก</Link></div></main>;
   if (signedOut) return <main className="profile-page"><div className="profile-card"><h1>โปรไฟล์</h1><p>กรุณาเข้าสู่ระบบก่อน</p><Link href="/auth" className="profile-primary-button">เข้าสู่ระบบ</Link></div></main>;
-  if (!profile) return <main className="profile-page"><div className="profile-card"><h1>{adminMode ? "โปรไฟล์ผู้ดูแลระบบ" : "โปรไฟล์"}</h1><p className="profile-alert profile-alert--error">{error || "โหลดข้อมูลโปรไฟล์ไม่สำเร็จ"}</p><button type="button" className="profile-primary-button" onClick={() => void loadProfile()}>ลองโหลดอีกครั้ง</button></div></main>;
+  if (!profile) return <main className="profile-page"><div className="profile-card"><h1>{adminMode ? "โปรไฟล์ผู้ดูแลระบบ" : "โปรไฟล์"}</h1><p className="profile-alert profile-alert--error">{error || "โหลดข้อมูลโปรไฟล์ไม่สำเร็จ"}</p><button type="button" className="profile-primary-button" onClick={() => setReloadKey((key) => key + 1)}>ลองโหลดอีกครั้ง</button></div></main>;
 
   return (
     <main className="profile-page">
       <div className="profile-page__heading">
-        <div><p className="profile-kicker">{adminMode ? "ADMIN ACCOUNT" : "ACCOUNT"}</p><h1>{adminMode ? "โปรไฟล์ผู้ดูแลระบบ" : "โปรไฟล์ของฉัน"}</h1><p>จัดการข้อมูลส่วนตัวและรูปโปรไฟล์ของคุณ</p></div>
+        <div><p className="profile-kicker">{adminMode ? "บัญชีผู้ดูแลระบบ" : "ACCOUNT"}</p><h1>{adminMode ? "โปรไฟล์ผู้ดูแลระบบ" : "โปรไฟล์ของฉัน"}</h1><p>จัดการข้อมูลส่วนตัวและรูปโปรไฟล์ของคุณ</p></div>
       </div>
       <div className="profile-grid">
         <section className="profile-card profile-avatar-card">
@@ -235,7 +245,7 @@ export function ProfilePage({ adminMode = false }: { adminMode?: boolean }) {
         </section>
 
         <form className="profile-card profile-form" onSubmit={saveProfile}>
-          <div className="profile-card__title"><div><p className="profile-kicker">PERSONAL INFORMATION</p><h2>ข้อมูลส่วนตัว</h2></div></div>
+          <div className="profile-card__title"><div><p className="profile-kicker">ข้อมูลส่วนตัว</p><h2>ข้อมูลส่วนตัว</h2></div></div>
           <label>ชื่อ-นามสกุล<input value={name} onChange={(e) => setName(e.target.value)} placeholder="ชื่อ-นามสกุล" maxLength={120} required /></label>
           <label>เบอร์โทรศัพท์<input value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" autoComplete="tel" placeholder="08xxxxxxxx" required /></label>
           <label>อีเมล<input value={profile.email ?? ""} disabled /></label>
@@ -243,6 +253,9 @@ export function ProfilePage({ adminMode = false }: { adminMode?: boolean }) {
           {message ? <div className="profile-alert profile-alert--success" role="status">{message}</div> : null}
           <button className="profile-primary-button profile-save" type="submit" disabled={saving || uploading}>{saving ? "กำลังบันทึก..." : "บันทึกข้อมูล"}</button>
         </form>
+        {!adminMode ? (
+          <button type="button" className="profile-signout" onClick={() => void signOut()}>ออกจากระบบ</button>
+        ) : null}
       </div>
     </main>
   );

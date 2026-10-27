@@ -1,25 +1,40 @@
 import Link from "next/link";
 
+const MENU_LINKS = [
+  { href: "/services", label: "บริการ" },
+  { href: "/products", label: "สินค้าและอะไหล่" },
+  { href: "/my-bookings", label: "การจองของฉัน" },
+  { href: "/my-vehicles", label: "รถของฉัน" },
+];
+
+// TODO: ยังไม่มีหน้าจริงของลิงก์กลุ่มนี้ ตอนนี้จึงพาไปหน้าแรกไว้ก่อน
+const HELP_LINKS = [
+  { href: "/", label: "ติดต่อเรา" },
+  { href: "/", label: "นโยบายความเป็นส่วนตัว" },
+  { href: "/", label: "เงื่อนไขการใช้บริการ" },
+  { href: "/", label: "ความช่วยเหลือ" },
+];
+
 export function SiteFooter() {
   return (
-    <footer className="mt-20 border-t border-[var(--line)]">
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 text-sm text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between sm:px-8">
-        <p>© {new Date().getFullYear()} อู่ช่างโอ ระบบจัดการอู่ซ่อมรถ</p>
-
-        <div className="flex flex-wrap gap-x-6 gap-y-2">
-          <Link href="/" className="transition hover:text-[var(--foreground)]">
-            ติดต่อเรา
-          </Link>
-          <Link href="/" className="transition hover:text-[var(--foreground)]">
-            นโยบายความเป็นส่วนตัว
-          </Link>
-          <Link href="/" className="transition hover:text-[var(--foreground)]">
-            เงื่อนไขการใช้บริการ
-          </Link>
-          <Link href="/" className="transition hover:text-[var(--foreground)]">
-            ความช่วยเหลือ
-          </Link>
+    <footer className="site-footer">
+      <div className="site-footer__inner">
+        <div className="site-footer__brand">
+          <strong>อู่ช่างโอ</strong>
+          <p>ศูนย์บริการรถยนต์ครบวงจร จองคิวซ่อมรถออนไลน์ และติดตามงานซ่อมได้ทุกขั้นตอน</p>
+          <Link href="/services" className="site-footer__cta">เลือกบริการและจองคิว</Link>
         </div>
+        <nav className="site-footer__col" aria-label="เมนูลัด">
+          <p>เมนู</p>
+          {MENU_LINKS.map((link) => <Link key={link.label} href={link.href}>{link.label}</Link>)}
+        </nav>
+        <nav className="site-footer__col" aria-label="ช่วยเหลือ">
+          <p>ช่วยเหลือ</p>
+          {HELP_LINKS.map((link) => <Link key={link.label} href={link.href}>{link.label}</Link>)}
+        </nav>
+      </div>
+      <div className="site-footer__bottom">
+        <p>© {new Date().getFullYear()} อู่ช่างโอ ระบบจัดการอู่ซ่อมรถ</p>
       </div>
     </footer>
   );

@@ -162,12 +162,12 @@ export function AdminReportsPanel() {
       });
     }
 
-    loadReports();
+    void loadReports();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadReports();
+      void loadReports();
     });
 
     return () => {
@@ -185,14 +185,14 @@ export function AdminReportsPanel() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin Reports
+              รายงาน
             </h1>
           </div>
           <Link
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
             href="/admin"
           >
-            Admin home
+            กลับแดชบอร์ด
           </Link>
         </div>
       </header>
@@ -214,7 +214,7 @@ export function AdminReportsPanel() {
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
             >
-              Go to account
+              ไปหน้าเข้าสู่ระบบ
             </Link>
           </div>
         </section>
@@ -241,28 +241,28 @@ export function AdminReportsPanel() {
         <section className="space-y-6 py-6">
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard
-              label="Total bookings"
+              label="การจองทั้งหมด"
               value={loadState.reports.totalBookingCount}
             />
             <MetricCard
-              label="Estimated revenue"
+              label="รายได้โดยประมาณ"
               value={currencyFormatter.format(loadState.reports.estimatedRevenue)}
             />
             <MetricCard
-              label="Average booking value"
+              label="มูลค่าเฉลี่ยต่อการจอง"
               value={currencyFormatter.format(
                 loadState.reports.averageBookingValue,
               )}
             />
             <MetricCard
-              label="Active customers"
+              label="ลูกค้าที่ใช้บริการ"
               value={loadState.reports.activeCustomerCount}
             />
           </section>
 
           <section>
             <h2 className="mb-4 text-xl font-bold text-[var(--foreground)]">
-              Booking status
+              สถานะการจอง
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {loadState.reports.statusCounts.map((item) => (
@@ -278,7 +278,7 @@ export function AdminReportsPanel() {
           <section className="grid gap-4 lg:grid-cols-3">
             <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <h2 className="text-lg font-bold text-[var(--foreground)]">
-                Top services
+                บริการยอดนิยม
               </h2>
               <div className="mt-4 space-y-3">
                 {loadState.reports.topServices.length > 0 ? (
@@ -288,7 +288,7 @@ export function AdminReportsPanel() {
                       key={`${item.service?.id ?? "missing"}-${index}`}
                     >
                       <p className="text-sm font-semibold text-[var(--foreground)]">
-                        {item.service?.name ?? "Service not found"}
+                        {item.service?.name ?? "ไม่พบข้อมูลบริการ"}
                       </p>
                       <p className="text-sm text-[var(--muted)]">
                         {item.bookingCount}
@@ -303,7 +303,7 @@ export function AdminReportsPanel() {
 
             <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <h2 className="text-lg font-bold text-[var(--foreground)]">
-                Top customers
+                ลูกค้าที่ใช้บริการบ่อย
               </h2>
               <div className="mt-4 space-y-3">
                 {loadState.reports.topCustomers.length > 0 ? (
@@ -314,7 +314,7 @@ export function AdminReportsPanel() {
                     >
                       <div>
                         <p className="text-sm font-semibold text-[var(--foreground)]">
-                          {item.customer?.full_name ?? "ลูกค้า not found"}
+                          {item.customer?.full_name ?? "ไม่พบข้อมูลลูกค้า"}
                         </p>
                         <p className="mt-1 text-xs text-[var(--muted)]">
                           {item.customer?.phone_number ?? "-"}
@@ -333,7 +333,7 @@ export function AdminReportsPanel() {
 
             <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <h2 className="text-lg font-bold text-[var(--foreground)]">
-                Top vehicles
+                รถที่เข้ารับบริการบ่อย
               </h2>
               <div className="mt-4 space-y-3">
                 {loadState.reports.topVehicles.length > 0 ? (
@@ -344,7 +344,7 @@ export function AdminReportsPanel() {
                     >
                       <div>
                         <p className="text-sm font-semibold text-[var(--foreground)]">
-                          {item.vehicle?.license_plate ?? "รถยนต์ not found"}
+                          {item.vehicle?.license_plate ?? "ไม่พบข้อมูลรถ"}
                         </p>
                         <p className="mt-1 text-xs text-[var(--muted)]">
                           {item.vehicle
@@ -368,15 +368,15 @@ export function AdminReportsPanel() {
 
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <MetricCard
-              label="Total customers"
+              label="ลูกค้าทั้งหมด"
               value={loadState.reports.totalCustomerCount}
             />
             <MetricCard
-              label="Total vehicles"
+              label="รถทั้งหมด"
               value={loadState.reports.totalVehicleCount}
             />
             <MetricCard
-              label="Revenue bookings"
+              label="การจองที่สร้างรายได้"
               value={
                 loadState.reports.statusCounts.find(
                   (item) => item.status === "confirmed",

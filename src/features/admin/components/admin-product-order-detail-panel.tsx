@@ -440,7 +440,7 @@ function PaymentProofReview({
       }
     }
 
-    loadSignedSlipUrls();
+    void loadSignedSlipUrls();
 
     return () => {
       isMounted = false;
@@ -470,7 +470,7 @@ function PaymentProofReview({
 
       if (sessionError || !session?.access_token) {
         setPaymentActionState({
-          error: sessionError?.message ?? "กรุณาเข้าสู่ระบบ admin อีกครั้ง",
+          error: sessionError?.message ?? "กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบอีกครั้ง",
           message: null,
           paymentId,
           status: "error",
@@ -489,7 +489,7 @@ function PaymentProofReview({
           credentials: "include",
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            "Content-ประเภท": "application/json",
+            "Content-Type": "application/json",
           },
           method: "POST",
         },
@@ -640,7 +640,7 @@ function PaymentProofReview({
 
       {hasSlipProof && signedUrlError ? (
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
-          เปิด signed slip link ไม่สำเร็จ: {signedUrlError}
+          เปิดรูปสลิปไม่สำเร็จ: {signedUrlError}
         </div>
       ) : null}
 
@@ -699,7 +699,7 @@ function PaymentProofReview({
                   value={currencyFormatter.format(payment.amount)}
                 />
                 <DetailItem
-                  label="สถานะ payment"
+                  label="สถานะการชำระเงิน"
                   value={formatPaymentStatus(payment.payment_status)}
                 />
                 <DetailItem
@@ -856,7 +856,7 @@ function สต็อกReturnSummary({ order }: { order: AdminProductOrder }) {
   return (
     <section className="admin-order-card rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
       <p className="text-sm font-semibold text-[var(--brand)]">
-        สต็อก return
+        การคืนสต็อก
       </p>
 
       {order.status === "cancelled" ? (
@@ -869,18 +869,18 @@ function สต็อกReturnSummary({ order }: { order: AdminProductOrder }) {
         >
           <p className="font-semibold">
             {isFullyReturned
-              ? "คืน stock แล้ว"
+              ? "คืนสต็อกแล้ว"
               : hasSaleMovements
-                ? "ยังคืน stock ไม่ครบ"
-                : "ไม่มี sale movement ที่ต้องคืน"}
+                ? "ยังคืนสต็อกไม่ครบ"
+                : "ไม่มีรายการขายที่ต้องคืนสต็อก"}
           </p>
           <p className="mt-1">
-            Return {returnedItemCount} / ราคาขาย {soldItemCount} ชิ้น
+            คืนแล้ว {returnedItemCount} / ขายไป {soldItemCount} ชิ้น
           </p>
         </div>
       ) : (
         <div className="mt-4 rounded-md bg-slate-50 p-3 text-sm leading-6 text-[var(--muted)]">
-          ออเดอร์ยังไม่ถูกยกเลิก จึงยังไม่มีการคืน stock
+          ออเดอร์ยังไม่ถูกยกเลิก จึงยังไม่มีการคืนสต็อก
         </div>
       )}
 
@@ -1031,12 +1031,12 @@ export function AdminProductOrderDetailPanel({
       });
     }
 
-    loadOrder();
+    void loadOrder();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadOrder();
+      void loadOrder();
     });
 
     return () => {
@@ -1086,7 +1086,7 @@ export function AdminProductOrderDetailPanel({
 
     if (refreshedOrderResult.error) {
       setActionState({
-        error: `Status updated, but refresh failed: ${refreshedOrderResult.error.message}`,
+        error: `อัปเดตสถานะแล้ว แต่โหลดข้อมูลใหม่ไม่สำเร็จ: ${refreshedOrderResult.error.message}`,
         status: "error",
       });
       return;
@@ -1200,7 +1200,7 @@ export function AdminProductOrderDetailPanel({
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
             <p className="font-semibold">ต้องเข้าสู่ระบบก่อน</p>
-            <p className="mt-1">เข้าสู่ระบบด้วยบัญชี admin</p>
+            <p className="mt-1">เข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
@@ -1335,6 +1335,13 @@ export function AdminProductOrderDetailPanel({
               <div className="mt-5 rounded-md bg-slate-50 p-4 text-sm leading-6 text-[var(--muted)]">
                 <p className="font-semibold text-[var(--foreground)]">หมายเหตุ</p>
                 <p className="mt-2">{loadState.order.note}</p>
+              </div>
+            ) : null}
+
+            {loadState.order.status === "cancelled" && loadState.order.cancellation_reason ? (
+              <div className="mt-5 rounded-md border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
+                <p className="font-semibold">เหตุผลที่ลูกค้ายกเลิก</p>
+                <p className="mt-2">{loadState.order.cancellation_reason}</p>
               </div>
             ) : null}
 

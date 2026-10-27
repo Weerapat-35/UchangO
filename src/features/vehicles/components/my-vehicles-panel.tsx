@@ -10,6 +10,7 @@ import {
 } from "@/features/vehicles";
 import { uploadVehicleImage, updateVehicleImageUrl } from "@/features/vehicles/image";
 import { createClient } from "@/lib/supabase/browser";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 type LoadState =
   | { status: "loading"; vehicles: null; error: null; userId: null }
@@ -526,12 +527,12 @@ export function MyVehiclesPanel() {
       });
     }
 
-    loadVehicles();
+    void loadVehicles();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadVehicles();
+      void loadVehicles();
     });
 
     return () => {
@@ -589,16 +590,7 @@ export function MyVehiclesPanel() {
 
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
-            <p className="mt-1">เข้าสู่ระบบก่อนเพื่อดูข้อมูลรถของคุณ</p>
-            <Link
-              className="mt-4 block inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--brand)] px-5 py-2 text-center text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-              href="/auth"
-            >
-              เข้าสู่ระบบ
-            </Link>
-          </div>
+          <SignInPrompt title="กรุณาเข้าสู่ระบบ" message="เข้าสู่ระบบก่อนเพื่อดูข้อมูลรถของคุณ" />
         </section>
       ) : null}
 

@@ -136,15 +136,15 @@ function getCapacityErrorMessage(message: string) {
   const normalizedMessage = message.toLowerCase();
 
   if (normalizedMessage.includes("garage_capacity_booking_slot_key")) {
-    return "วันและเวลานี้มี slot อยู่แล้ว";
+    return "วันและเวลานี้มีช่องคิวอยู่แล้ว";
   }
 
   if (normalizedMessage.includes("garage_capacity_business_hours_check")) {
-    return "slot ต้องอยู่ระหว่าง 09:00 ถึง 18:00";
+    return "ช่องคิวต้องอยู่ระหว่าง 09:00 ถึง 18:00";
   }
 
   if (normalizedMessage.includes("row-level security")) {
-    return "ระบบฐานข้อมูลไม่อนุญาตให้แก้ไขคิว กรุณาเข้าสู่ระบบด้วยบัญชี admin แล้วลองอีกครั้ง";
+    return "ระบบไม่อนุญาตให้แก้ไขคิว กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบแล้วลองอีกครั้ง";
   }
 
   return message;
@@ -537,12 +537,12 @@ export function AdminCapacityPanel() {
       });
     }
 
-    loadCapacity();
+    void loadCapacity();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadCapacity();
+      void loadCapacity();
     });
 
     return () => {
@@ -604,7 +604,7 @@ export function AdminCapacityPanel() {
         getSlotKey(capacity.booking_date, capacity.booking_time) === slotKey,
     );
 
-    return duplicate ? "วันและเวลานี้มี slot อยู่แล้ว" : null;
+    return duplicate ? "วันและเวลานี้มีช่องคิวอยู่แล้ว" : null;
   }
 
   async function handleCreateCapacity(input: AdminGarageCapacityInput) {
@@ -730,7 +730,7 @@ export function AdminCapacityPanel() {
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
             href="/admin"
           >
-            กลับหน้า admin
+            กลับแดชบอร์ด
           </Link>
         </div>
       </header>
@@ -747,7 +747,7 @@ export function AdminCapacityPanel() {
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
             <p className="font-semibold">ต้องเข้าสู่ระบบก่อน</p>
-            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชี admin</p>
+            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
@@ -789,7 +789,7 @@ export function AdminCapacityPanel() {
                 แสดง {filteredCapacity.length} จาก {loadState.capacity.length} ช่วงเวลา
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                จำนวนที่จองแล้วนับจาก booking สถานะ pending และ confirmed
+                จำนวนที่จองแล้วนับจากการจองที่รอยืนยันและยืนยันแล้ว
               </p>
             </div>
 

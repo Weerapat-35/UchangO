@@ -12,6 +12,7 @@ import {
   type CartItemWithProduct,
 } from "@/features/products";
 import { ProductImageThumb } from "./product-image-thumb";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 type AuthState =
   | { status: "loading"; user: null; error: null }
@@ -215,12 +216,12 @@ export function CartReview() {
       });
     }
 
-    loadAuthState();
+    void loadAuthState();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadAuthState();
+      void loadAuthState();
     });
 
     return () => {
@@ -271,7 +272,7 @@ export function CartReview() {
       });
     }
 
-    loadCart();
+    void loadCart();
 
     return () => {
       isMounted = false;
@@ -374,24 +375,26 @@ export function CartReview() {
               ตรวจรายการสินค้า แก้จำนวน หรือลบสินค้าออกจากตะกร้าก่อนเข้าสู่ขั้นตอนยืนยันคำสั่งซื้อ
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:w-80">
-            <div className="rounded-lg border border-[var(--line)] bg-white p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                จำนวน
-              </p>
-              <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
-                {cartState.details.itemCount}
-              </p>
+          {authState.status === "ready" ? (
+            <div className="grid grid-cols-2 gap-3 sm:w-80">
+              <div className="rounded-lg border border-[var(--line)] bg-white p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  จำนวน
+                </p>
+                <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
+                  {cartState.details.itemCount}
+                </p>
+              </div>
+              <div className="rounded-lg border border-[var(--line)] bg-white p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                  ยอดรวม
+                </p>
+                <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
+                  {currencyFormatter.format(cartState.details.subtotal)}
+                </p>
+              </div>
             </div>
-            <div className="rounded-lg border border-[var(--line)] bg-white p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                ยอดรวม
-              </p>
-              <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
-                {currencyFormatter.format(cartState.details.subtotal)}
-              </p>
-            </div>
-          </div>
+          ) : null}
         </div>
       </header>
 
@@ -405,16 +408,7 @@ export function CartReview() {
 
       {authState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-xl rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">ต้องเข้าสู่ระบบก่อนดูตะกร้า</p>
-            <p className="mt-2">ระบบจะแยกตะกร้าตามบัญชีลูกค้าแต่ละคน</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              ไปที่หน้าบัญชี
-            </Link>
-          </div>
+          <SignInPrompt title="ต้องเข้าสู่ระบบก่อนดูตะกร้า" message="ระบบจะแยกตะกร้าตามบัญชีลูกค้าแต่ละคน" />
         </section>
       ) : null}
 
@@ -506,7 +500,7 @@ export function CartReview() {
               }
               href="/checkout"
             >
-              ไป checkout
+              ไปชำระเงิน
             </Link>
             <Link
               className="mt-3 flex min-h-10 items-center justify-center rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--muted)]"

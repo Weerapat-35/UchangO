@@ -122,7 +122,7 @@ function validatePaymentSettings(input: PaymentSettingsFormState) {
     }
 
     if (!input.promptpay_qr_image_url.trim()) {
-      return "กรุณากรอก URL รูป QR Code";
+      return "กรุณากรอกลิงก์รูป QR Code";
     }
   }
 
@@ -163,7 +163,7 @@ function handleQrImageError(event: SyntheticEvent<HTMLImageElement>) {
   }
 
   image.src = "/mock-promptpay-qr.svg";
-  image.alt = "Fallback payment QR preview";
+  image.alt = "ตัวอย่าง QR สำรอง";
 }
 
 function TextInput({
@@ -197,12 +197,12 @@ function PaymentPreview({ formState }: { formState: PaymentSettingsFormState }) 
         ตัวอย่างหน้าลูกค้า
       </p>
       <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-        Preview นี้ใช้ยอดตัวอย่าง {currencyFormatter.format(previewAmount)}
+        ตัวอย่างนี้ใช้ยอดเงินสมมติ {currencyFormatter.format(previewAmount)}
       </p>
 
       {formState.status !== "active" ? (
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
-          ตั้งค่านี้ยัง inactive ลูกค้าจะไม่เห็นข้อมูลชุดนี้
+          ตั้งค่านี้ยังปิดใช้งานอยู่ ลูกค้าจะไม่เห็นข้อมูลชุดนี้
         </div>
       ) : null}
 
@@ -212,7 +212,7 @@ function PaymentPreview({ formState }: { formState: PaymentSettingsFormState }) 
             พร้อมเพย์ / QR
           </p>
           <img
-            alt="Payment QR preview"
+            alt="ตัวอย่าง QR ชำระเงิน"
             className="mt-3 h-40 w-40 rounded-md border border-[var(--line)] bg-white p-2"
             onError={handleQrImageError}
             src={formState.promptpay_qr_image_url || "/mock-promptpay-qr.svg"}
@@ -275,7 +275,7 @@ function PaymentPreview({ formState }: { formState: PaymentSettingsFormState }) 
       ) : null}
 
       <div className="mt-4 rounded-md bg-slate-50 p-3 text-xs leading-5 text-[var(--muted)]">
-        ถ้า QR URL โหลดไม่ได้ preview จะใช้รูปสำรองชั่วคราว แต่ควรแก้ URL หรืออัปโหลดรูปใหม่ก่อนใช้งานจริง
+        ถ้าโหลดรูป QR จากลิงก์ไม่ได้ ตัวอย่างจะใช้รูปสำรองชั่วคราว ควรแก้ลิงก์หรืออัปโหลดรูปใหม่ก่อนใช้งานจริง
       </div>
     </aside>
   );
@@ -386,12 +386,12 @@ export function AdminPaymentSettingsPanel() {
       });
     }
 
-    loadSettings();
+    void loadSettings();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadSettings();
+      void loadSettings();
     });
 
     return () => {
@@ -564,7 +564,7 @@ export function AdminPaymentSettingsPanel() {
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
             href="/admin"
           >
-            กลับหน้า admin
+            กลับแดชบอร์ด
           </Link>
         </div>
       </header>
@@ -581,7 +581,7 @@ export function AdminPaymentSettingsPanel() {
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
             <p className="font-semibold">ต้องเข้าสู่ระบบก่อน</p>
-            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชี admin</p>
+            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
@@ -670,7 +670,7 @@ export function AdminPaymentSettingsPanel() {
                     value={formState.promptpay_id}
                   />
                   <TextInput
-                    label="URL รูป QR Code"
+                    label="ลิงก์รูป QR Code"
                     onChange={(value) =>
                       patchFormState({ promptpay_qr_image_url: value })
                     }

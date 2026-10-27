@@ -79,7 +79,7 @@ function getOperatingErrorMessage(message: string) {
   }
 
   if (normalizedMessage.includes("row-level security")) {
-    return "ระบบฐานข้อมูลไม่อนุญาตให้แก้ไขข้อมูลนี้ กรุณาเข้าสู่ระบบด้วยบัญชี admin แล้วลองอีกครั้ง";
+    return "ระบบไม่อนุญาตให้แก้ไขข้อมูลนี้ กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบแล้วลองอีกครั้ง";
   }
 
   if (normalizedMessage.includes("duplicate")) {
@@ -441,12 +441,12 @@ export function AdminOperatingDaysPanel() {
       });
     }
 
-    loadSettings();
+    void loadSettings();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadSettings();
+      void loadSettings();
     });
 
     return () => {
@@ -638,7 +638,7 @@ export function AdminOperatingDaysPanel() {
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
             <p className="font-semibold">ต้องเข้าสู่ระบบก่อน</p>
-            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชี admin</p>
+            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"

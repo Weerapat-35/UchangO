@@ -8,6 +8,7 @@ import {
 } from "@/features/products";
 import { createClient } from "@/lib/supabase/browser";
 import { ProductImageThumb } from "./product-image-thumb";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 type LoadState =
   | { status: "loading"; orders: null; error: null }
@@ -385,12 +386,12 @@ export function CustomerProductOrdersPanel() {
       });
     }
 
-    loadOrders();
+    void loadOrders();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadOrders();
+      void loadOrders();
     });
 
     return () => {
@@ -399,7 +400,7 @@ export function CustomerProductOrdersPanel() {
     };
   }, []);
 
-  const orders = loadState.status === "ready" ? loadState.orders : [];
+  const orders = useMemo(() => (loadState.status === "ready" ? loadState.orders : []), [loadState]);
   const orderCounts = useMemo(() => ({
     all: orders.length,
     pending: orders.filter((order) => order.status === "pending").length,
@@ -445,16 +446,7 @@ export function CustomerProductOrdersPanel() {
 
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">ต้องเข้าสู่ระบบก่อนดูคำสั่งซื้อ</p>
-            <p className="mt-1">เข้าสู่ระบบด้วยบัญชีลูกค้าที่ใช้สั่งสินค้า</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              ไปที่หน้าบัญชี
-            </Link>
-          </div>
+          <SignInPrompt title="ต้องเข้าสู่ระบบก่อนดูคำสั่งซื้อ" message="เข้าสู่ระบบด้วยบัญชีลูกค้าที่ใช้สั่งสินค้า" />
         </section>
       ) : null}
 

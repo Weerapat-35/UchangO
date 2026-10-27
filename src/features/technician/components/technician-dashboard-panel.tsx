@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getTechnicianWorkOrders, type TechnicianWorkOrder, type TechnicianWorkOrdersResult } from "@/features/technician";
 import { createClient } from "@/lib/supabase/browser";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 type LoadState =
   | { status: "loading"; result: null; error: null }
@@ -119,7 +120,7 @@ export function TechnicianDashboardPanel() {
   }
 
   if (loadState.status === "signed-out") {
-    return <main className="technician-dashboard"><div className="technician-dashboard__message"><strong>กรุณาเข้าสู่ระบบ</strong><span>เข้าสู่ระบบด้วยบัญชีช่างเพื่อดู Dashboard</span><Link href="/auth">เข้าสู่ระบบ</Link></div></main>;
+    return <main className="technician-dashboard technician-dashboard--center"><SignInPrompt headingLevel={1} title="กรุณาเข้าสู่ระบบ" message="เข้าสู่ระบบด้วยบัญชีช่างเพื่อดูแดชบอร์ด" showSignUp={false} /></main>;
   }
 
   if (loadState.status === "error") {
@@ -179,8 +180,9 @@ export function TechnicianDashboardPanel() {
 
         <div className="technician-dashboard__panel technician-dashboard__quick">
           <div className="technician-dashboard__panel-head"><div><h2>ทางลัด</h2><p>เมนูที่ใช้บ่อย</p></div></div>
-          <Link href="/technician/work-orders" className="technician-quick-link"><span>🔧</span><div><strong>งานซ่อมของฉัน</strong><small>ดูและอัปเดตสถานะงาน</small></div><b>›</b></Link>
-          <Link href="/technician/profile" className="technician-quick-link"><span>👤</span><div><strong>โปรไฟล์ช่าง</strong><small>แก้ไขข้อมูลและทักษะ</small></div><b>›</b></Link>
+          <Link href="/technician/work-orders" className="technician-quick-link"><span><svg aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M14.7 6.3a4.1 4.1 0 0 0-5.2 5.2L3.6 17.4a2.1 2.1 0 1 0 3 3l5.9-5.9a4.1 4.1 0 0 0 5.2-5.2l-2.6 2.6-2.2-2.2 2.6-2.6Z" /></svg></span><div><strong>งานซ่อมของฉัน</strong><small>ดูและอัปเดตสถานะงาน</small></div><b>›</b></Link>
+          <Link href="/technician/notifications" className="technician-quick-link"><span><svg aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" /><path d="M10 21h4" /></svg></span><div><strong>การแจ้งเตือน</strong><small>งานใหม่และการเปลี่ยนแปลงล่าสุด</small></div><b>›</b></Link>
+          <Link href="/technician/profile" className="technician-quick-link"><span><svg aria-hidden="true" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg></span><div><strong>โปรไฟล์ช่าง</strong><small>แก้ไขข้อมูลและทักษะ</small></div><b>›</b></Link>
         </div>
       </section>
     </main>

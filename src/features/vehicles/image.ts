@@ -50,7 +50,7 @@ export async function updateVehicleImageUrl(
   vehicleId: string,
   imageUrl: string | null,
 ) {
-  const result = await (supabase.from("vehicles") as any)
+  const result = await supabase.from("vehicles")
     .update({ image_url: imageUrl })
     .eq("id", vehicleId)
     .eq("customer_id", customerId)

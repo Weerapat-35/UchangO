@@ -16,6 +16,7 @@ import {
   type AdminBookingStatusAction,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { bookingStatusLabel } from "@/lib/status-labels";
 
 type StatusFilter = AdminBookingListStatusFilter;
 
@@ -111,7 +112,7 @@ function getAdminActions(
   if (status === "pending") {
     return [
       {
-        label: "Confirm",
+        label: "ยืนยันการจอง",
         status: "confirmed",
         tone: "bg-[var(--brand)] text-white",
       },
@@ -126,7 +127,7 @@ function getAdminActions(
   if (status === "confirmed") {
     return [
       {
-        label: "Mark completed",
+        label: "ปิดงาน (เสร็จแล้ว)",
         status: "completed",
         tone: "bg-[var(--brand)] text-white",
       },
@@ -171,7 +172,7 @@ function AdminPaginationControls({
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-[var(--line)] bg-white p-4 lg:flex-row lg:items-center lg:justify-between">
       <p className="text-sm text-[var(--muted)]">
-        Showing page {result.page} of {result.totalPages}
+        หน้า {result.page} จาก {result.totalPages}
       </p>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -182,7 +183,7 @@ function AdminPaginationControls({
             onClick={() => onPageChange(result.page - 1)}
             type="button"
           >
-            Previous
+            ก่อนหน้า
           </button>
           <button
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--muted)] disabled:cursor-not-allowed disabled:opacity-50"
@@ -190,7 +191,7 @@ function AdminPaginationControls({
             onClick={() => onPageChange(result.page + 1)}
             type="button"
           >
-            Next
+            ถัดไป
           </button>
         </div>
 
@@ -258,14 +259,14 @@ function AdminBookingRow({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-[var(--brand)]">
-              {booking.service?.name ?? "Service not found"}
+              {booking.service?.name ?? "ไม่พบข้อมูลบริการ"}
             </p>
             <span
               className={`rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
                 booking.status,
               )}`}
             >
-              {booking.status}
+              {bookingStatusLabel(booking.status)}
             </span>
           </div>
           <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
@@ -323,7 +324,7 @@ function AdminBookingRow({
       ) : null}
 
       <p className="mt-4 break-all text-xs text-[var(--muted)]">
-        Booking ID: {booking.id}
+        รหัสการจอง: {booking.id}
       </p>
 
       <div className="mt-5 flex flex-col gap-3 border-t border-[var(--line)] pt-5 sm:flex-row sm:items-center sm:justify-between">
@@ -343,7 +344,7 @@ function AdminBookingRow({
               >
                 {editableStatuses.map((status) => (
                   <option key={status} value={status}>
-                    {status}
+                    {bookingStatusLabel(status)}
                   </option>
                 ))}
               </select>
@@ -355,7 +356,7 @@ function AdminBookingRow({
                 onClick={cancelStatusEdit}
                 type="button"
               >
-                Cancel edit
+                ยกเลิกการแก้ไข
               </button>
               <button
                 className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
@@ -392,7 +393,7 @@ function AdminBookingRow({
         ) : (
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm font-semibold text-[var(--muted)]">
-              No quick actions for this status.
+              สถานะนี้ไม่มีคำสั่งให้เลือก
             </p>
             <button
               className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--muted)]"
@@ -415,7 +416,7 @@ function AdminBookingRow({
         className="mt-4 inline-block min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
         href={`/admin/bookings/${booking.id}`}
       >
-        View detail
+        ดูรายละเอียด
       </Link>
     </article>
   );
@@ -530,12 +531,12 @@ export function AdminBookingsPanel() {
       });
     }
 
-    loadBookings();
+    void loadBookings();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadBookings();
+      void loadBookings();
     });
 
     return () => {
@@ -631,14 +632,14 @@ export function AdminBookingsPanel() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin การจองคิว
+              การจองคิว
             </h1>
           </div>
           <Link
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
             href="/admin"
           >
-            Admin home
+            กลับแดชบอร์ด
           </Link>
         </div>
       </header>
@@ -660,7 +661,7 @@ export function AdminBookingsPanel() {
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
             >
-              Go to account
+              ไปหน้าเข้าสู่ระบบ
             </Link>
           </div>
         </section>
@@ -689,10 +690,10 @@ export function AdminBookingsPanel() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-sm font-semibold text-[var(--foreground)]">
-                  {loadState.result.totalCount} bookings found
+                  {loadState.result.totalCount} รายการจอง
                 </p>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  Page {loadState.result.page} of{" "}
+                  หน้า {loadState.result.page} จาก{" "}
                   {loadState.result.totalPages}
                 </p>
               </div>
@@ -712,7 +713,7 @@ export function AdminBookingsPanel() {
                   className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white"
                   type="submit"
                 >
-                  Search
+                  ค้นหา
                 </button>
                 {submittedSearch ? (
                   <button
@@ -726,7 +727,7 @@ export function AdminBookingsPanel() {
                     }}
                     type="button"
                   >
-                    Clear
+                    ล้างค่า
                   </button>
                 ) : null}
               </form>
@@ -776,7 +777,7 @@ export function AdminBookingsPanel() {
             </div>
           ) : (
             <div className="mt-5 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              No bookings match the current filters.
+              ไม่พบการจองที่ตรงกับตัวกรอง
             </div>
           )}
 

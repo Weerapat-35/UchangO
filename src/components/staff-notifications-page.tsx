@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
 
@@ -58,7 +57,7 @@ export function StaffNotificationsPage({ role }: { role: "admin" | "technician" 
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
     const load = async (id: string) => {
-      const { data, error: loadError } = await (supabase as any)
+      const { data, error: loadError } = await supabase
         .from("notifications")
         .select("id,type,title,message,reference_id,reference_type,is_read,read_at,created_at")
         .eq("customer_id", id)
@@ -108,7 +107,7 @@ export function StaffNotificationsPage({ role }: { role: "admin" | "technician" 
   async function markRead(id: string) {
     const supabase = createClient();
     const now = new Date().toISOString();
-    const { error: updateError } = await (supabase as any)
+    const { error: updateError } = await supabase
       .from("notifications")
       .update({ is_read: true, read_at: now })
       .eq("id", id);
@@ -124,7 +123,7 @@ export function StaffNotificationsPage({ role }: { role: "admin" | "technician" 
     setMarking(true);
     const supabase = createClient();
     const now = new Date().toISOString();
-    const { error: updateError } = await (supabase as any)
+    const { error: updateError } = await supabase
       .from("notifications")
       .update({ is_read: true, read_at: now })
       .eq("customer_id", userId)
@@ -146,7 +145,7 @@ export function StaffNotificationsPage({ role }: { role: "admin" | "technician" 
     <main className="notifications-page">
       <section className="notifications-hero">
         <div>
-          <p className="notifications-kicker">{role === "admin" ? "ADMIN CENTER" : "TECHNICIAN CENTER"}</p>
+          <p className="notifications-kicker">{role === "admin" ? "ศูนย์ผู้ดูแลระบบ" : "ศูนย์ช่าง"}</p>
           <h1>{title}</h1>
           <p>{subtitle}</p>
         </div>

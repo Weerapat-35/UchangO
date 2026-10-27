@@ -15,6 +15,7 @@ import {
   type ProductCategoryWithProducts,
   type ProductWithCategory,
 } from "@/features/products";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 type AuthState =
   | { status: "loading"; user: null; error: null }
@@ -357,13 +358,7 @@ export function ProductStorefront() {
 
       {authState.status === "signed-out" ? (
         <section className="mx-auto grid min-h-[55vh] max-w-7xl place-items-center px-5 py-12">
-          <div className="w-full max-w-xl rounded-2xl border border-[#e3e3e3] bg-white p-7 text-sm leading-6 shadow-sm">
-            <p className="text-lg font-extrabold">กรุณาเข้าสู่ระบบก่อนเลือกซื้อสินค้า</p>
-            <p className="mt-2 text-[#666]">ระบบสินค้าใช้บัญชีลูกค้าเพื่อแยกตะกร้าและคำสั่งซื้อของแต่ละคน</p>
-            <Link className="mt-5 block rounded-[9px] bg-[#d71920] px-4 py-3 text-center font-extrabold text-white hover:bg-[#b91218]" href="/auth">
-              ไปที่หน้าบัญชี
-            </Link>
-          </div>
+          <SignInPrompt headingLevel={1} title="กรุณาเข้าสู่ระบบก่อนเลือกซื้อสินค้า" message="ระบบสินค้าใช้บัญชีลูกค้าเพื่อแยกตะกร้าและคำสั่งซื้อของแต่ละคน" />
         </section>
       ) : null}
 
@@ -378,7 +373,7 @@ export function ProductStorefront() {
           <div className="mb-5 border-b border-[#dedede] pb-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[.16em] text-[#d71920]">OU CHANG O · PRODUCTS</p>
+                <p className="text-[11px] font-black uppercase tracking-[.16em] text-[#d71920]">สินค้าและอะไหล่</p>
                 <h1 className="mt-1 text-2xl font-black tracking-tight text-[#151515] sm:text-[28px]">สินค้า</h1>
               </div>
               <Link href="/cart" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[9px] border border-[#d8d8d8] bg-white px-4 text-sm font-extrabold text-[#222] transition hover:border-[#d71920] hover:text-[#d71920]">
@@ -395,10 +390,10 @@ export function ProductStorefront() {
               </div>
 
               <div className="pt-5">
-                <label className="text-[13px] font-extrabold text-[#222]">ค้นหาสินค้า</label>
+                <label className="text-[13px] font-extrabold text-[#222]" htmlFor="product-search">ค้นหาสินค้า</label>
                 <div className="mt-2 flex h-10 items-center rounded-[8px] border border-[#dcdcdc] bg-white px-3 focus-within:border-[#d71920]">
                   <svg className="mr-2 h-4 w-4 shrink-0 text-[#888]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-                  <input className="w-full bg-transparent text-[12px] outline-none placeholder:text-[#aaa]" onChange={(event) => setSearchText(event.target.value)} placeholder="ชื่อสินค้า หรือ SKU" value={searchText} />
+                  <input id="product-search" className="w-full bg-transparent text-[12px] outline-none placeholder:text-[#aaa]" onChange={(event) => setSearchText(event.target.value)} placeholder="ชื่อสินค้า หรือ SKU" value={searchText} />
                 </div>
               </div>
 

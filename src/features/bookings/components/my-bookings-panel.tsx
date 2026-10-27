@@ -1,9 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getCurrentUserBookings, type MyBooking } from "@/features/bookings";
 import { createClient } from "@/lib/supabase/browser";
+import { bookingStatusLabel, repairJobStatusLabel } from "@/lib/status-labels";
+import { SignInPrompt } from "@/components/sign-in-prompt";
+import {
+  ArrowIcon,
+  currencyFormatter,
+  DateBadge,
+  formatDuration,
+  formatThaiDate,
+  formatTime,
+  getBookingTimestamp,
+  getRelativeDay,
+  getStatusMeta,
+  isActiveBooking,
+  PlusIcon,
+  ProgressTracker,
+  StatusBadge,
+} from "./booking-ui";
 
 type LoadState =
   | { status: "loading"; bookings: null; error: null }
@@ -11,161 +28,207 @@ type LoadState =
   | { status: "ready"; bookings: MyBooking[]; error: null }
   | { status: "error"; bookings: null; error: string };
 
-const currencyFormatter = new Intl.NumberFormat("th-TH", {
-  currency: "THB",
-  maximumFractionDigits: 0,
-  style: "currency",
-});
+type Filter = "all" | "active" | "completed" | "cancelled";
 
-function formatDuration(minutes: number) {
-  if (minutes < 60) {
-    return `${minutes} min`;
-  }
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: "all", label: "ทั้งหมด" },
+  { key: "active", label: "กำลังดำเนินการ" },
+  { key: "completed", label: "เสร็จสิ้น" },
+  { key: "cancelled", label: "ยกเลิก" },
+];
 
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
+/* ---------- ส่วนประกอบย่อย ---------- */
 
-  return remainingMinutes > 0
-    ? `${hours} hr ${remainingMinutes} min`
-    : `${hours} hr`;
-}
-
-function getStatusStyle(status: MyBooking["status"]) {
-  if (status === "pending") {
-    return "bg-amber-50 text-amber-800";
-  }
-
-  if (status === "confirmed") {
-    return "bg-emerald-50 text-[var(--brand-strong)]";
-  }
-
-  if (status === "cancelled") {
-    return "bg-red-50 text-red-700";
-  }
-
-  return "bg-[var(--color-concrete-2)] text-slate-700";
-}
-
-function getRepairJobStatusStyle(status: NonNullable<MyBooking["repairJob"]>["status"]) {
-  if (status === "pending") {
-    return "bg-amber-50 text-amber-800";
-  }
-
-  if (status === "assigned") {
-    return "bg-cyan-50 text-cyan-800";
-  }
-
-  if (status === "in_progress") {
-    return "bg-indigo-50 text-indigo-800";
-  }
-
-  if (status === "completed") {
-    return "bg-emerald-50 text-[var(--brand-strong)]";
-  }
-
-  return "bg-red-50 text-red-700";
-}
-
-function formatTime(time: string) {
-  return time.slice(0, 5);
+function InfoItem({ label, value, extra }: { label: string; value: string; extra?: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs text-[var(--muted)]">{label}</dt>
+      <dd className="mt-0.5 break-words text-[15px] font-bold text-[var(--foreground)]">{value}</dd>
+      {extra ? <dd className="text-xs text-[var(--muted)]">{extra}</dd> : null}
+    </div>
+  );
 }
 
 function BookingCard({ booking }: { booking: MyBooking }) {
+  const statusMeta = getStatusMeta(booking.status);
+  const relativeDay = getRelativeDay(booking);
+  const isCancelled = booking.status === "cancelled";
+  const dateText = formatThaiDate(booking.booking_date);
+  const vehicleExtra = [booking.vehicle?.brand, booking.vehicle?.model]
+    .filter(Boolean)
+    .join(" ");
+  const mechanicName = booking.repairJob?.mechanic?.full_name;
+
   return (
-    <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-[var(--brand)]">
-            {booking.service?.name ?? "Service not found"}
-          </p>
-          <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
-            {booking.booking_date} at {formatTime(booking.booking_time)}
-          </h2>
+    <article className="overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-sm transition-shadow hover:shadow-md">
+      {/* ส่วนหัว: วันที่ + บริการ + สถานะ */}
+      <div className="flex gap-3.5 p-4 sm:gap-4 sm:p-5">
+        <DateBadge booking={booking} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold leading-snug text-[var(--foreground)] sm:text-xl">
+                {booking.service?.name ?? "ไม่พบข้อมูลบริการ"}
+              </h2>
+              <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[var(--muted)]">
+                <span>{dateText}</span>
+                <span aria-hidden="true">•</span>
+                <span className="font-bold text-[var(--foreground)]">{formatTime(booking.booking_time)}</span>
+                {relativeDay ? (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                      relativeDay.tone === "hot"
+                        ? "bg-[var(--brand)] text-white"
+                        : relativeDay.tone === "warn"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {relativeDay.label}
+                  </span>
+                ) : null}
+              </p>
+            </div>
+            <StatusBadge label={bookingStatusLabel(booking.status)} status={booking.status} />
+          </div>
+          <p className="mt-2 text-sm text-[var(--muted)]">{statusMeta.hint}</p>
         </div>
-        <span
-          className={`w-fit rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
-            booking.status,
-          )}`}
-        >
-          {booking.status}
-        </span>
       </div>
 
-      <dl className="mt-5 grid gap-4 border-t border-[var(--line)] pt-4 text-sm sm:grid-cols-3">
-        <div>
-          <dt className="text-[var(--muted)]">Vehicle plate</dt>
-          <dd className="mt-1 font-semibold text-[var(--foreground)]">
-            {booking.vehicle?.license_plate ?? "-"}
-          </dd>
-          {booking.vehicle ? (
-            <Link
-              className="mt-2 inline-block text-xs font-semibold text-[var(--brand)]"
-              href="/my-vehicles"
-            >
-              Edit vehicle
-            </Link>
-          ) : null}
+      {/* ความคืบหน้า */}
+      {isCancelled ? (
+        <div className="mx-4 mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm leading-6 text-red-800 sm:mx-5">
+          หากยังต้องการใช้บริการ สามารถจองคิวใหม่ได้ทุกเมื่อ
         </div>
-        <div>
-          <dt className="text-[var(--muted)]">Base price</dt>
-          <dd className="mt-1 font-semibold text-[var(--foreground)]">
-            {booking.service
-              ? currencyFormatter.format(booking.service.base_price)
-              : "-"}
-          </dd>
+      ) : (
+        <div className="mx-4 mb-4 rounded-xl bg-[var(--color-concrete-2)] px-3 py-4 sm:mx-5 sm:px-5">
+          <ProgressTracker booking={booking} />
+          <p className="mt-3 border-t border-[var(--line)] pt-3 text-sm text-[var(--muted)]">
+            งานซ่อม:{" "}
+            <span className="font-bold text-[var(--foreground)]">
+              {booking.repairJob
+                ? repairJobStatusLabel(booking.repairJob.status)
+                : "ยังไม่เริ่มงานซ่อม"}
+            </span>
+            {" · "}ช่างผู้ดูแล:{" "}
+            <span className="font-bold text-[var(--foreground)]">
+              {mechanicName ?? "ยังไม่ได้มอบหมาย"}
+            </span>
+          </p>
         </div>
-        <div>
-          <dt className="text-[var(--muted)]">Estimated time</dt>
-          <dd className="mt-1 font-semibold text-[var(--foreground)]">
-            {booking.service
-              ? formatDuration(booking.service.estimated_duration_minutes)
-              : "-"}
-          </dd>
-        </div>
+      )}
+
+      {/* รายละเอียดสรุป */}
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-4 border-t border-[var(--line)] px-4 py-4 sm:grid-cols-3 sm:px-5">
+        <InfoItem
+          extra={vehicleExtra || undefined}
+          label="ทะเบียนรถ"
+          value={booking.vehicle?.license_plate ?? "-"}
+        />
+        <InfoItem
+          label="ราคาเริ่มต้น"
+          value={booking.service ? currencyFormatter.format(booking.service.base_price) : "-"}
+        />
+        <InfoItem
+          label="เวลาโดยประมาณ"
+          value={booking.service ? formatDuration(booking.service.estimated_duration_minutes) : "-"}
+        />
       </dl>
 
       {booking.note ? (
-        <div className="mt-4 rounded-md bg-[var(--color-concrete-2)] p-3 text-sm leading-6 text-[var(--muted)]">
-          {booking.note}
+        <div className="mx-4 mb-4 rounded-xl border border-[var(--line)] px-4 py-3 text-sm leading-6 sm:mx-5">
+          <span className="font-bold text-[var(--foreground)]">หมายเหตุของคุณ: </span>
+          <span className="text-[var(--muted)]">{booking.note}</span>
         </div>
       ) : null}
 
-      <section className="mt-4 rounded-md border border-[var(--line)] bg-[var(--color-concrete-2)] p-3 text-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="font-semibold text-[var(--foreground)]">
-            Work order progress
-          </p>
-          {booking.repairJob ? (
-            <span
-              className={`w-fit rounded-md px-2.5 py-1 text-xs font-semibold ${getRepairJobStatusStyle(
-                booking.repairJob.status,
-              )}`}
-            >
-              {booking.repairJob.status}
-            </span>
-          ) : (
-            <span className="w-fit rounded-md bg-[var(--color-concrete-2)] px-2.5 py-1 text-xs font-semibold text-slate-700">
-              Not created yet
-            </span>
-          )}
-        </div>
-        <p className="mt-2 text-[var(--muted)]">
-          Mechanic: {booking.repairJob?.mechanic?.full_name ?? "-"}
+      {/* ปุ่มดำเนินการ */}
+      <div className="flex flex-col gap-3 border-t border-[var(--line)] bg-[var(--color-concrete)] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <p className="text-xs text-[var(--muted)]">
+          รหัสการจอง <span className="font-bold tracking-wide">#{booking.id.slice(0, 8).toUpperCase()}</span>
         </p>
-      </section>
-
-      <p className="mt-4 break-all text-xs text-[var(--muted)]">
-        Booking ID: {booking.id}
-      </p>
-      <Link
-        className="mt-4 inline-block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-        href={`/my-bookings/${booking.id}`}
-      >
-        View details
-      </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {booking.vehicle ? (
+            <Link
+              className="inline-flex min-h-11 items-center rounded-xl border border-[var(--line)] bg-white px-4 text-sm font-bold text-[var(--foreground)] hover:border-slate-300"
+              href="/my-vehicles"
+            >
+              แก้ไขข้อมูลรถ
+            </Link>
+          ) : null}
+          <Link
+            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-5 text-sm font-bold text-white shadow-sm hover:bg-[var(--brand-strong)] sm:flex-none"
+            href={`/my-bookings/${booking.id}`}
+          >
+            ดูรายละเอียด
+            <ArrowIcon />
+          </Link>
+        </div>
+      </div>
     </article>
   );
 }
+
+function LoadingSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="กำลังโหลดรายการจอง" className="space-y-4" role="status">
+      {[0, 1, 2].map((item) => (
+        <div className="animate-pulse rounded-2xl border border-[var(--line)] bg-white p-5" key={item}>
+          <div className="flex gap-4">
+            <div className="h-[76px] w-[68px] rounded-xl bg-slate-100" />
+            <div className="flex-1 space-y-3">
+              <div className="h-5 w-1/2 rounded bg-slate-100" />
+              <div className="h-4 w-2/3 rounded bg-slate-100" />
+              <div className="h-4 w-1/3 rounded bg-slate-100" />
+            </div>
+          </div>
+          <div className="mt-5 h-16 rounded-xl bg-slate-100" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ filtered, onShowAll }: { filtered: boolean; onShowAll: () => void }) {
+  if (filtered) {
+    return (
+      <div className="rounded-2xl border border-dashed border-[var(--line)] bg-white px-6 py-12 text-center">
+        <p className="text-base font-bold text-[var(--foreground)]">ไม่มีรายการในหมวดนี้</p>
+        <button
+          className="mt-4 inline-flex min-h-11 items-center rounded-xl border border-[var(--line)] px-5 text-sm font-bold text-[var(--foreground)] hover:border-slate-300"
+          onClick={onShowAll}
+          type="button"
+        >
+          ดูรายการทั้งหมด
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-dashed border-[var(--line)] bg-white px-6 py-14 text-center">
+      <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-red-50 text-[var(--brand)]">
+        <svg aria-hidden="true" className="h-7 w-7" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24">
+          <rect height="17" rx="2" width="18" x="3" y="4" />
+          <path d="M3 9h18M8 2v4M16 2v4" />
+        </svg>
+      </div>
+      <h2 className="mt-4 text-lg font-bold text-[var(--foreground)]">ยังไม่มีการจองคิว</h2>
+      <p className="mx-auto mt-1 max-w-sm text-sm leading-6 text-[var(--muted)]">
+        เลือกบริการที่ต้องการ แล้วเลือกวันและเวลาที่สะดวก ใช้เวลาไม่กี่นาที
+      </p>
+      <Link
+        className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-[var(--brand)] px-5 text-sm font-bold text-white shadow-sm hover:bg-[var(--brand-strong)]"
+        href="/"
+      >
+        <PlusIcon />
+        จองคิวแรกของคุณ
+      </Link>
+    </div>
+  );
+}
+
+/* ---------- หน้าหลัก ---------- */
 
 export function MyBookingsPanel() {
   const [loadState, setLoadState] = useState<LoadState>({
@@ -173,6 +236,8 @@ export function MyBookingsPanel() {
     error: null,
     status: "loading",
   });
+  const [filter, setFilter] = useState<Filter>("all");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -237,85 +302,145 @@ export function MyBookingsPanel() {
       });
     }
 
-    loadBookings();
+    void loadBookings();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadBookings();
+      void loadBookings();
     });
 
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [reloadKey]);
+
+  const bookings = loadState.status === "ready" ? loadState.bookings : null;
+
+  const counts = useMemo(() => {
+    const list = bookings ?? [];
+    return {
+      all: list.length,
+      active: list.filter(isActiveBooking).length,
+      completed: list.filter((item) => item.status === "completed").length,
+      cancelled: list.filter((item) => item.status === "cancelled").length,
+    } satisfies Record<Filter, number>;
+  }, [bookings]);
+
+  // รายการที่ยังดำเนินการอยู่ขึ้นก่อน (เรียงจากใกล้ถึงวันนัดที่สุด) ตามด้วยรายการที่จบแล้ว (ใหม่สุดก่อน)
+  const visibleBookings = useMemo(() => {
+    const list = bookings ?? [];
+    const filtered = list.filter((item) => {
+      if (filter === "active") return isActiveBooking(item);
+      if (filter === "completed") return item.status === "completed";
+      if (filter === "cancelled") return item.status === "cancelled";
+      return true;
+    });
+
+    const active = filtered
+      .filter(isActiveBooking)
+      .sort((a, b) => getBookingTimestamp(a).localeCompare(getBookingTimestamp(b)));
+    const finished = filtered
+      .filter((item) => !isActiveBooking(item))
+      .sort((a, b) => getBookingTimestamp(b).localeCompare(getBookingTimestamp(a)));
+
+    return [...active, ...finished];
+  }, [bookings, filter]);
+
+  const subtitle =
+    loadState.status === "ready" && counts.active > 0
+      ? `มี ${counts.active} รายการที่กำลังดำเนินการ`
+      : "รายการจองคิวทั้งหมดในบัญชีของคุณ";
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-6 py-8">
-      <header className="border-b border-[var(--line)] pb-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              My Bookings
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              Review booking requests linked to your signed-in customer
-              profile.
-            </p>
-          </div>
-          <Link
-            className="min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-            href="/"
-          >
-            New booking
-          </Link>
+    <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-4 py-6 sm:px-6 sm:py-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold text-[var(--foreground)]">
+            การจองของฉัน
+          </h1>
+          <p className="mt-1.5 text-[15px] text-[var(--muted)]">{subtitle}</p>
         </div>
+        <Link
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--brand)] px-5 text-sm font-bold text-white shadow-sm hover:bg-[var(--brand-strong)]"
+          href="/"
+        >
+          <PlusIcon />
+          จองคิวใหม่
+        </Link>
       </header>
 
-      {loadState.status === "loading" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            Loading bookings...
+      {loadState.status === "ready" && counts.all > 0 ? (
+        <nav aria-label="กรองรายการจอง" className="-mx-4 mt-6 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <div className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
+            {FILTERS.map((item) => {
+              const selected = filter === item.key;
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={`inline-flex min-h-10 items-center gap-2 whitespace-nowrap rounded-full border px-4 text-sm font-bold transition-colors ${
+                    selected
+                      ? "border-[var(--brand)] bg-[var(--brand)] text-white"
+                      : "border-[var(--line)] bg-white text-[var(--foreground)] hover:border-slate-300"
+                  }`}
+                  key={item.key}
+                  onClick={() => setFilter(item.key)}
+                  type="button"
+                >
+                  {item.label}
+                  <span
+                    className={`grid min-w-6 place-items-center rounded-full px-1.5 text-xs ${
+                      selected ? "bg-white/25 text-white" : "bg-slate-100 text-slate-600"
+                    }`}
+                  >
+                    {counts[item.key]}
+                  </span>
+                </button>
+              );
+            })}
           </div>
+        </nav>
+      ) : null}
+
+      {loadState.status === "loading" ? (
+        <section className="py-6">
+          <LoadingSkeleton />
         </section>
       ) : null}
 
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">Login required</p>
-            <p className="mt-1">Sign in before viewing your bookings.</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              Go to account
-            </Link>
-          </div>
+          <SignInPrompt title="กรุณาเข้าสู่ระบบ" message="เข้าสู่ระบบก่อนเพื่อดูรายการจองของคุณ" />
         </section>
       ) : null}
 
       {loadState.status === "error" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-xl rounded-lg border border-red-200 bg-white px-5 py-4 text-sm text-red-700 shadow-sm">
-            {loadState.error}
+          <div className="max-w-xl rounded-2xl border border-red-200 bg-white px-6 py-6 text-center shadow-sm">
+            <p className="text-base font-bold text-red-700">โหลดรายการจองไม่สำเร็จ</p>
+            <p className="mt-1 break-words text-sm text-[var(--muted)]">{loadState.error}</p>
+            <button
+              className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-[var(--brand)] px-5 text-sm font-bold text-white"
+              onClick={() => setReloadKey((value) => value + 1)}
+              type="button"
+            >
+              ลองใหม่อีกครั้ง
+            </button>
           </div>
         </section>
       ) : null}
 
       {loadState.status === "ready" ? (
-        <section className="py-6">
-          {loadState.bookings.length > 0 ? (
+        <section className="py-5">
+          {visibleBookings.length > 0 ? (
             <div className="space-y-4">
-              {loadState.bookings.map((booking) => (
+              {visibleBookings.map((booking) => (
                 <BookingCard booking={booking} key={booking.id} />
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              No booking requests yet. Start by selecting a service.
-            </div>
+            <EmptyState filtered={counts.all > 0} onShowAll={() => setFilter("all")} />
           )}
         </section>
       ) : null}

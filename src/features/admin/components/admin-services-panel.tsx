@@ -4,9 +4,12 @@ import Link from "next/link";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { AppNav } from "@/components/app-nav";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   checkAdminAccess,
   createAdminService,
+  deleteAdminService,
+  getAdminDeleteErrorMessage,
   getAdminServiceCategories,
   getAdminServices,
   updateAdminService,
@@ -17,6 +20,7 @@ import {
   type AdminServiceUpdateInput,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { recordStatusLabel } from "@/lib/status-labels";
 
 type LoadState =
   | {
@@ -58,6 +62,7 @@ type LoadState =
 type ActionState =
   | { status: "idle"; serviceId: null; error: null; message: null }
   | { status: "saving"; serviceId: string; error: null; message: null }
+  | { status: "deleting"; serviceId: string; error: null; message: null }
   | { status: "error"; serviceId: string; error: string; message: null }
   | { status: "saved"; serviceId: string; error: null; message: string };
 
@@ -136,18 +141,18 @@ function ServiceImagePreview({ imageUrl, label }: { imageUrl: string | null; lab
 
 function validateServiceInput(input: AdminServiceUpdateInput) {
   if (!Number.isFinite(input.base_price) || input.base_price < 0) {
-    return "Base price must be 0 or more.";
+    return "ราคาเริ่มต้นต้องเป็น 0 หรือมากกว่า";
   }
 
   if (
     !Number.isFinite(input.estimated_duration_minutes) ||
     input.estimated_duration_minutes < 1
   ) {
-    return "Estimated time must be at least 1 minute.";
+    return "เวลาโดยประมาณต้องอย่างน้อย 1 นาที";
   }
 
   if (!input.service_category_id) {
-    return "หมวดหมู่ is required.";
+    return "กรุณาเลือกหมวดหมู่";
   }
 
   return null;
@@ -155,7 +160,7 @@ function validateServiceInput(input: AdminServiceUpdateInput) {
 
 function validateServiceCreateInput(input: AdminServiceCreateInput) {
   if (!input.name.trim()) {
-    return "Service name is required.";
+    return "กรุณากรอกชื่อบริการ";
   }
 
   return validateServiceInput(input);
@@ -199,18 +204,18 @@ function AddServiceForm({
           เพิ่มบริการ
         </p>
         <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-          New services will appear on the customer booking page once active.
+          บริการใหม่จะแสดงในหน้าจองของลูกค้าเมื่อเปิดใช้งาน
         </p>
       </div>
 
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Service name
+            ชื่อบริการ
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setName(event.target.value)}
-              placeholder="Example: เติมน้ำยาแอร์"
+              placeholder="เช่น เติมน้ำยาแอร์"
               value={name}
             />
           </label>
@@ -235,11 +240,11 @@ function AddServiceForm({
         </div>
 
         <label className="text-sm font-semibold text-[var(--foreground)]">
-          Description
+          รายละเอียด
           <textarea
             className="mt-2 min-h-20 w-full resize-y rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="Short description shown on the customer booking page"
+            placeholder="คำอธิบายสั้นๆ ที่แสดงในหน้าจองของลูกค้า"
             value={description}
           />
         </label>
@@ -259,7 +264,7 @@ function AddServiceForm({
 
         <div className="grid gap-3 md:grid-cols-3 md:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Base price (THB)
+            ราคาเริ่มต้น (บาท)
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               min={0}
@@ -270,7 +275,7 @@ function AddServiceForm({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Estimated minutes
+            เวลาโดยประมาณ (นาที)
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               min={1}
@@ -281,7 +286,7 @@ function AddServiceForm({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Status
+            สถานะ
             <select
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) =>
@@ -322,11 +327,13 @@ function AddServiceForm({
 function AdminServiceRow({
   actionState,
   categories,
+  onDelete,
   onSave,
   service,
 }: {
   actionState: ActionState;
   categories: AdminServiceCategory[];
+  onDelete: (service: AdminService) => void;
   onSave: (service: AdminService, input: AdminServiceUpdateInput, imageFile: File | null) => void;
   service: AdminService;
 }) {
@@ -340,6 +347,9 @@ function AdminServiceRow({
   const [imagePreview, setImagePreview] = useState(service.image_url);
   const isSaving =
     actionState.status === "saving" && actionState.serviceId === service.id;
+  const isDeleting =
+    actionState.status === "deleting" && actionState.serviceId === service.id;
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const hasChanges =
     categoryId !== service.service_category_id ||
     Number(basePrice) !== service.base_price ||
@@ -357,8 +367,49 @@ function AdminServiceRow({
     }, imageFile);
   }
 
+  function handleDeleteClick() {
+    setIsConfirmOpen(true);
+  }
+
+  function handleConfirmDelete() {
+    setIsConfirmOpen(false);
+    onDelete(service);
+  }
+
   return (
     <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
+      <div className="mb-3 flex justify-end">
+        <button
+          aria-label="ลบบริการ"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-red-200 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isSaving || isDeleting}
+          onClick={handleDeleteClick}
+          title="ลบบริการ"
+          type="button"
+        >
+          {isDeleting ? (
+            <span className="text-xs">...</span>
+          ) : (
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="18"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              width="18"
+            >
+              <path d="M3 6h18" />
+              <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+            </svg>
+          )}
+        </button>
+      </div>
       <div className="mb-4 grid gap-3 md:grid-cols-[180px_1fr]">
         <ServiceImagePreview imageUrl={imagePreview} label={service.name} />
         <label className="self-center text-sm font-semibold text-[var(--foreground)]">
@@ -380,14 +431,14 @@ function AdminServiceRow({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--brand)]">
-              {service.category?.name ?? "No category"}
+              {service.category?.name ?? "ไม่มีหมวดหมู่"}
             </p>
             <span
               className={`rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
                 service.status,
               )}`}
             >
-              {service.status}
+              {recordStatusLabel(service.status)}
             </span>
           </div>
           <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
@@ -427,7 +478,7 @@ function AdminServiceRow({
         </label>
 
         <label className="text-sm font-semibold text-[var(--foreground)]">
-          Base price
+          ราคาเริ่มต้น
           <input
             className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
             min={0}
@@ -438,7 +489,7 @@ function AdminServiceRow({
         </label>
 
         <label className="text-sm font-semibold text-[var(--foreground)]">
-          Estimated time
+          เวลาโดยประมาณ
           <input
             className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
             min={1}
@@ -449,7 +500,7 @@ function AdminServiceRow({
         </label>
 
         <label className="text-sm font-semibold text-[var(--foreground)]">
-          Status
+          สถานะ
           <select
             className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
             onChange={(event) =>
@@ -464,7 +515,7 @@ function AdminServiceRow({
 
         <button
           className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={!hasChanges || isSaving}
+          disabled={!hasChanges || isSaving || isDeleting}
           type="submit"
         >
           {isSaving ? "กำลังบันทึก..." : "บันทึกบริการ"}
@@ -484,6 +535,14 @@ function AdminServiceRow({
           {actionState.message}
         </p>
       ) : null}
+
+      <ConfirmDialog
+        description={`"${service.name}" จะถูกลบถาวร รวมถึงการจองที่ใช้บริการนี้และข้อมูลที่เกี่ยวข้อง และไม่สามารถกู้คืนได้ คุณแน่ใจหรือไม่?`}
+        onCancel={() => setIsConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        open={isConfirmOpen}
+        title="ลบบริการนี้?"
+      />
     </article>
   );
 }
@@ -611,12 +670,12 @@ export function AdminServicesPanel() {
       });
     }
 
-    loadServices();
+    void loadServices();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadServices();
+      void loadServices();
     });
 
     return () => {
@@ -723,7 +782,7 @@ export function AdminServicesPanel() {
     });
     setActionState({
       error: null,
-      message: "Service saved successfully.",
+      message: "บันทึกบริการเรียบร้อยแล้ว",
       serviceId: service.id,
       status: "saved",
     });
@@ -789,8 +848,47 @@ export function AdminServicesPanel() {
     });
     setCreateState({
       error: null,
-      message: "Service added successfully.",
+      message: "เพิ่มบริการเรียบร้อยแล้ว",
       status: "created",
+    });
+  }
+
+  async function handleDeleteService(service: AdminService) {
+    if (loadState.status !== "ready") {
+      return;
+    }
+
+    setActionState({
+      error: null,
+      message: null,
+      serviceId: service.id,
+      status: "deleting",
+    });
+
+    const supabase = createClient();
+    const { error } = await deleteAdminService(supabase, service.id);
+
+    if (error) {
+      setActionState({
+        error: getAdminDeleteErrorMessage(error, "บริการ"),
+        message: null,
+        serviceId: service.id,
+        status: "error",
+      });
+      return;
+    }
+
+    setLoadState({
+      ...loadState,
+      services: loadState.services.filter(
+        (current) => current.id !== service.id,
+      ),
+    });
+    setActionState({
+      error: null,
+      message: null,
+      serviceId: null,
+      status: "idle",
     });
   }
 
@@ -803,14 +901,14 @@ export function AdminServicesPanel() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin Services
+              บริการ
             </h1>
           </div>
           <Link
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
             href="/admin"
           >
-            Admin home
+            กลับแดชบอร์ด
           </Link>
         </div>
       </header>
@@ -832,7 +930,7 @@ export function AdminServicesPanel() {
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
             >
-              Go to account
+              ไปหน้าเข้าสู่ระบบ
             </Link>
           </div>
         </section>
@@ -867,11 +965,11 @@ export function AdminServicesPanel() {
           <div className="flex flex-col gap-4 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-semibold text-[var(--foreground)]">
-                {filteredServices.length} of {loadState.services.length}{" "}
+                {filteredServices.length} จาก {loadState.services.length}{" "}
                 services
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Inactive services are hidden from the customer booking page.
+                บริการที่ปิดใช้งานจะไม่แสดงในหน้าจองของลูกค้า
               </p>
             </div>
 
@@ -909,6 +1007,7 @@ export function AdminServicesPanel() {
                   actionState={actionState}
                   categories={loadState.categories}
                   key={service.id}
+                  onDelete={handleDeleteService}
                   onSave={handleSaveService}
                   service={service}
                 />
@@ -916,7 +1015,7 @@ export function AdminServicesPanel() {
             </div>
           ) : (
             <div className="mt-5 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              No services match the current filters.
+              ไม่พบบริการที่ตรงกับตัวกรอง
             </div>
           )}
         </section>

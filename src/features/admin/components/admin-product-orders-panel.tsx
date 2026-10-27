@@ -581,11 +581,11 @@ function AdminProductOrderCard({
           <p className="font-semibold">ออเดอร์นี้ถูกยกเลิกแล้ว</p>
           {order.saleMovements.length > 0 ? (
             <p className="mt-1">
-              คืน stock แล้ว {returnedItemCount} จาก {soldItemCount} ชิ้น
+              คืนสต็อกแล้ว {returnedItemCount} จาก {soldItemCount} ชิ้น
             </p>
           ) : (
             <p className="mt-1">
-              ไม่พบ sale movement เดิม จึงไม่มี stock ที่ต้องคืน
+              ไม่พบรายการขายเดิม จึงไม่มีสต็อกที่ต้องคืน
             </p>
           )}
         </div>
@@ -813,12 +813,12 @@ export function AdminProductOrdersPanel() {
       });
     }
 
-    loadOrders();
+    void loadOrders();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadOrders();
+      void loadOrders();
     });
 
     return () => {
@@ -953,7 +953,7 @@ export function AdminProductOrdersPanel() {
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
             <p className="font-semibold">ต้องเข้าสู่ระบบก่อน</p>
-            <p className="mt-1">เข้าสู่ระบบด้วยบัญชี admin</p>
+            <p className="mt-1">เข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
@@ -1007,7 +1007,7 @@ export function AdminProductOrdersPanel() {
                 <input
                   className="min-h-10 flex-1 rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
                   onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="ค้นหาเลขออเดอร์ ลูกค้า เบอร์โทร สินค้า หมายเหตุ หรือ order ID"
+                  placeholder="ค้นหาเลขออเดอร์ ลูกค้า เบอร์โทร สินค้า หรือหมายเหตุ"
                   type="search"
                   value={searchInput}
                 />

@@ -65,7 +65,7 @@ export async function addTechnicianRepairPart(
   productId: string,
   quantity: number,
 ) {
-  const { data, error } = await supabase.rpc("add_repair_job_part", {
+  const { error } = await supabase.rpc("add_repair_job_part", {
     p_product_id: productId,
     p_quantity: quantity,
     p_repair_job_id: repairJobId,

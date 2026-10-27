@@ -4,9 +4,12 @@ import Link from "next/link";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { AppNav } from "@/components/app-nav";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   checkAdminAccess,
   createAdminProductCategory,
+  deleteAdminProductCategory,
+  getAdminDeleteErrorMessage,
   getAdminProductCategories,
   updateAdminProductCategory,
   type AdminAccessResult,
@@ -15,6 +18,7 @@ import {
   type AdminProductCategoryUpdateInput,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { recordStatusLabel } from "@/lib/status-labels";
 
 type LoadState =
   | { status: "loading"; access: null; categories: null; error: null }
@@ -36,6 +40,7 @@ type LoadState =
 type ActionState =
   | { status: "idle"; categoryId: null; error: null; message: null }
   | { status: "saving"; categoryId: string; error: null; message: null }
+  | { status: "deleting"; categoryId: string; error: null; message: null }
   | { status: "error"; categoryId: string; error: string; message: null }
   | { status: "saved"; categoryId: string; error: null; message: string };
 
@@ -59,7 +64,7 @@ function getStatusStyle(status: AdminProductCategory["status"]) {
 
 function validateCategoryInput(input: AdminProductCategoryUpdateInput) {
   if (!input.name.trim()) {
-    return "หมวดหมู่ name is required.";
+    return "กรุณากรอกชื่อหมวดหมู่";
   }
 
   return null;
@@ -94,24 +99,24 @@ function AddProductCategoryForm({
           เพิ่มหมวดสินค้า
         </p>
         <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-          New categories will appear in the product category dropdown.
+          หมวดหมู่ใหม่จะแสดงในตัวเลือกหมวดสินค้าทันที
         </p>
       </div>
 
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px] md:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            หมวดหมู่ name
+            ชื่อหมวดหมู่
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setName(event.target.value)}
-              placeholder="Example: Engine parts"
+              placeholder="เช่น อะไหล่เครื่องยนต์"
               value={name}
             />
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Status
+            สถานะ
             <select
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) =>
@@ -126,7 +131,7 @@ function AddProductCategoryForm({
         </div>
 
         <label className="text-sm font-semibold text-[var(--foreground)]">
-          Description
+          รายละเอียด
           <textarea
             className="mt-2 min-h-20 w-full resize-y rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
             onChange={(event) => setDescription(event.target.value)}
@@ -161,10 +166,12 @@ function AddProductCategoryForm({
 function AdminProductCategoryRow({
   actionState,
   category,
+  onDelete,
   onSave,
 }: {
   actionState: ActionState;
   category: AdminProductCategory;
+  onDelete: (category: AdminProductCategory) => void;
   onSave: (
     category: AdminProductCategory,
     input: AdminProductCategoryUpdateInput,
@@ -176,6 +183,9 @@ function AdminProductCategoryRow({
     useState<AdminProductCategory["status"]>(category.status);
   const isSaving =
     actionState.status === "saving" && actionState.categoryId === category.id;
+  const isDeleting =
+    actionState.status === "deleting" && actionState.categoryId === category.id;
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const hasChanges =
     name.trim() !== category.name ||
     description.trim() !== (category.description ?? "") ||
@@ -190,8 +200,49 @@ function AdminProductCategoryRow({
     });
   }
 
+  function handleDeleteClick() {
+    setIsConfirmOpen(true);
+  }
+
+  function handleConfirmDelete() {
+    setIsConfirmOpen(false);
+    onDelete(category);
+  }
+
   return (
     <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
+      <div className="mb-3 flex justify-end">
+        <button
+          aria-label="ลบหมวดหมู่สินค้า"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-red-200 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isSaving || isDeleting}
+          onClick={handleDeleteClick}
+          title="ลบหมวดหมู่สินค้า"
+          type="button"
+        >
+          {isDeleting ? (
+            <span className="text-xs">...</span>
+          ) : (
+            <svg
+              aria-hidden="true"
+              fill="none"
+              height="18"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              width="18"
+            >
+              <path d="M3 6h18" />
+              <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+            </svg>
+          )}
+        </button>
+      </div>
       <div className="flex flex-col gap-3 border-b border-[var(--line)] pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <span
@@ -199,7 +250,7 @@ function AdminProductCategoryRow({
               category.status,
             )}`}
           >
-            {category.status}
+            {recordStatusLabel(category.status)}
           </span>
           <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
             {category.name}
@@ -216,7 +267,7 @@ function AdminProductCategoryRow({
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px] md:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            หมวดหมู่ name
+            ชื่อหมวดหมู่
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setName(event.target.value)}
@@ -225,7 +276,7 @@ function AdminProductCategoryRow({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Status
+            สถานะ
             <select
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) =>
@@ -240,7 +291,7 @@ function AdminProductCategoryRow({
         </div>
 
         <label className="text-sm font-semibold text-[var(--foreground)]">
-          Description
+          รายละเอียด
           <textarea
             className="mt-2 min-h-24 w-full resize-y rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
             onChange={(event) => setDescription(event.target.value)}
@@ -251,7 +302,7 @@ function AdminProductCategoryRow({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
             className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!hasChanges || isSaving}
+            disabled={!hasChanges || isSaving || isDeleting}
             type="submit"
           >
             {isSaving ? "กำลังบันทึก..." : "บันทึกหมวดสินค้า"}
@@ -270,6 +321,14 @@ function AdminProductCategoryRow({
           ) : null}
         </div>
       </form>
+
+      <ConfirmDialog
+        description={`"${category.name}" จะถูกลบถาวร รวมถึงสินค้าทั้งหมดในหมวดนี้และข้อมูลที่เกี่ยวข้อง และไม่สามารถกู้คืนได้ คุณแน่ใจหรือไม่?`}
+        onCancel={() => setIsConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        open={isConfirmOpen}
+        title="ลบหมวดหมู่สินค้านี้?"
+      />
     </article>
   );
 }
@@ -376,12 +435,12 @@ export function AdminProductCategoriesPanel() {
       });
     }
 
-    loadCategories();
+    void loadCategories();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadCategories();
+      void loadCategories();
     });
 
     return () => {
@@ -431,7 +490,7 @@ export function AdminProductCategoriesPanel() {
 
     if (duplicateCategory) {
       setCreateState({
-        error: "This product category name already exists.",
+        error: "มีชื่อหมวดสินค้านี้อยู่แล้ว",
         message: null,
         status: "error",
       });
@@ -464,7 +523,7 @@ export function AdminProductCategoriesPanel() {
     });
     setCreateState({
       error: null,
-      message: "หมวดสินค้า added successfully.",
+      message: "เพิ่มหมวดสินค้าเรียบร้อยแล้ว",
       status: "created",
     });
   }
@@ -498,7 +557,7 @@ export function AdminProductCategoriesPanel() {
     if (duplicateCategory) {
       setActionState({
         categoryId: category.id,
-        error: "This product category name already exists.",
+        error: "มีชื่อหมวดสินค้านี้อยู่แล้ว",
         message: null,
         status: "error",
       });
@@ -538,8 +597,47 @@ export function AdminProductCategoriesPanel() {
     setActionState({
       categoryId: category.id,
       error: null,
-      message: "หมวดสินค้า saved successfully.",
+      message: "บันทึกหมวดสินค้าเรียบร้อยแล้ว",
       status: "saved",
+    });
+  }
+
+  async function handleDeleteCategory(category: AdminProductCategory) {
+    if (loadState.status !== "ready") {
+      return;
+    }
+
+    setActionState({
+      error: null,
+      message: null,
+      categoryId: category.id,
+      status: "deleting",
+    });
+
+    const supabase = createClient();
+    const { error } = await deleteAdminProductCategory(supabase, category.id);
+
+    if (error) {
+      setActionState({
+        error: getAdminDeleteErrorMessage(error, "หมวดหมู่สินค้า"),
+        message: null,
+        categoryId: category.id,
+        status: "error",
+      });
+      return;
+    }
+
+    setLoadState({
+      ...loadState,
+      categories: loadState.categories.filter(
+        (current) => current.id !== category.id,
+      ),
+    });
+    setActionState({
+      error: null,
+      message: null,
+      categoryId: null,
+      status: "idle",
     });
   }
 
@@ -552,21 +650,21 @@ export function AdminProductCategoriesPanel() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin สินค้า Categories
+              หมวดสินค้า
             </h1>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Link
               className="min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/admin/สินค้า"
+              href="/admin/products"
             >
-              Manage สินค้า
+              จัดการสินค้า
             </Link>
             <Link
               className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
               href="/admin"
             >
-              Admin home
+              กลับแดชบอร์ด
             </Link>
           </div>
         </div>
@@ -589,7 +687,7 @@ export function AdminProductCategoriesPanel() {
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
             >
-              Go to account
+              ไปหน้าเข้าสู่ระบบ
             </Link>
           </div>
         </section>
@@ -623,12 +721,11 @@ export function AdminProductCategoriesPanel() {
           <div className="mt-5 flex flex-col gap-4 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-semibold text-[var(--foreground)]">
-                {filteredCategories.length} of {loadState.categories.length}{" "}
-                product categories
+                {filteredCategories.length} จาก {loadState.categories.length}{" "}
+                หมวดสินค้า
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Inactive categories remain available for admin review but can
-                be hidden from product sales later.
+                หมวดที่ปิดใช้งานยังดูได้ในหน้าแอดมิน แต่จะไม่แสดงในหน้าขายสินค้า
               </p>
             </div>
 
@@ -666,13 +763,14 @@ export function AdminProductCategoriesPanel() {
                   actionState={actionState}
                   category={category}
                   key={category.id}
+                  onDelete={handleDeleteCategory}
                   onSave={handleSaveCategory}
                 />
               ))}
             </div>
           ) : (
             <div className="mt-5 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              No product categories match the current filters.
+              ไม่พบหมวดสินค้าที่ตรงกับตัวกรอง
             </div>
           )}
         </section>

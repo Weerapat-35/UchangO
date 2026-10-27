@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getTechnicianProfile,
@@ -8,6 +7,7 @@ import {
   type TechnicianProfile,
 } from "@/features/technician";
 import { createClient } from "@/lib/supabase/browser";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 type LoadState =
   | { status: "loading"; profile: null; error: null; userId: null }
@@ -112,7 +112,7 @@ export function TechnicianProfilePanel() {
         setFullName(data.profile.full_name);
         setPhoneNumber(data.profile.phone_number);
         setTechnicianSpecialty(data.profile.technician_specialty ?? "");
-        setAvatarUrl((data.profile as any).avatar_url ?? null);
+        setAvatarUrl(data.profile.avatar_url ?? null);
       }
 
       setSelectedSkillIds(data?.selectedSkillIds ?? []);
@@ -124,12 +124,12 @@ export function TechnicianProfilePanel() {
       });
     }
 
-    loadProfile();
+    void loadProfile();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadProfile();
+      void loadProfile();
     });
 
     return () => {
@@ -180,9 +180,9 @@ export function TechnicianProfilePanel() {
     }
     const { data: publicData } = supabase.storage.from("avatars").getPublicUrl(path);
     const avatar = publicData.publicUrl;
-    const { data, error } = await (supabase as any).from("profiles").update({ avatar_url: avatar }).eq("id", loadState.userId).select("*").single();
+    const { data, error } = await supabase.from("profiles").update({ avatar_url: avatar }).eq("id", loadState.userId).select("*").single();
     if (error) setSaveState({ error: error.message, message: null, status: "error" });
-    else { setAvatarUrl(avatar); setLoadState({ ...loadState, profile: data }); setSaveState({ error: null, message: "เปลี่ยนรูปโปรไฟล์แล้ว", status: "success" }); }
+    else { setAvatarUrl(avatar); setLoadState({ ...loadState, profile: { ...loadState.profile, profile: data } }); setSaveState({ error: null, message: "เปลี่ยนรูปโปรไฟล์แล้ว", status: "success" }); }
     setUploadingAvatar(false);
   }
 
@@ -195,7 +195,7 @@ export function TechnicianProfilePanel() {
 
     if (!fullName.trim()) {
       setSaveState({
-        error: "Full name is required.",
+        error: "กรุณากรอกชื่อ-นามสกุล",
         message: null,
         status: "error",
       });
@@ -204,7 +204,7 @@ export function TechnicianProfilePanel() {
 
     if (!phoneNumber.trim()) {
       setSaveState({
-        error: "Phone number is required.",
+        error: "กรุณากรอกเบอร์โทรศัพท์",
         message: null,
         status: "error",
       });
@@ -239,7 +239,7 @@ export function TechnicianProfilePanel() {
       setFullName(data.profile.full_name);
       setPhoneNumber(data.profile.phone_number);
       setTechnicianSpecialty(data.profile.technician_specialty ?? "");
-      setAvatarUrl((data.profile as any).avatar_url ?? null);
+      setAvatarUrl(data.profile.avatar_url ?? null);
     }
 
     setSelectedSkillIds(data?.selectedSkillIds ?? []);
@@ -249,7 +249,7 @@ export function TechnicianProfilePanel() {
     });
     setSaveState({
       error: null,
-      message: "Technician profile saved.",
+      message: "บันทึกโปรไฟล์ช่างเรียบร้อยแล้ว",
       status: "success",
     });
   }
@@ -268,23 +268,14 @@ export function TechnicianProfilePanel() {
       {loadState.status === "loading" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            Loading technician profile...
+            กำลังโหลดโปรไฟล์ช่าง...
           </div>
         </section>
       ) : null}
 
       {loadState.status === "signed-out" ? (
         <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">Login required</p>
-            <p className="mt-1">Sign in with a technician account.</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              Go to account
-            </Link>
-          </div>
+          <SignInPrompt title="กรุณาเข้าสู่ระบบ" message="กรุณาเข้าสู่ระบบด้วยบัญชีช่าง" showSignUp={false} />
         </section>
       ) : null}
 
@@ -299,7 +290,7 @@ export function TechnicianProfilePanel() {
       {loadState.status === "ready" && !loadState.profile.allowed ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">Access denied</p>
+            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
             <p className="mt-2">{loadState.profile.reason}</p>
           </div>
         </section>
@@ -322,11 +313,11 @@ export function TechnicianProfilePanel() {
             </div>
             <p className="mt-3 text-xs text-[var(--muted)]">รองรับ JPG, PNG, WebP ขนาดไม่เกิน 2 MB</p>
 
-            <p className="mt-5 text-sm font-semibold text-[var(--brand)]">Profile</p>
+            <p className="mt-5 text-sm font-semibold text-[var(--brand)]">โปรไฟล์</p>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium text-[var(--foreground)]">
-                Full name
+                ชื่อ-นามสกุล
                 <input
                   className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
                   onChange={(event) => setFullName(event.target.value)}
@@ -334,7 +325,7 @@ export function TechnicianProfilePanel() {
                 />
               </label>
               <label className="text-sm font-medium text-[var(--foreground)]">
-                Phone number
+                เบอร์โทรศัพท์
                 <input
                   className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
                   inputMode="tel"
@@ -343,13 +334,13 @@ export function TechnicianProfilePanel() {
                 />
               </label>
               <label className="text-sm font-medium text-[var(--foreground)] sm:col-span-2">
-                Short specialty label
+                ความถนัดหลัก (สั้นๆ)
                 <input
                   className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
                   onChange={(event) =>
                     setTechnicianSpecialty(event.target.value)
                   }
-                  placeholder="Example: Electrical and diagnostics"
+                  placeholder="เช่น ระบบไฟฟ้าและการวิเคราะห์อาการ"
                   value={technicianSpecialty}
                 />
               </label>
@@ -372,7 +363,7 @@ export function TechnicianProfilePanel() {
 
             <section className="mt-6 border-t border-[var(--line)] pt-5">
               <p className="text-sm font-semibold text-[var(--brand)]">
-                Skills
+                ทักษะ
               </p>
               {loadState.profile.skills.length > 0 ? (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -400,7 +391,7 @@ export function TechnicianProfilePanel() {
                 </div>
               ) : (
                 <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                  No active technician skills found.
+                  ยังไม่มีทักษะช่างที่เปิดใช้งาน
                 </div>
               )}
             </section>
@@ -410,7 +401,7 @@ export function TechnicianProfilePanel() {
               disabled={saveState.status === "saving"}
               type="submit"
             >
-              {saveState.status === "saving" ? "Saving..." : "Save profile"}
+              {saveState.status === "saving" ? "Saving..." : "บันทึกโปรไฟล์"}
             </button>
 
             {saveState.status === "success" ? (
@@ -428,7 +419,7 @@ export function TechnicianProfilePanel() {
 
           <aside className="h-fit rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold text-[var(--brand)]">
-              Selected skills
+              ทักษะที่เลือก
             </p>
             {selectedSkillNames.length > 0 ? (
               <div className="mt-4 flex flex-wrap gap-2">
@@ -443,7 +434,7 @@ export function TechnicianProfilePanel() {
               </div>
             ) : (
               <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
-                No skills selected yet.
+                ยังไม่ได้เลือกทักษะ
               </p>
             )}
           </aside>

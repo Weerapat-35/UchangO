@@ -12,6 +12,7 @@ import {
   type AdminRepairJob,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { repairJobStatusLabel } from "@/lib/status-labels";
 
 type LoadState =
   | { status: "loading"; access: null; repairJobs: null; error: null }
@@ -88,7 +89,7 @@ function getMechanicSkillsLabel(mechanic: AdminMechanic | null) {
     return mechanic.skills.map((skill) => skill.name).join(", ");
   }
 
-  return mechanic.technician_specialty?.trim() || "No skills set";
+  return mechanic.technician_specialty?.trim() || "ยังไม่ได้ระบุทักษะ";
 }
 
 function getMechanicOptionLabel(mechanic: AdminMechanic) {
@@ -126,14 +127,14 @@ function AdminRepairJobRow({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-[var(--brand)]">
-              {repairJob.service?.name ?? "Service not found"}
+              {repairJob.service?.name ?? "ไม่พบข้อมูลบริการ"}
             </p>
             <span
               className={`rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
                 repairJob.status,
               )}`}
             >
-              {repairJob.status}
+              {repairJobStatusLabel(repairJob.status)}
             </span>
           </div>
           <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
@@ -386,12 +387,12 @@ export function AdminRepairJobsPanel() {
       });
     }
 
-    loadRepairJobs();
+    void loadRepairJobs();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadRepairJobs();
+      void loadRepairJobs();
     });
 
     return () => {
@@ -474,7 +475,7 @@ export function AdminRepairJobsPanel() {
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
             href="/admin"
           >
-            Admin home
+            กลับแดชบอร์ด
           </Link>
         </div>
       </header>
@@ -496,7 +497,7 @@ export function AdminRepairJobsPanel() {
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
             >
-              Go to account
+              ไปหน้าเข้าสู่ระบบ
             </Link>
           </div>
         </section>
@@ -524,7 +525,7 @@ export function AdminRepairJobsPanel() {
           <div className="grid gap-3 border-b border-[var(--line)] pb-5 sm:grid-cols-2 lg:grid-cols-6">
             <div className="rounded-lg border border-[var(--line)] bg-white p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-                Total
+                ทั้งหมด
               </p>
               <p className="mt-2 text-2xl font-bold text-[var(--foreground)]">
                 {loadState.repairJobs.length}

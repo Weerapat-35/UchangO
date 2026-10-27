@@ -184,11 +184,11 @@ function ReviewProductRow({ product }: { product: ReviewProduct }) {
             className="min-h-9 rounded-md bg-[var(--brand)] px-3 py-2 text-center text-xs font-semibold text-white"
             href="/admin/inventory"
           >
-            สต็อก in/out
+            รับเข้า/จ่ายออก
           </Link>
           <Link
             className="min-h-9 rounded-md border border-[var(--line)] bg-white px-3 py-2 text-center text-xs font-semibold text-[var(--muted)]"
-            href="/admin/สินค้า"
+            href="/admin/products"
           >
             แก้ไขสินค้า
           </Link>
@@ -310,12 +310,12 @@ export function AdminInventoryReviewPanel() {
       });
     }
 
-    loadInventoryReview();
+    void loadInventoryReview();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadInventoryReview();
+      void loadInventoryReview();
     });
 
     return () => {
@@ -382,7 +382,7 @@ export function AdminInventoryReviewPanel() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Inventory Review
+              ตรวจสต็อก
             </h1>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -390,13 +390,13 @@ export function AdminInventoryReviewPanel() {
               className="min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/admin/inventory"
             >
-              Record movement
+              บันทึกรายการสต็อก
             </Link>
             <Link
               className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
-              href="/admin/สินค้า"
+              href="/admin/products"
             >
-              Manage สินค้า
+              จัดการสินค้า
             </Link>
           </div>
         </div>
@@ -419,7 +419,7 @@ export function AdminInventoryReviewPanel() {
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
             >
-              Go to account
+              ไปหน้าเข้าสู่ระบบ
             </Link>
           </div>
         </section>
@@ -447,7 +447,7 @@ export function AdminInventoryReviewPanel() {
           <div className="grid gap-3 md:grid-cols-5">
             <div className="rounded-lg border border-[var(--line)] bg-white p-5">
               <p className="text-sm font-semibold text-[var(--muted)]">
-                Active สินค้า
+                สินค้าที่เปิดขาย
               </p>
               <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
                 {summary.activeCount}
@@ -475,7 +475,7 @@ export function AdminInventoryReviewPanel() {
             </div>
             <div className="rounded-lg border border-emerald-200 bg-white p-5">
               <p className="text-sm font-semibold text-[var(--brand-strong)]">
-                Healthy
+                สต็อกปกติ
               </p>
               <p className="mt-2 text-3xl font-bold text-[var(--brand-strong)]">
                 {summary.healthyCount}
@@ -486,11 +486,10 @@ export function AdminInventoryReviewPanel() {
           <div className="mt-5 flex flex-col gap-4 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-semibold text-[var(--foreground)]">
-                {filteredProducts.length} of {reviewProducts.length} สินค้า
+                {filteredProducts.length} จาก {reviewProducts.length} สินค้า
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                ใกล้หมด stock means active product stock is {lowStockThreshold} or
-                lower.
+                สินค้าจะถือว่าสต็อกใกล้หมดเมื่อเหลือ {lowStockThreshold} ชิ้นหรือน้อยกว่า
               </p>
             </div>
 
@@ -543,7 +542,7 @@ export function AdminInventoryReviewPanel() {
               </table>
             ) : (
               <div className="p-6 text-sm leading-6 text-[var(--muted)]">
-                No สินค้า match the current filters.
+                ไม่พบสินค้าที่ตรงกับตัวกรอง
               </div>
             )}
           </section>

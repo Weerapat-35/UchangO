@@ -139,10 +139,10 @@ export default async function InvoicePage({
                 <h1 className="mt-2 text-3xl font-black text-slate-950">{settings?.shop_name ?? "อู่ช่างโอ"}</h1>
                 <div className="mt-3 max-w-md whitespace-pre-line text-sm leading-6 text-slate-600">
                   {settings?.address || "-"}
-                  {settings?.phone_number ? `\phone. ${settings.phone_number}` : ""}
+                  {settings?.phone_number ? `\nโทร. ${settings.phone_number}` : ""}
                   {settings?.email ? `\n${settings.email}` : ""}
-                  {settings?.tax_id ? `\taxIdี: ${settings.tax_id}` : ""}
-                  {settings?.branch_name ? `\branch: ${settings.branch_name}${settings.branch_number ? ` (${settings.branch_number})` : ""}` : ""}
+                  {settings?.tax_id ? `\nเลขประจำตัวผู้เสียภาษี: ${settings.tax_id}` : ""}
+                  {settings?.branch_name ? `\nสาขา: ${settings.branch_name}${settings.branch_number ? ` (${settings.branch_number})` : ""}` : ""}
                 </div>
               </div>
               <div className="text-left sm:text-right">
@@ -156,16 +156,16 @@ export default async function InvoicePage({
 
           <section className="grid gap-6 border-b border-slate-200 p-8 sm:grid-cols-2 sm:p-10">
             <div>
-              <div className="text-xs font-black uppercase tracking-widest text-slate-400">Billed to</div>
+              <div className="text-xs font-black uppercase tracking-widest text-slate-400">ลูกค้า</div>
               <div className="mt-2 text-lg font-bold text-slate-950">{profile.data?.full_name ?? "-"}</div>
-              <div className="mt-1 text-sm leading-6 text-slate-600">
+              <div className="mt-1 whitespace-pre-line text-sm leading-6 text-slate-600">
                 {profile.data?.phone_number ? `โทร. ${profile.data.phone_number}` : ""}
                 {profile.data?.email ? `\n${profile.data.email}` : ""}
-                {order.delivery_address ? `\n${order.delivery_address}` : "\pickupLocationู่"}
+                {order.delivery_address ? `\n${order.delivery_address}` : "\nรับที่อู่"}
               </div>
             </div>
             <div className="sm:text-right">
-              <div className="text-xs font-black uppercase tracking-widest text-slate-400">Payment</div>
+              <div className="text-xs font-black uppercase tracking-widest text-slate-400">การชำระเงิน</div>
               <div className="mt-2 font-bold text-slate-950">ชำระเงินแล้ว</div>
               <div className="mt-1 text-sm text-slate-600">{order.delivery_method === "delivery" ? "จัดส่งถึงบ้าน" : "รับที่อู่"}</div>
             </div>

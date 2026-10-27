@@ -10,6 +10,7 @@ import {
   type AdminCustomerDetail,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { bookingStatusLabel } from "@/lib/status-labels";
 
 type LoadState =
   | { status: "loading"; access: null; customer: null; error: null }
@@ -157,12 +158,12 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
       });
     }
 
-    loadCustomer();
+    void loadCustomer();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadCustomer();
+      void loadCustomer();
     });
 
     return () => {
@@ -180,14 +181,14 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              ลูกค้า Detail
+              ข้อมูลลูกค้า
             </h1>
           </div>
           <Link
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
             href="/admin/customers"
           >
-            Back to customers
+            กลับไปหน้ารายชื่อลูกค้า
           </Link>
         </div>
       </header>
@@ -209,7 +210,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
             >
-              Go to account
+              ไปหน้าเข้าสู่ระบบ
             </Link>
           </div>
         </section>
@@ -227,7 +228,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
       {loadState.status === "not-found" ? (
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-[var(--line)] bg-white p-5 text-sm leading-6 text-[var(--muted)] shadow-sm">
-            ลูกค้า not found.
+            ไม่พบข้อมูลลูกค้า
           </div>
         </section>
       ) : null}
@@ -244,7 +245,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
         <section className="grid gap-6 py-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <aside className="h-fit rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold text-[var(--brand)]">
-              ลูกค้า profile
+              ข้อมูลลูกค้า
             </p>
             <h2 className="mt-2 text-2xl font-bold text-[var(--foreground)]">
               {loadState.customer.full_name}
@@ -308,7 +309,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm text-[var(--muted)]">
-                  No vehicles yet.
+                  ยังไม่มีข้อมูลรถ
                 </div>
               )}
             </section>
@@ -333,14 +334,14 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-semibold text-[var(--brand)]">
-                              {booking.service?.name ?? "Service not found"}
+                              {booking.service?.name ?? "ไม่พบข้อมูลบริการ"}
                             </p>
                             <span
                               className={`rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
                                 booking.status,
                               )}`}
                             >
-                              {booking.status}
+                              {bookingStatusLabel(booking.status)}
                             </span>
                           </div>
                           <h3 className="mt-2 text-lg font-bold text-[var(--foreground)]">
@@ -355,7 +356,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
                           className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
                           href={`/admin/bookings/${booking.id}`}
                         >
-                          View booking
+                          ดูการจอง
                         </Link>
                       </div>
                     </article>
@@ -363,7 +364,7 @@ export function AdminCustomerDetailPanel({ customerId }: { customerId: string })
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm text-[var(--muted)]">
-                  No bookings yet.
+                  ยังไม่มีการจอง
                 </div>
               )}
             </section>

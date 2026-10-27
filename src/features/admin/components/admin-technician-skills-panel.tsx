@@ -15,6 +15,7 @@ import {
   type AdminTechnicianSkillUpdateInput,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { recordStatusLabel } from "@/lib/status-labels";
 
 type LoadState =
   | { status: "loading"; access: null; skills: null; error: null }
@@ -59,7 +60,7 @@ function getStatusStyle(status: AdminTechnicianSkill["status"]) {
 
 function validateSkillInput(input: AdminTechnicianSkillUpdateInput) {
   if (!input.name.trim()) {
-    return "Skill name is required.";
+    return "กรุณากรอกชื่อทักษะ";
   }
 
   return null;
@@ -92,25 +93,24 @@ function AddTechnicianSkillForm({
       <div className="border-b border-[var(--line)] pb-4">
         <p className="text-sm font-semibold text-[var(--brand)]">เพิ่มทักษะ</p>
         <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-          Active skills will be available on technician profiles and mechanic
-          assignment.
+          ทักษะที่เปิดใช้งานจะเลือกได้ในโปรไฟล์ช่างและตอนมอบหมายงาน
         </p>
       </div>
 
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px] md:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Skill name
+            ชื่อทักษะ
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setName(event.target.value)}
-              placeholder="Example: Transmission"
+              placeholder="เช่น ระบบเกียร์"
               value={name}
             />
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Status
+            สถานะ
             <select
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) =>
@@ -125,11 +125,11 @@ function AddTechnicianSkillForm({
         </div>
 
         <label className="text-sm font-semibold text-[var(--foreground)]">
-          Description
+          รายละเอียด
           <textarea
             className="mt-2 min-h-20 w-full resize-y rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="Short note for admin and technician context"
+            placeholder="คำอธิบายสั้นๆ สำหรับแอดมินและช่าง"
             value={description}
           />
         </label>
@@ -199,7 +199,7 @@ function AdminTechnicianSkillRow({
               skill.status,
             )}`}
           >
-            {skill.status}
+            {recordStatusLabel(skill.status)}
           </span>
           <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
             {skill.name}
@@ -216,7 +216,7 @@ function AdminTechnicianSkillRow({
       <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
         <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px] md:items-end">
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Skill name
+            ชื่อทักษะ
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) => setName(event.target.value)}
@@ -225,7 +225,7 @@ function AdminTechnicianSkillRow({
           </label>
 
           <label className="text-sm font-semibold text-[var(--foreground)]">
-            Status
+            สถานะ
             <select
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
               onChange={(event) =>
@@ -240,7 +240,7 @@ function AdminTechnicianSkillRow({
         </div>
 
         <label className="text-sm font-semibold text-[var(--foreground)]">
-          Description
+          รายละเอียด
           <textarea
             className="mt-2 min-h-24 w-full resize-y rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
             onChange={(event) => setDescription(event.target.value)}
@@ -376,12 +376,12 @@ export function AdminTechnicianSkillsPanel() {
       });
     }
 
-    loadSkills();
+    void loadSkills();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadSkills();
+      void loadSkills();
     });
 
     return () => {
@@ -437,7 +437,7 @@ export function AdminTechnicianSkillsPanel() {
 
     if (duplicateSkill) {
       setActionState({
-        error: "This skill name already exists.",
+        error: "มีชื่อทักษะนี้อยู่แล้ว",
         message: null,
         skillId: skill.id,
         status: "error",
@@ -477,7 +477,7 @@ export function AdminTechnicianSkillsPanel() {
     });
     setActionState({
       error: null,
-      message: "Skill saved successfully.",
+      message: "บันทึกทักษะเรียบร้อยแล้ว",
       skillId: skill.id,
       status: "saved",
     });
@@ -505,7 +505,7 @@ export function AdminTechnicianSkillsPanel() {
 
     if (duplicateSkill) {
       setCreateState({
-        error: "This skill name already exists.",
+        error: "มีชื่อทักษะนี้อยู่แล้ว",
         message: null,
         status: "error",
       });
@@ -538,7 +538,7 @@ export function AdminTechnicianSkillsPanel() {
     });
     setCreateState({
       error: null,
-      message: "Skill added successfully.",
+      message: "เพิ่มทักษะเรียบร้อยแล้ว",
       status: "created",
     });
   }
@@ -552,14 +552,14 @@ export function AdminTechnicianSkillsPanel() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Admin Technician Skills
+              ทักษะช่าง
             </h1>
           </div>
           <Link
             className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
             href="/admin"
           >
-            Admin home
+            กลับแดชบอร์ด
           </Link>
         </div>
       </header>
@@ -581,7 +581,7 @@ export function AdminTechnicianSkillsPanel() {
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
             >
-              Go to account
+              ไปหน้าเข้าสู่ระบบ
             </Link>
           </div>
         </section>
@@ -615,11 +615,10 @@ export function AdminTechnicianSkillsPanel() {
           <div className="mt-5 flex flex-col gap-4 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-sm font-semibold text-[var(--foreground)]">
-                {filteredSkills.length} of {loadState.skills.length} skills
+                {filteredSkills.length} จาก {loadState.skills.length} skills
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Inactive skills stay in history but are hidden from technician
-                profile selection.
+                ทักษะที่ปิดใช้งานยังอยู่ในประวัติ แต่จะไม่ให้เลือกในโปรไฟล์ช่าง
               </p>
             </div>
 
@@ -663,7 +662,7 @@ export function AdminTechnicianSkillsPanel() {
             </div>
           ) : (
             <div className="mt-5 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              No skills match the current filters.
+              ไม่พบทักษะที่ตรงกับตัวกรอง
             </div>
           )}
         </section>

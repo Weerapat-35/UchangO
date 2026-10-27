@@ -1066,3 +1066,35 @@ export async function submitProductPaymentSlip(
     error: null,
   };
 }
+
+// ลูกค้ายกเลิกคำสั่งซื้อของตัวเอง (เฉพาะคำสั่งซื้อที่ยังรอดำเนินการและยังไม่ชำระเงิน) พร้อมเหตุผล
+// ฐานข้อมูลจะคืนสต็อกสินค้าให้อัตโนมัติ
+export async function cancelOwnProductOrder(
+  supabase: BCareSupabaseClient,
+  orderId: string,
+  reason: string,
+) {
+  const withReason = await supabase.rpc("cancel_own_product_order_with_reason", {
+    reason: reason.trim().slice(0, 300),
+    target_order_id: orderId,
+  });
+
+  if (!withReason.error) {
+    return { data: withReason.data, error: null };
+  }
+
+  // ถ้ายังไม่ได้รัน SQL เพิ่มฟังก์ชันเหตุผลในฐานข้อมูล ให้ยกเลิกแบบเดิมไปก่อน (เหตุผลจะไม่ถูกบันทึก)
+  const isMissingFunction =
+    withReason.error.code === "PGRST202" ||
+    /could not find the function/i.test(withReason.error.message);
+
+  if (!isMissingFunction) {
+    return { data: null, error: withReason.error };
+  }
+
+  const legacy = await supabase.rpc("cancel_own_product_order_with_inventory_return", {
+    target_order_id: orderId,
+  });
+
+  return { data: legacy.data, error: legacy.error };
+}

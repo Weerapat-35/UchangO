@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getCurrentProfile, upsertCurrentProfile } from "@/features/auth";
 import { createClient } from "@/lib/supabase/browser";
@@ -12,75 +14,68 @@ type AuthMessage = {
   text: string;
 };
 
-function UserIcon() {
+// ข้อความ error จาก Supabase เป็นภาษาอังกฤษ แปลกรณีที่เจอบ่อยให้ลูกค้าอ่านเข้าใจ
+const AUTH_ERROR_TEXT: [RegExp, string][] = [
+  [/invalid login credentials/i, "อีเมลหรือรหัสผ่านไม่ถูกต้อง"],
+  [/email not confirmed/i, "อีเมลนี้ยังไม่ได้ยืนยัน กรุณากดลิงก์ยืนยันในอีเมลของคุณก่อน"],
+  [/already registered|already been registered/i, "อีเมลนี้สมัครสมาชิกแล้ว กรุณาเข้าสู่ระบบแทน"],
+  [/rate limit|only request this after|too many requests/i, "ส่งคำขอบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่"],
+  [/password should be at least/i, "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"],
+  [/invalid format|valid email/i, "รูปแบบอีเมลไม่ถูกต้อง"],
+  [/failed to fetch|network/i, "เชื่อมต่อระบบไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่"],
+];
+
+function toThaiAuthError(message: string) {
+  return AUTH_ERROR_TEXT.find(([pattern]) => pattern.test(message))?.[1] ?? message;
+}
+
+function Svg({ children }: { children: React.ReactNode }) {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="12" cy="8" r="4" />
-      <path d="M4 20c0-4 4-6 8-6s8 2 8 6" strokeLinecap="round" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
     </svg>
   );
 }
 
-function LockIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="5" y="11" width="14" height="9" rx="2" />
-      <path d="M8 11V7a4 4 0 0 1 8 0v4" strokeLinecap="round" />
-    </svg>
-  );
-}
+const UserIcon = () => <Svg><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></Svg>;
+const MailIcon = () => <Svg><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></Svg>;
+const LockIcon = () => <Svg><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></Svg>;
+const PhoneIcon = () => <Svg><path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 5 5L14 13l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" /></Svg>;
+const CheckIcon = () => <Svg><path d="m5 12 4.5 4.5L19 7" /></Svg>;
 
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
-      <circle cx="12" cy="12" r="2.5" />
-    </svg>
+    <Svg><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></Svg>
   ) : (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="m3 3 18 18M10.6 6.2A10.5 10.5 0 0 1 12 6c6 0 9.5 6 9.5 6a18.5 18.5 0 0 1-3.2 3.7M6.7 6.8C3.8 8.6 2.5 12 2.5 12s3.5 6 9.5 6c1.1 0 2.1-.2 3-.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <Svg><path d="m3 3 18 18M10.6 6.2A10.5 10.5 0 0 1 12 6c6 0 9.5 6 9.5 6a18.5 18.5 0 0 1-3.2 3.7M6.7 6.8C3.8 8.6 2.5 12 2.5 12s3.5 6 9.5 6c1.1 0 2.1-.2 3-.5" /></Svg>
   );
 }
 
-function PhoneIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 5 5L14 13l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/** ภาพประกอบวงกลม: โลโก้ + รถยนต์เส้น พร้อมเส้นความเร็ว */
-function BrandCar() {
-  return (
-    <svg width="140" height="60" viewBox="0 0 140 60" fill="none" stroke="currentColor" strokeWidth="2.2">
-      <path d="M2 22h24M2 32h20M2 42h16" strokeLinecap="round" />
-      <path
-        d="M30 44V32l6-14h34l8 14h8a4 4 0 0 1 4 4v8"
-        strokeLinejoin="round"
-      />
-      <path d="M30 44h64" strokeLinecap="round" />
-      <circle cx="45" cy="44" r="7" />
-      <circle cx="90" cy="44" r="7" />
-    </svg>
-  );
-}
-
-function InputField({
+function Field({
+  label,
+  hint,
   icon,
+  action,
   ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & { icon: React.ReactNode }) {
+}: React.InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string; icon: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-[var(--concrete-2)] px-4 py-3.5">
-      <span className="text-[var(--muted)]">{icon}</span>
-      <input
-        {...props}
-        className="min-h-6 w-full bg-transparent text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]"
-      />
-    </div>
+    <label className="auth-field">
+      <span className="auth-field__label">{label}</span>
+      <span className="auth-input">
+        <span className="auth-input__icon">{icon}</span>
+        <input {...props} />
+        {action}
+      </span>
+      {hint ? <span className="auth-field__hint">{hint}</span> : null}
+    </label>
   );
 }
+
+const BENEFITS = [
+  "จองคิวซ่อมรถออนไลน์ เลือกวันเวลาที่สะดวกได้เอง",
+  "ติดตามสถานะงานซ่อมได้ทุกขั้นตอน",
+  "เก็บข้อมูลรถ ประวัติการจอง และคำสั่งซื้อไว้ในที่เดียว",
+];
 
 export function AuthPanel() {
   const router = useRouter();
@@ -124,7 +119,7 @@ export function AuthPanel() {
       router.replace("/");
     }
 
-    checkExistingSession();
+    void checkExistingSession();
   }, [router]);
 
   function switchMode(nextMode: AuthMode) {
@@ -167,7 +162,7 @@ export function AuthPanel() {
 
       if (error) {
         setIsSubmitting(false);
-        setMessage({ text: error.message, tone: "error" });
+        setMessage({ text: toThaiAuthError(error.message), tone: "error" });
         return;
       }
 
@@ -206,7 +201,7 @@ export function AuthPanel() {
 
     if (error) {
       setIsSubmitting(false);
-      setMessage({ text: error.message, tone: "error" });
+      setMessage({ text: toThaiAuthError(error.message), tone: "error" });
       return;
     }
 
@@ -236,7 +231,7 @@ export function AuthPanel() {
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
 
     if (error) {
-      setMessage({ text: error.message, tone: "error" });
+      setMessage({ text: toThaiAuthError(error.message), tone: "error" });
       return;
     }
 
@@ -248,78 +243,101 @@ export function AuthPanel() {
 
   if (checkingSession) {
     return (
-      <div className="grid min-h-screen place-items-center bg-white">
-        <p className="text-sm text-[var(--muted)]">กำลังตรวจสอบสถานะ...</p>
+      <div className="auth-checking">
+        <span className="auth-checking__spinner" aria-hidden="true" />
+        <p>กำลังตรวจสอบสถานะ...</p>
       </div>
     );
   }
 
+  const isLogin = mode === "login";
+
   return (
     <main className="auth-page">
+      <section className="auth-showcase" aria-hidden="true">
+        <div className="auth-showcase__content">
+          <p className="auth-showcase__eyebrow">ศูนย์บริการรถยนต์</p>
+          <h2>ดูแลรถของคุณ<br />เหมือนรถของเรา</h2>
+          <ul>
+            {BENEFITS.map((benefit) => (
+              <li key={benefit}><span><CheckIcon /></span>{benefit}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
       <section className="auth-panel">
         <div className="auth-card">
-          <div className="auth-brand">
-            <div className="auth-brand__mark">อู่</div>
-            <div>
-              <strong>ช่างโอ</strong>
-              <span>GARAGE SERVICE</span>
-            </div>
+          <div className="auth-card__top">
+            <Link href="/" className="auth-logo" aria-label="อู่ช่างโอ หน้าหลัก">
+              <Image src="/brand/ouchang-o-logo.png" alt="อู่ช่างโอ" width={800} height={374} priority />
+            </Link>
+            <Link href="/" className="auth-back">← กลับหน้าหลัก</Link>
           </div>
 
           <div className="auth-heading">
-            <h1>{mode === "login" ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}</h1>
+            <h1>{isLogin ? "ยินดีต้อนรับกลับมา" : "สร้างบัญชีใหม่"}</h1>
             <p>
-              {mode === "login"
-                ? "เข้าสู่ระบบเพื่อจัดการข้อมูลรถและการใช้บริการของคุณ"
-                : "สร้างบัญชีเพื่อจองคิวและใช้บริการอู่ช่างโอ"}
+              {isLogin
+                ? "เข้าสู่ระบบเพื่อจองคิว ดูข้อมูลรถ และติดตามงานซ่อมของคุณ"
+                : "สมัครฟรี ใช้เวลาไม่ถึงนาที แล้วจองคิวซ่อมรถได้ทันที"}
             </p>
           </div>
 
-          <div className="auth-mode-switch" role="tablist" aria-label="ประเภทการใช้งาน">
-            <button type="button" className={mode === "login" ? "is-active" : ""} onClick={() => switchMode("login")}>เข้าสู่ระบบ</button>
-            <button type="button" className={mode === "register" ? "is-active" : ""} onClick={() => switchMode("register")}>สมัครสมาชิก</button>
+          <div className="auth-mode-switch" role="tablist" aria-label="เลือกการใช้งาน">
+            <button type="button" role="tab" aria-selected={isLogin} className={isLogin ? "is-active" : ""} onClick={() => switchMode("login")}>เข้าสู่ระบบ</button>
+            <button type="button" role="tab" aria-selected={!isLogin} className={!isLogin ? "is-active" : ""} onClick={() => switchMode("register")}>สมัครสมาชิก</button>
           </div>
 
-          <form className="auth-form" onSubmit={handleSubmit}>
-            {mode === "register" ? (
+          <form className="auth-form" onSubmit={handleSubmit} noValidate>
+            {!isLogin ? (
               <div className="auth-grid-2">
-                <InputField icon={<UserIcon />} onChange={(e) => setFullName(e.target.value)} placeholder="ชื่อ-นามสกุล" value={fullName} />
-                <InputField icon={<PhoneIcon />} inputMode="tel" onChange={(e) => setPhoneNumber(e.target.value)} placeholder="เบอร์โทรศัพท์" value={phoneNumber} />
+                <Field label="ชื่อ-นามสกุล" icon={<UserIcon />} autoComplete="name" onChange={(e) => setFullName(e.target.value)} placeholder="เช่น สมชาย ใจดี" value={fullName} />
+                <Field label="เบอร์โทรศัพท์" icon={<PhoneIcon />} type="tel" inputMode="tel" autoComplete="tel" onChange={(e) => setPhoneNumber(e.target.value)} placeholder="08x-xxx-xxxx" value={phoneNumber} />
               </div>
             ) : null}
 
-            <label className="auth-field">
-              <span>อีเมล</span>
-              <InputField icon={<UserIcon />} inputMode="email" onChange={(e) => setEmail(e.target.value)} placeholder="example@email.com" type="email" value={email} />
-            </label>
+            <Field label="อีเมล" icon={<MailIcon />} type="email" inputMode="email" autoComplete="email" onChange={(e) => setEmail(e.target.value)} placeholder="example@email.com" value={email} />
 
-            <label className="auth-field">
-              <span>รหัสผ่าน</span>
-              <div className="auth-password-wrap">
-                <InputField icon={<LockIcon />} onChange={(e) => setPassword(e.target.value)} placeholder="รหัสผ่าน" type={showPassword ? "text" : "password"} value={password} />
+            <Field
+              label="รหัสผ่าน"
+              hint={isLogin ? undefined : "อย่างน้อย 6 ตัวอักษร"}
+              icon={<LockIcon />}
+              type={showPassword ? "text" : "password"}
+              autoComplete={isLogin ? "current-password" : "new-password"}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={isLogin ? "กรอกรหัสผ่าน" : "ตั้งรหัสผ่าน"}
+              value={password}
+              action={
                 <button type="button" className="auth-password-toggle" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}>
-                  <EyeIcon open={showPassword} />
+                  <EyeIcon open={!showPassword} />
                 </button>
-              </div>
-            </label>
+              }
+            />
 
-            {mode === "login" ? (
+            {isLogin ? (
               <div className="auth-options">
-                <label><input type="checkbox" /> <span>จดจำฉันไว้</span></label>
                 <button type="button" onClick={handleForgotPassword}>ลืมรหัสผ่าน?</button>
               </div>
-            ) : (
-              <p className="auth-hint">การสมัครสมาชิกถือว่ายอมรับเงื่อนไขการใช้งานของอู่ช่างโอ</p>
-            )}
+            ) : null}
+
+            {message ? (
+              <div className={`auth-message ${message.tone}`} role={message.tone === "error" ? "alert" : "status"}>{message.text}</div>
+            ) : null}
 
             <button className="auth-submit" disabled={isSubmitting} type="submit">
-              {isSubmitting ? "กำลังดำเนินการ..." : mode === "login" ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}
+              {isSubmitting ? "กำลังดำเนินการ..." : isLogin ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}
             </button>
 
-            {message ? <div className={`auth-message ${message.tone}`}>{message.text}</div> : null}
+            {!isLogin ? <p className="auth-hint">การสมัครสมาชิกถือว่ายอมรับเงื่อนไขการใช้งานของอู่ช่างโอ</p> : null}
           </form>
 
-          <div className="auth-footer-note">ระบบบริการอู่ซ่อมรถ • อู่ช่างโอ</div>
+          <p className="auth-switch">
+            {isLogin ? "ยังไม่มีบัญชี?" : "มีบัญชีอยู่แล้ว?"}{" "}
+            <button type="button" onClick={() => switchMode(isLogin ? "register" : "login")}>
+              {isLogin ? "สมัครสมาชิกฟรี" : "เข้าสู่ระบบ"}
+            </button>
+          </p>
         </div>
       </section>
     </main>

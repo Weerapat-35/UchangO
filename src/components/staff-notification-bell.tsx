@@ -24,7 +24,7 @@ export function StaffNotificationBell({ role }: { role: "admin" | "technician" }
     let setupToken = 0;
 
     const loadCount = async (userId: string) => {
-      const { count: nextCount, error } = await (supabase as any)
+      const { count: nextCount, error } = await supabase
         .from("notifications")
         .select("id", { count: "exact", head: true })
         .eq("customer_id", userId)

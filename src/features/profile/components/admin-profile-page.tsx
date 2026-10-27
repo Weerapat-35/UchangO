@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/browser";
 import type { Database } from "@/lib/supabase/database.types";
@@ -25,25 +25,27 @@ export function AdminProfilePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const loadProfile = useCallback(async () => {
-    setLoading(true); setError("");
-    const supabase = createClient();
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError || !authData.user) {
-      setProfile(null); setError("กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบก่อน"); setLoading(false); return;
+  useEffect(() => {
+    async function loadProfile() {
+      setLoading(true); setError("");
+      const supabase = createClient();
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) {
+        setProfile(null); setError("กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบก่อน"); setLoading(false); return;
+      }
+      const { data, error: queryError } = await supabase.from("profiles").select("*").eq("id", authData.user.id).maybeSingle();
+      if (queryError) {
+        setProfile(null); setError(`โหลดข้อมูลไม่สำเร็จ: ${queryError.message}`); setLoading(false); return;
+      }
+      if (!data || !["admin", "administrator"].includes(String(data.role ?? "").toLowerCase())) {
+        setProfile(null); setError("บัญชีนี้ไม่มีสิทธิ์เข้าถึงหน้าโปรไฟล์ผู้ดูแลระบบ"); setLoading(false); return;
+      }
+      const normalized = { ...data, email: data.email ?? authData.user.email ?? null };
+      setProfile(normalized); setName(normalized.full_name ?? ""); setPhone(normalized.phone_number ?? ""); setLoading(false);
     }
-    const { data, error: queryError } = await supabase.from("profiles").select("*").eq("id", authData.user.id).maybeSingle();
-    if (queryError) {
-      setProfile(null); setError(`โหลดข้อมูลไม่สำเร็จ: ${queryError.message}`); setLoading(false); return;
-    }
-    if (!data || !["admin", "administrator"].includes(String(data.role ?? "").toLowerCase())) {
-      setProfile(null); setError("บัญชีนี้ไม่มีสิทธิ์เข้าถึงหน้าโปรไฟล์ผู้ดูแลระบบ"); setLoading(false); return;
-    }
-    const normalized = { ...data, email: data.email ?? authData.user.email ?? null };
-    setProfile(normalized); setName(normalized.full_name ?? ""); setPhone(normalized.phone_number ?? ""); setLoading(false);
-  }, []);
 
-  useEffect(() => { void loadProfile(); }, [loadProfile]);
+    void loadProfile();
+  }, []);
 
   async function saveProfile(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -93,7 +95,7 @@ export function AdminProfilePage() {
       setProfile({ ...data, email: data.email ?? profile.email });
       if (oldPath) {
         const { error: removeError } = await supabase.storage.from("avatars").remove([oldPath]);
-        if (removeError) setError("ลบลิงก์รูปโปรไฟล์แล้ว แต่ลบไฟล์เดิมจาก Storage ไม่สำเร็จ กรุณาตรวจสอบสิทธิ์ Storage");
+        if (removeError) setError("ลบรูปโปรไฟล์แล้ว แต่ลบไฟล์เดิมออกจากที่เก็บไฟล์ไม่สำเร็จ");
         else setSuccess("ลบรูปโปรไฟล์แล้ว");
       } else setSuccess("ลบรูปโปรไฟล์แล้ว");
     }
@@ -101,10 +103,10 @@ export function AdminProfilePage() {
   }
 
   if (loading) return <main className="admin-profile-page"><div className="admin-profile-card admin-profile-loading">กำลังโหลดข้อมูลผู้ดูแลระบบ...</div></main>;
-  if (!profile) return <main className="admin-profile-page"><section className="admin-profile-card"><p className="admin-profile-eyebrow">ADMIN ACCOUNT</p><h1>โปรไฟล์ผู้ดูแลระบบ</h1><div className="admin-profile-alert admin-profile-alert--error">{error || "ไม่สามารถโหลดโปรไฟล์ได้"}</div><button className="admin-profile-button" onClick={() => router.push("/auth")}>ไปหน้าเข้าสู่ระบบ</button></section></main>;
+  if (!profile) return <main className="admin-profile-page"><section className="admin-profile-card"><p className="admin-profile-eyebrow">บัญชีผู้ดูแลระบบ</p><h1>โปรไฟล์ผู้ดูแลระบบ</h1><div className="admin-profile-alert admin-profile-alert--error">{error || "ไม่สามารถโหลดโปรไฟล์ได้"}</div><button className="admin-profile-button" onClick={() => router.push("/auth")}>ไปหน้าเข้าสู่ระบบ</button></section></main>;
 
   return <main className="admin-profile-page">
-    <header className="admin-profile-heading"><div><p className="admin-profile-eyebrow">ACCOUNT SETTINGS</p><h1>โปรไฟล์ผู้ดูแลระบบ</h1><p>จัดการข้อมูลส่วนตัวและรูปโปรไฟล์ของบัญชี Admin</p></div><span className="admin-profile-status"><span />บัญชีผู้ดูแลระบบ</span></header>
+    <header className="admin-profile-heading"><div><p className="admin-profile-eyebrow">ตั้งค่าบัญชี</p><h1>โปรไฟล์ผู้ดูแลระบบ</h1><p>จัดการข้อมูลส่วนตัวและรูปโปรไฟล์ของบัญชีผู้ดูแลระบบ</p></div><span className="admin-profile-status"><span />บัญชีผู้ดูแลระบบ</span></header>
     <div className="admin-profile-grid">
       <section className="admin-profile-card admin-profile-identity">
         <div className="admin-profile-avatar-wrap">{profile.avatar_url ? <img className="admin-profile-avatar" src={profile.avatar_url} alt="รูปโปรไฟล์ผู้ดูแลระบบ" /> : <div className="admin-profile-avatar admin-profile-avatar--fallback">{initials(name)}</div>}</div>
@@ -118,7 +120,7 @@ export function AdminProfilePage() {
         <div className="admin-profile-section-heading"><span className="admin-profile-section-icon">01</span><div><h2>ข้อมูลส่วนตัว</h2><p>แก้ไขชื่อและเบอร์โทรศัพท์ที่แสดงในระบบ</p></div></div>
         <label>ชื่อ-นามสกุล<input autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} maxLength={120} placeholder="กรอกชื่อ-นามสกุล" required /></label>
         <label>เบอร์โทรศัพท์<input autoComplete="tel" inputMode="numeric" value={phone} onChange={(event) => setPhone(event.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="08xxxxxxxx" /></label>
-        <label>อีเมล<input type="email" value={profile.email ?? ""} disabled readOnly /><small>อีเมลสำหรับเข้าสู่ระบบ จัดการจากระบบยืนยันตัวตน Supabase Auth</small></label>
+        <label>อีเมล<input type="email" value={profile.email ?? ""} disabled readOnly /><small>อีเมลนี้ใช้เข้าสู่ระบบ แก้ไขจากหน้านี้ไม่ได้</small></label>
         {error && <div role="alert" className="admin-profile-alert admin-profile-alert--error">{error}</div>}{success && <div role="status" className="admin-profile-alert admin-profile-alert--success">{success}</div>}
         <div className="admin-profile-form-footer"><span>ข้อมูลจะถูกบันทึกในฐานข้อมูล Supabase</span><button type="submit" className="admin-profile-button" disabled={saving}>{saving ? "กำลังบันทึก..." : "บันทึกการเปลี่ยนแปลง"}</button></div>
       </form>

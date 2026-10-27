@@ -32,40 +32,40 @@ export function CheckinPanel({ bookingId }: { bookingId: string }) {
   });
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
-
-  async function loadBooking() {
-    const supabase = createClient();
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session?.user) {
-      setLoadState({ access: null, booking: null, error: null, status: "signed-out" });
-      return;
-    }
-
-    const access = await checkAdminAccess(supabase, session.user.id);
-
-    if (!access.allowed) {
-      setLoadState({ access, booking: null, error: null, status: "ready" });
-      return;
-    }
-
-    const { data, error } = await getAdminBookingById(supabase, bookingId);
-
-    if (error) {
-      setLoadState({ access: null, booking: null, error: error.message, status: "error" });
-      return;
-    }
-
-    setLoadState({ access, booking: data, error: null, status: "ready" });
-  }
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    loadBooking();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookingId]);
+    async function loadBooking() {
+      const supabase = createClient();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.user) {
+        setLoadState({ access: null, booking: null, error: null, status: "signed-out" });
+        return;
+      }
+
+      const access = await checkAdminAccess(supabase, session.user.id);
+
+      if (!access.allowed) {
+        setLoadState({ access, booking: null, error: null, status: "ready" });
+        return;
+      }
+
+      const { data, error } = await getAdminBookingById(supabase, bookingId);
+
+      if (error) {
+        setLoadState({ access: null, booking: null, error: error.message, status: "error" });
+        return;
+      }
+
+      setLoadState({ access, booking: data, error: null, status: "ready" });
+    }
+
+    void loadBooking();
+  }, [bookingId, reloadKey]);
 
   async function handleConfirmCheckin() {
     if (loadState.status !== "ready" || !loadState.booking) return;
@@ -93,7 +93,7 @@ export function CheckinPanel({ bookingId }: { bookingId: string }) {
       return;
     }
 
-    await loadBooking();
+    setReloadKey((key) => key + 1);
   }
 
   return (

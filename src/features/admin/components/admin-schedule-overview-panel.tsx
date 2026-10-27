@@ -205,12 +205,12 @@ export function AdminScheduleOverviewPanel() {
       });
     }
 
-    loadOverview();
+    void loadOverview();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      loadOverview();
+      void loadOverview();
     });
 
     return () => {
@@ -279,7 +279,7 @@ export function AdminScheduleOverviewPanel() {
         <section className="grid flex-1 place-items-center py-16">
           <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
             <p className="font-semibold">ต้องเข้าสู่ระบบก่อน</p>
-            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชี admin</p>
+            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
             <Link
               className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
               href="/auth"
@@ -377,8 +377,7 @@ export function AdminScheduleOverviewPanel() {
           </div>
 
           <p className="mt-4 text-xs leading-5 text-[var(--muted)]">
-            ช่องที่ขึ้นค่าเริ่มต้นคือช่วงเวลาที่ยังไม่ได้ตั้งค่าในหน้า
-            จัดการคิวรับงาน ระบบจะถือว่าเปิดรับ 1 คิวตามกติกา MVP
+            ช่องที่ขึ้นค่าเริ่มต้นคือช่วงเวลาที่ยังไม่ได้ตั้งค่าในหน้า จัดการคิวรับงาน ระบบจะถือว่าเปิดรับ 1 คิว
           </p>
         </section>
       ) : null}

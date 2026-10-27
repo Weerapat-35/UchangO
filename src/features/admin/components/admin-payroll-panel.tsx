@@ -86,38 +86,37 @@ export function AdminPayrollPanel() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [workingId, setWorkingId] = useState<string | null>(null);
 
-  async function load() {
-    const supabase = createClient();
-    setLoadState({ status: "loading", access: null, data: null, error: null });
-
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError) {
-      setLoadState({ status: "error", access: null, data: null, error: sessionError.message });
-      return;
-    }
-    if (!sessionData.session?.user) {
-      setLoadState({ status: "signed-out", access: null, data: null, error: null });
-      return;
-    }
-
-    const access = await checkAdminAccess(supabase, sessionData.session.user.id);
-    if (!access.allowed) {
-      setLoadState({ status: "denied", access, data: null, error: null });
-      return;
-    }
-
-    const result = await getAdminPayrolls(supabase, month);
-    if (result.error) {
-      setLoadState({ status: "error", access: null, data: null, error: result.error.message });
-      return;
-    }
-    setLoadState({ status: "ready", access, data: result.data, error: null });
-  }
-
   useEffect(() => {
+    async function load() {
+      const supabase = createClient();
+      setLoadState({ status: "loading", access: null, data: null, error: null });
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        setLoadState({ status: "error", access: null, data: null, error: sessionError.message });
+        return;
+      }
+      if (!sessionData.session?.user) {
+        setLoadState({ status: "signed-out", access: null, data: null, error: null });
+        return;
+      }
+
+      const access = await checkAdminAccess(supabase, sessionData.session.user.id);
+      if (!access.allowed) {
+        setLoadState({ status: "denied", access, data: null, error: null });
+        return;
+      }
+
+      const result = await getAdminPayrolls(supabase, month);
+      if (result.error) {
+        setLoadState({ status: "error", access: null, data: null, error: result.error.message });
+        return;
+      }
+      setLoadState({ status: "ready", access, data: result.data, error: null });
+    }
+
     void load();
     // reloadKey deliberately reloads the current month after a save/delete action.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month, reloadKey]);
 
   function editPayroll(payroll: AdminPayroll) {
@@ -216,7 +215,7 @@ export function AdminPayrollPanel() {
     setWorkingId(null);
   }
 
-  const payrolls = loadState.status === "ready" ? loadState.data?.payrolls ?? [] : [];
+  const payrolls = useMemo(() => (loadState.status === "ready" ? loadState.data?.payrolls ?? [] : []), [loadState]);
   const technicians = loadState.status === "ready" ? loadState.data?.technicians ?? [] : [];
   const formNet = Math.max(0, Number(form.baseSalary) + Number(form.overtimeAmount) + Number(form.commissionAmount) - Number(form.deductionAmount));
   const totalNet = payrolls.reduce((sum, payroll) => sum + Number(payroll.net_salary), 0);
@@ -236,7 +235,7 @@ export function AdminPayrollPanel() {
       <header className="mb-6 flex flex-col gap-4 border-b border-[var(--line)] pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-[var(--brand)]">
-            <span className="h-2 w-2 rounded-full bg-[var(--brand)]" /> Payroll management
+            <span className="h-2 w-2 rounded-full bg-[var(--brand)]" /> จัดการเงินเดือนช่าง
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-[var(--foreground)]">เงินเดือนช่าง</h2>
         </div>
@@ -247,7 +246,7 @@ export function AdminPayrollPanel() {
       </header>
 
       {loadState.status === "signed-out" ? (
-        <section className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">กรุณาเข้าสู่ระบบ Admin เพื่อจัดการเงินเดือนช่าง</section>
+        <section className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบเพื่อจัดการเงินเดือนช่าง</section>
       ) : null}
       {loadState.status === "denied" ? (
         <section className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">บัญชีนี้ไม่มีสิทธิ์เข้าถึงหน้าจัดการเงินเดือน</section>
@@ -285,7 +284,7 @@ export function AdminPayrollPanel() {
             <div className="grid grid-cols-2 gap-3">
               {([
                 ["เงินเดือนพื้นฐาน", "baseSalary"],
-                ["ค่าล่วงเวลา (ค่าล่วงเวลา)", "overtimeAmount"],
+                ["ค่าล่วงเวลา (OT)", "overtimeAmount"],
                 ["ค่าคอมมิชชัน / โบนัส", "commissionAmount"],
                 ["รายการหัก", "deductionAmount"],
               ] as const).map(([label, key]) => (

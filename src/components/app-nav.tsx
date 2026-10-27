@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { getCurrentProfile, type Profile } from "@/features/auth";
 import { createClient } from "@/lib/supabase/browser";
+import { randomId } from "@/lib/random-id";
 import { getCartSummary } from "@/features/products/queries";
 
 const guestLinks = [
@@ -57,6 +58,7 @@ export function AppNav() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [cartCount, setCartCount] = useState(0);
   const [notificationCount, setNotificationCount] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -93,7 +95,7 @@ export function AppNav() {
         setNotificationCount(0);
         return;
       }
-      const { count, error } = await (supabase as any)
+      const { count, error } = await supabase
         .from("notifications")
         .select("id", { count: "exact", head: true })
         .eq("customer_id", nextUser.id)
@@ -119,7 +121,7 @@ export function AppNav() {
       // channel name during that race can make Supabase reject .on() calls
       // with "cannot add callbacks ... after subscribe()".
       const channel = supabase
-        .channel(`notification-badge-${nextUser.id}-${setupToken}-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+        .channel(`notification-badge-${nextUser.id}-${setupToken}-${Date.now()}-${randomId(10)}`)
         .on(
           "postgres_changes",
           {
@@ -255,6 +257,15 @@ export function AppNav() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [menuOpen]);
+
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -300,10 +311,38 @@ export function AppNav() {
               </Link>
             ) : null}
             <Link href={user ? "/profile" : "/auth"} className="header-icon-button" aria-label="บัญชี" title={user ? profile?.full_name || "โปรไฟล์" : "เข้าสู่ระบบ"}><UserIcon /></Link>
-            <Link href="/cart" className="header-icon-button header-cart" aria-label="ตะกร้า" title="ตะกร้า"><CartIcon /><span>{cartCount}</span></Link>
+            <Link href="/cart" className="header-icon-button header-cart" aria-label="ตะกร้า" title="ตะกร้า"><CartIcon />{cartCount > 0 ? <span>{cartCount > 99 ? "99+" : cartCount}</span> : null}</Link>
             {user ? <button className="header-signout" onClick={handleSignOut} type="button">ออกจากระบบ</button> : null}
+            <button
+              type="button"
+              className="header-icon-button header-menu-button"
+              aria-label={menuOpen ? "ปิดเมนู" : "เปิดเมนู"}
+              aria-expanded={menuOpen}
+              aria-controls="site-mobile-menu"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">{menuOpen ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}</svg>
+            </button>
           </div>
         </div>
       </div>
+      {menuOpen ? (
+        <nav id="site-mobile-menu" aria-label="เมนูหลัก" className="site-mobile-menu">
+          {links.map((link) => {
+            const isActive = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
+            return (
+              <Link key={link.href} href={link.href} onClick={() => setMenuOpen(false)} className={isActive ? "site-mobile-menu__link is-active" : "site-mobile-menu__link"} aria-current={isActive ? "page" : undefined}>
+                {link.label}
+              </Link>
+            );
+          })}
+          {user ? (
+            <button type="button" className="site-mobile-menu__link site-mobile-menu__signout" onClick={handleSignOut}>ออกจากระบบ</button>
+          ) : (
+            <Link href="/auth" onClick={() => setMenuOpen(false)} className="site-mobile-menu__link site-mobile-menu__signin">เข้าสู่ระบบ / สมัครสมาชิก</Link>
+          )}
+        </nav>
+      ) : null}
     </header>
-  );}
+  );
+}

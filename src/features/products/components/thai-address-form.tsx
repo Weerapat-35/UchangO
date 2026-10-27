@@ -2,9 +2,28 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type Province = { id: number; name_th: string; name_en: string };
-type District = { id: number; province_id: number; name_th: string; name_en: string };
-type Subdistrict = { id: number; district_id: number; zip_code: number | string; name_th: string; name_en: string };
+// ข้อมูลจาก kongvut/thai-province-data: v3 เก็บชื่อเป็น name: { th, en } ส่วน v2 เก็บเป็น name_th
+// รองรับทั้งสองแบบ เพื่อไม่ให้ตัวเลือกว่างเปล่าเมื่อเจ้าของข้อมูลเปลี่ยนโครงสร้าง
+type LocalizedName = { th?: string; en?: string };
+type Named = { name?: LocalizedName | string; name_th?: string };
+type Province = Named & { id: number };
+type District = Named & { id: number; province_id: number };
+type Subdistrict = Named & { id: number; district_id: number; zip_code?: number | string; postal_code?: number | string };
+
+function nameOf(item: Named): string {
+  if (item.name_th) return item.name_th;
+  if (typeof item.name === "string") return item.name;
+  return item.name?.th ?? "";
+}
+
+// เรียงตามพจนานุกรมไทย ก-ฮ (สระนำหน้า เช่น เ แ โ ใ ไ ไม่นับในการเรียง)
+function byThaiLabel(a: { label: string }, b: { label: string }) {
+  return a.label.localeCompare(b.label, "th");
+}
+
+function zipOf(item: Subdistrict): string {
+  return String(item.zip_code ?? item.postal_code ?? "");
+}
 
 export type ThaiAddressValue = {
   houseNumber: string;
@@ -26,6 +45,22 @@ type Props = {
 };
 
 const BASE = "https://raw.githubusercontent.com/kongvut/thai-province-data/refs/heads/master/api/latest";
+
+// เก็บผลที่โหลดแล้วไว้ใช้ซ้ำ (ไฟล์ตำบลใหญ่ ไม่ต้องโหลดใหม่ทุกครั้งที่เปลี่ยนอำเภอ)
+const jsonCache = new Map<string, Promise<unknown>>();
+
+function loadJson<T>(file: string, errorMessage: string): Promise<T> {
+  let request = jsonCache.get(file) as Promise<T> | undefined;
+  if (!request) {
+    request = fetch(`${BASE}/${file}`).then((response) => {
+      if (!response.ok) throw new Error(errorMessage);
+      return response.json() as Promise<T>;
+    });
+    request.catch(() => jsonCache.delete(file));
+    jsonCache.set(file, request);
+  }
+  return request;
+}
 
 const emptyValue: ThaiAddressValue = {
   houseNumber: "",
@@ -96,21 +131,16 @@ function SelectField({ label, value, options, onChange, disabled, loading, requi
 
 export function ThaiAddressForm({ value, onChange }: Props) {
   const [provinces, setProvinces] = useState<Province[]>([]);
-  const [districts, setDistricts] = useState<District[]>([]);
-  const [subdistricts, setSubdistricts] = useState<Subdistrict[]>([]);
+  // Each list remembers which parent it was loaded for, so stale lists are never shown.
+  const [districtData, setDistrictData] = useState<{ provinceId: string; items: District[] }>({ provinceId: "", items: [] });
+  const [subdistrictData, setSubdistrictData] = useState<{ districtId: string; items: Subdistrict[] }>({ districtId: "", items: [] });
   const [loadingProvinces, setLoadingProvinces] = useState(true);
-  const [loadingDistricts, setLoadingDistricts] = useState(false);
-  const [loadingSubdistricts, setLoadingSubdistricts] = useState(false);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     let active = true;
-    fetch(`${BASE}/province.json`)
-      .then((r) => {
-        if (!r.ok) throw new Error("โหลดรายชื่อจังหวัดไม่สำเร็จ");
-        return r.json();
-      })
-      .then((data: Province[]) => {
+    loadJson<Province[]>("province.json", "โหลดรายชื่อจังหวัดไม่สำเร็จ")
+      .then((data) => {
         if (active) setProvinces(data);
       })
       .catch((e) => active && setLoadError(e instanceof Error ? e.message : "โหลดข้อมูลที่อยู่ไม่สำเร็จ"))
@@ -119,48 +149,51 @@ export function ThaiAddressForm({ value, onChange }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!value.provinceId) {
-      setDistricts([]);
-      return;
-    }
+    const provinceId = value.provinceId;
+    if (!provinceId) return;
     let active = true;
-    setLoadingDistricts(true);
-    fetch(`${BASE}/district.json`)
-      .then((r) => {
-        if (!r.ok) throw new Error("โหลดรายชื่ออำเภอไม่สำเร็จ");
-        return r.json();
+    loadJson<District[]>("district.json", "โหลดรายชื่ออำเภอไม่สำเร็จ")
+      .then((data) => {
+        if (active) setDistrictData({ provinceId, items: data.filter((item) => String(item.province_id) === provinceId) });
       })
-      .then((data: District[]) => {
-        if (active) setDistricts(data.filter((item) => String(item.province_id) === value.provinceId));
-      })
-      .catch((e) => active && setLoadError(e instanceof Error ? e.message : "โหลดข้อมูลอำเภอไม่สำเร็จ"))
-      .finally(() => active && setLoadingDistricts(false));
+      .catch((e) => {
+        if (!active) return;
+        setLoadError(e instanceof Error ? e.message : "โหลดข้อมูลอำเภอไม่สำเร็จ");
+        setDistrictData({ provinceId, items: [] });
+      });
     return () => { active = false; };
   }, [value.provinceId]);
 
   useEffect(() => {
-    if (!value.districtId) {
-      setSubdistricts([]);
-      return;
-    }
+    const districtId = value.districtId;
+    if (!districtId) return;
     let active = true;
-    setLoadingSubdistricts(true);
-    fetch(`${BASE}/sub_district.json`)
-      .then((r) => {
-        if (!r.ok) throw new Error("โหลดรายชื่อตำบลไม่สำเร็จ");
-        return r.json();
+    loadJson<Subdistrict[]>("sub_district.json", "โหลดรายชื่อตำบลไม่สำเร็จ")
+      .then((data) => {
+        if (active) setSubdistrictData({ districtId, items: data.filter((item) => String(item.district_id) === districtId) });
       })
-      .then((data: Subdistrict[]) => {
-        if (active) setSubdistricts(data.filter((item) => String(item.district_id) === value.districtId));
-      })
-      .catch((e) => active && setLoadError(e instanceof Error ? e.message : "โหลดข้อมูลตำบลไม่สำเร็จ"))
-      .finally(() => active && setLoadingSubdistricts(false));
+      .catch((e) => {
+        if (!active) return;
+        setLoadError(e instanceof Error ? e.message : "โหลดข้อมูลตำบลไม่สำเร็จ");
+        setSubdistrictData({ districtId, items: [] });
+      });
     return () => { active = false; };
   }, [value.districtId]);
 
-  const provinceOptions = useMemo(() => provinces.map((p) => ({ value: String(p.id), label: p.name_th })), [provinces]);
-  const districtOptions = useMemo(() => districts.map((d) => ({ value: String(d.id), label: d.name_th })), [districts]);
-  const subdistrictOptions = useMemo(() => subdistricts.map((s) => ({ value: String(s.id), label: s.name_th })), [subdistricts]);
+  const districts = useMemo(
+    () => (value.provinceId && districtData.provinceId === value.provinceId ? districtData.items : []),
+    [districtData, value.provinceId],
+  );
+  const subdistricts = useMemo(
+    () => (value.districtId && subdistrictData.districtId === value.districtId ? subdistrictData.items : []),
+    [subdistrictData, value.districtId],
+  );
+  const loadingDistricts = Boolean(value.provinceId) && districtData.provinceId !== value.provinceId;
+  const loadingSubdistricts = Boolean(value.districtId) && subdistrictData.districtId !== value.districtId;
+
+  const provinceOptions = useMemo(() => provinces.map((p) => ({ value: String(p.id), label: nameOf(p) })).sort(byThaiLabel), [provinces]);
+  const districtOptions = useMemo(() => districts.map((d) => ({ value: String(d.id), label: nameOf(d) })).sort(byThaiLabel), [districts]);
+  const subdistrictOptions = useMemo(() => subdistricts.map((s) => ({ value: String(s.id), label: nameOf(s) })).sort(byThaiLabel), [subdistricts]);
 
   function set(partial: Partial<ThaiAddressValue>) {
     onChange({ ...value, ...partial });
@@ -183,7 +216,7 @@ export function ThaiAddressForm({ value, onChange }: Props) {
           loading={loadingProvinces}
           onChange={(provinceId) => {
             const province = provinces.find((p) => String(p.id) === provinceId);
-            set({ provinceId, province: province?.name_th ?? "", districtId: "", district: "", subdistrictId: "", subdistrict: "", postalCode: "" });
+            set({ provinceId, province: province ? nameOf(province) : "", districtId: "", district: "", subdistrictId: "", subdistrict: "", postalCode: "" });
           }}
           required
         />
@@ -195,7 +228,7 @@ export function ThaiAddressForm({ value, onChange }: Props) {
           disabled={!value.provinceId}
           onChange={(districtId) => {
             const district = districts.find((d) => String(d.id) === districtId);
-            set({ districtId, district: district?.name_th ?? "", subdistrictId: "", subdistrict: "", postalCode: "" });
+            set({ districtId, district: district ? nameOf(district) : "", subdistrictId: "", subdistrict: "", postalCode: "" });
           }}
           required
         />
@@ -207,7 +240,7 @@ export function ThaiAddressForm({ value, onChange }: Props) {
           disabled={!value.districtId}
           onChange={(subdistrictId) => {
             const sub = subdistricts.find((s) => String(s.id) === subdistrictId);
-            set({ subdistrictId, subdistrict: sub?.name_th ?? "", postalCode: sub ? String(sub.zip_code) : "" });
+            set({ subdistrictId, subdistrict: sub ? nameOf(sub) : "", postalCode: sub ? zipOf(sub) : "" });
           }}
           required
         />
@@ -225,3 +258,7 @@ export function ThaiAddressForm({ value, onChange }: Props) {
     </div>
   );
 }
+
+// ใช้ร่วมกับหน้าชำระเงิน (เติมที่อยู่จากหมุดบนแผนที่)
+export { loadJson as loadThaiAddressJson, nameOf as thaiNameOf, zipOf as thaiZipOf };
+export type { District as ThaiDistrict, Province as ThaiProvince, Subdistrict as ThaiSubdistrict };
