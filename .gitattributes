@@ -1,0 +1,5 @@
+# ไฟล์ที่ต้องใช้บน VPS (Linux) ต้องเป็น LF เสมอ แม้ checkout บน Windows
+*.sh text eol=lf
+deploy/* text eol=lf
+docker-compose*.yml text eol=lf
+Dockerfile text eol=lf

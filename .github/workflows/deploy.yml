@@ -1,0 +1,118 @@
+# Deploy — build Docker image → push ไป GHCR → deploy ขึ้น VPS (Hostinger)
+#   job build-push : ทำงานทันทีหลัง CI ผ่านบน main
+#   job deploy     : ข้ามไปจนกว่าจะตั้ง Variable APP_URL และ Secrets ของ VPS
+#
+# ต้องตั้งใน Settings → Secrets and variables → Actions
+#   Variables : NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, APP_URL
+#   Secrets   : VPS_HOST, VPS_USER, VPS_SSH_KEY
+name: Deploy
+
+on:
+  # รันหลังจาก workflow "CI" ทำงานเสร็จบน branch main
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  # ปุ่ม "Run workflow" สำหรับสั่ง deploy เองจากแท็บ Actions
+  workflow_dispatch:
+
+# สิทธิ์ของ GITHUB_TOKEN: อ่านโค้ด + เขียน package (push image ขึ้น GHCR)
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    # deploy เฉพาะเมื่อ CI ผ่าน (หรือสั่งเองด้วยปุ่ม Run workflow)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.vars.outputs.image }}
+      tag: ${{ steps.vars.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # ใช้ commit เดียวกับที่ CI ทดสอบผ่าน
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Set image name and tag
+        id: vars
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          # ชื่อ image บน GHCR ต้องเป็นตัวพิมพ์เล็ก → ghcr.io/weerapat-35/uchango
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-${SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push app image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: runner
+          push: true
+          # ค่าสาธารณะที่ต้องฝังตอน build
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          tags: |
+            ${{ steps.vars.outputs.image }}:latest
+            ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.tag }}
+          cache-from: type=gha,scope=runner
+          cache-to: type=gha,mode=max,scope=runner
+
+  deploy:
+    needs: build-push
+    # ข้าม job นี้จนกว่าจะตั้ง Variable APP_URL (เช่น https://uchango-garage.tech)
+    if: vars.APP_URL != ''
+    runs-on: ubuntu-latest
+    # ให้ deploy ทีละครั้ง ถ้ามี push ซ้อนกันจะรอคิว
+    concurrency: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Copy docker-compose.yml to VPS
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: docker-compose.yml
+          target: uchango
+
+      - name: Pull and restart on VPS
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          # ใช้ image ที่ tag ด้วย sha ของ commit นี้ (ย้อนกลับเวอร์ชันได้ง่าย)
+          APP_IMAGE: ${{ needs.build-push.outputs.image }}:${{ needs.build-push.outputs.tag }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: APP_IMAGE
+          script: |
+            set -e
+            cd ~/uchango
+            # ค่าจาก env ของ shell มีผลเหนือค่าใน .env
+            docker compose pull
+            docker compose up -d
+            # ลบ image เก่าที่ไม่ได้ใช้ ป้องกัน disk เต็ม
+            docker image prune -f
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS "${{ vars.APP_URL }}/api/health"; then exit 0; fi
+            echo "รอแอปพร้อม... ($i)"; sleep 5
+          done
+          echo "health check ไม่ผ่าน"; exit 1

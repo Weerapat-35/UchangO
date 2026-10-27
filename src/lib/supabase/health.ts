@@ -44,6 +44,8 @@ export async function checkSupabaseHealth(): Promise<SupabaseHealthResult> {
         Authorization: `Bearer ${config.publishableKey}`,
       },
       cache: "no-store",
+      // ไม่ให้ health check ค้างเมื่อเครือข่ายล่ม — ครบ 5 วินาทีแล้วตอบ 503
+      signal: AbortSignal.timeout(5000),
     });
 
     const isReachable = response.ok || response.status === 401 || response.status === 403;

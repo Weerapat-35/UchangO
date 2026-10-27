@@ -1,0 +1,22 @@
+# ไฟล์/โฟลเดอร์ที่ไม่ต้องส่งเข้า Docker build context
+# (ทำให้ build เร็วขึ้น และไม่เผลอใส่ความลับลงใน image)
+node_modules
+.next
+.git
+.github
+.claude
+.scannerwork
+.env*
+!.env.example
+*.md
+!README.md
+*.tsbuildinfo
+next-env.d.ts
+*.zip
+*.ps1
+sonar-project.properties
+Dockerfile
+.dockerignore
+docker-compose*.yml
+deploy
+supabase

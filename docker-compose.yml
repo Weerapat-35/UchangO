@@ -1,0 +1,29 @@
+# docker-compose.yml — ไฟล์เดียวใช้ได้ทั้งในเครื่องและบน VPS
+# ค่าตัวแปร ${...} อ่านจากไฟล์ .env ในโฟลเดอร์เดียวกัน (ดูตัวอย่างใน .env.example)
+#
+# ฐานข้อมูลอยู่บน Supabase Cloud จึงมีแค่ service "app" (ไม่มี db / migrate / volume)
+#
+# ในเครื่อง:  docker compose --env-file .env.local up --build -d
+# บน VPS:     docker compose pull && docker compose up -d   (.env สร้างด้วย deploy/make-env.sh)
+
+services:
+  app:
+    build:
+      context: .
+      target: runner
+      args:
+        # ฝังตอน build (ใช้เฉพาะตอน build ในเครื่อง บน VPS ใช้ image จาก GHCR ที่ build มาแล้ว)
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
+    # ในเครื่องใช้ image ที่ build เอง บน VPS เปลี่ยนเป็น image จาก GHCR ผ่าน .env
+    # เช่น APP_IMAGE=ghcr.io/weerapat-35/uchango:latest (ไม่ต้องแก้ไฟล์นี้)
+    image: ${APP_IMAGE:-uchango-app:local}
+    restart: unless-stopped
+    environment:
+      # ความลับที่ใช้ฝั่ง server ตอนรัน (ไม่ถูกฝังใน image)
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      SLIPOK_API_KEY: ${SLIPOK_API_KEY:-}
+      SLIPOK_BRANCH_ID: ${SLIPOK_BRANCH_ID:-}
+    ports:
+      # "port บนเครื่อง host:port ใน container" — บน VPS ใช้ 127.0.0.1:3301 (เข้าได้ผ่าน Nginx เท่านั้น)
+      - "${APP_PORT:-3301}:3000"

@@ -30,14 +30,22 @@ export function CancelOrderDialog({
 }: CancelOrderDialogProps) {
   const [selectedReason, setSelectedReason] = useState<string>("");
   const [otherText, setOtherText] = useState("");
+  const [wasOpen, setWasOpen] = useState(open);
+
+  // ล้างเหตุผลที่เลือกไว้ทุกครั้งที่เปิดหน้าต่างใหม่
+  if (open !== wasOpen) {
+    setWasOpen(open);
+
+    if (open) {
+      setSelectedReason("");
+      setOtherText("");
+    }
+  }
 
   useEffect(() => {
     if (!open) {
       return;
     }
-
-    setSelectedReason("");
-    setOtherText("");
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
