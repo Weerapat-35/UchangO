@@ -26,6 +26,7 @@ export {
   createAdminFinanceTransaction,
   deleteAdminFinanceTransaction,
   generateAdminRecurringExpenses,
+  setAdminUserRole,
   getAdminRecurringExpenses,
   createAdminRecurringExpense,
   setAdminRecurringExpenseActive,

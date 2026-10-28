@@ -36,3 +36,20 @@ export function isValidLatitude(value: number) {
 export function isValidLongitude(value: number) {
   return Number.isFinite(value) && value >= -180 && value <= 180;
 }
+
+/**
+ * ใช้กับ onKeyDown ของ <input type="number"> — เบราว์เซอร์ยอมให้พิมพ์ e, +, - ได้
+ * จึงกันไว้ไม่ให้ใส่ค่าติดลบหรือเลขยกกำลัง (allowDecimal=false กันจุดทศนิยมด้วย)
+ */
+export function blockNonNumericKeys(
+  event: { key: string; preventDefault: () => void },
+  allowDecimal = false,
+) {
+  if (["e", "E", "+", "-"].includes(event.key) || (!allowDecimal && event.key === ".")) {
+    event.preventDefault();
+  }
+}
+
+export function blockNonDecimalKeys(event: { key: string; preventDefault: () => void }) {
+  blockNonNumericKeys(event, true);
+}

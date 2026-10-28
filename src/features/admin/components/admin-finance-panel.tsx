@@ -20,6 +20,7 @@ import {
   type AdminRecurringExpenseInput,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { blockNonDecimalKeys } from "@/lib/validation";
 
 const currency = new Intl.NumberFormat("th-TH", {
   style: "currency",
@@ -346,7 +347,7 @@ export function AdminFinancePanel() {
             </label>
             <label className="block text-sm font-semibold">
               จำนวนเงิน (บาท)
-              <input className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] px-3" min="0.01" step="0.01" type="number" value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
+              <input className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] px-3" min="0.01" onKeyDown={blockNonDecimalKeys} step="0.01" type="number" value={form.amount || ""} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} />
             </label>
             <label className="block text-sm font-semibold">
               วันที่
@@ -424,7 +425,7 @@ export function AdminFinancePanel() {
           </label>
           <label className="text-sm font-semibold">
             จำนวนเงิน (บาท)
-            <input className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] px-3" min="0.01" step="0.01" type="number" value={recurringForm.amount || ""} onChange={(e) => setRecurringForm({ ...recurringForm, amount: Number(e.target.value) })} />
+            <input className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] px-3" min="0.01" onKeyDown={blockNonDecimalKeys} step="0.01" type="number" value={recurringForm.amount || ""} onChange={(e) => setRecurringForm({ ...recurringForm, amount: Number(e.target.value) })} />
           </label>
           <label className="text-sm font-semibold">
             ทุกวันที่

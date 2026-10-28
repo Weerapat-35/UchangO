@@ -9,6 +9,7 @@ import {
 } from "@/features/technician/repair-parts";
 import type { Product } from "@/features/products";
 import { createClient } from "@/lib/supabase/browser";
+import { blockNonNumericKeys } from "@/lib/validation";
 
 function money(value: number) {
   return new Intl.NumberFormat("th-TH", {
@@ -156,7 +157,9 @@ export function TechnicianRepairPartsPanel({
             จำนวน
             <input
               className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] px-3 text-sm outline-none focus:border-[var(--brand)]"
+              inputMode="numeric"
               min={1}
+              onKeyDown={blockNonNumericKeys}
               type="number"
               value={quantity}
               onChange={(event) => setQuantity(event.target.value)}

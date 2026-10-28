@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   checkAdminAccess,
   getAdminCustomers,
+  setAdminUserRole,
   type AdminCustomerSummary,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
@@ -13,9 +14,12 @@ import {
   AdminEmptyState,
   AdminFilterBar,
   AdminLoadMessage,
+  AdminModal,
   AdminPageIntro,
   AdminPill,
   AdminStatCard,
+  AdminToast,
+  adminPrimaryButtonClass,
   adminSecondaryButtonClass,
   type AdminPillTone,
 } from "./admin-list-ui";
@@ -25,7 +29,8 @@ type LoadState =
   | { status: "access-denied" | "error"; message: string; users: null }
   | { status: "ready"; message: null; users: AdminCustomerSummary[] };
 
-type RoleFilter = "all" | "customer" | "technician" | "admin";
+type UserRole = "customer" | "technician" | "admin";
+type RoleFilter = "all" | UserRole;
 type SortKey = "newest" | "latest-booking" | "most-bookings" | "name";
 
 const pageSize = 10;
@@ -35,6 +40,85 @@ const ROLE: Record<string, { label: string; tone: AdminPillTone }> = {
   technician: { label: "ช่าง", tone: "dark" },
   admin: { label: "ผู้ดูแล", tone: "brand" },
 };
+
+const ROLE_OPTIONS: { value: UserRole; label: string; description: string }[] = [
+  { value: "customer", label: "ลูกค้า", description: "จองคิว ดูงานซ่อม และซื้อสินค้าของตัวเอง" },
+  { value: "technician", label: "ช่าง", description: "เข้าหน้าช่าง รับใบงาน อัปเดตสถานะ และเบิกอะไหล่" },
+  { value: "admin", label: "ผู้ดูแล", description: "เข้าหน้าแอดมินได้ทุกเมนู รวมถึงการเงินและสิทธิ์ผู้ใช้" },
+];
+
+function RoleDialog({
+  user,
+  onClose,
+  onSaved,
+}: {
+  user: AdminCustomerSummary;
+  onClose: () => void;
+  onSaved: (user: AdminCustomerSummary) => void;
+}) {
+  const [role, setRole] = useState<UserRole>(user.role as UserRole);
+  const [status, setStatus] = useState<"idle" | "saving">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave() {
+    setStatus("saving");
+    setError(null);
+    const { data, error: saveError } = await setAdminUserRole(createClient(), user.id, role);
+    if (saveError || !data) {
+      setStatus("idle");
+      setError(saveError?.message ?? "เปลี่ยนบทบาทไม่สำเร็จ");
+      return;
+    }
+    onSaved({ ...user, role: data.role });
+  }
+
+  return (
+    <AdminModal
+      description={user.full_name || user.email || undefined}
+      footer={
+        <>
+          <button className={adminSecondaryButtonClass} disabled={status === "saving"} onClick={onClose} type="button">ยกเลิก</button>
+          <button className={adminPrimaryButtonClass} disabled={status === "saving" || role === user.role} onClick={() => void handleSave()} type="button">
+            {status === "saving" ? "กำลังบันทึก..." : "บันทึกบทบาท"}
+          </button>
+        </>
+      }
+      onClose={onClose}
+      open
+      title="เปลี่ยนบทบาทผู้ใช้"
+    >
+      <fieldset className="space-y-2.5">
+        <legend className="sr-only">บทบาท</legend>
+        {ROLE_OPTIONS.map((option) => (
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${role === option.value ? "border-[var(--color-safety)] bg-red-50/60" : "border-[var(--line)] hover:bg-[var(--color-concrete)]"}`}
+            key={option.value}
+          >
+            <input
+              checked={role === option.value}
+              className="mt-1 h-4 w-4 accent-[var(--color-safety)]"
+              name="user-role"
+              onChange={() => setRole(option.value)}
+              type="radio"
+              value={option.value}
+            />
+            <span>
+              <span className="block font-semibold text-[var(--foreground)]">
+                {option.label}
+                {option.value === user.role ? <span className="ml-2 text-xs font-normal text-[var(--muted)]">(ปัจจุบัน)</span> : null}
+              </span>
+              <span className="mt-0.5 block text-sm text-[var(--muted)]">{option.description}</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      {role === "admin" && user.role !== "admin" ? (
+        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">ผู้ดูแลจะเห็นข้อมูลทั้งหมดของร้าน และเปลี่ยนบทบาทของคนอื่นได้</p>
+      ) : null}
+      {error ? <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p> : null}
+    </AdminModal>
+  );
+}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
@@ -65,6 +149,10 @@ export function AdminCustomersPanel() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("newest");
   const [page, setPage] = useState(1);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<AdminCustomerSummary | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const clearToast = useCallback(() => setToast(null), []);
 
   useEffect(() => {
     let isMounted = true;
@@ -79,6 +167,7 @@ export function AdminCustomersPanel() {
       const access = await checkAdminAccess(supabase, session.user.id);
       if (!isMounted) return;
       if (!access.allowed) return setLoadState({ status: "access-denied", message: access.reason, users: null });
+      setCurrentUserId(session.user.id);
 
       const { data, error } = await getAdminCustomers(supabase);
       if (!isMounted) return;
@@ -129,6 +218,16 @@ export function AdminCustomersPanel() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageUsers = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  function handleRoleSaved(updated: AdminCustomerSummary) {
+    setLoadState((state) =>
+      state.status === "ready"
+        ? { ...state, users: state.users.map((user) => (user.id === updated.id ? updated : user)) }
+        : state,
+    );
+    setEditingUser(null);
+    setToast(`เปลี่ยนบทบาทเป็น "${ROLE[updated.role]?.label ?? updated.role}" แล้ว`);
+  }
 
   return (
     <main className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
@@ -202,7 +301,23 @@ export function AdminCustomersPanel() {
                                 </div>
                               </div>
                             </td>
-                            <td className="whitespace-nowrap px-3 py-3.5"><AdminPill tone={role.tone}>{role.label}</AdminPill></td>
+                            <td className="whitespace-nowrap px-3 py-3.5">
+                              <div className="flex items-center gap-2">
+                                <AdminPill tone={role.tone}>{role.label}</AdminPill>
+                                {user.id === currentUserId ? (
+                                  <span className="text-xs text-[var(--muted)]">(คุณ)</span>
+                                ) : (
+                                  <button
+                                    aria-label={`เปลี่ยนบทบาทของ ${user.full_name || user.email || "ผู้ใช้"}`}
+                                    className="rounded-lg px-2 py-1 text-xs font-semibold text-[var(--muted)] underline-offset-2 hover:bg-[var(--color-concrete-2)] hover:text-[var(--color-safety)] hover:underline"
+                                    onClick={() => setEditingUser(user)}
+                                    type="button"
+                                  >
+                                    เปลี่ยน
+                                  </button>
+                                )}
+                              </div>
+                            </td>
                             <td className="px-3 py-3.5 text-right font-semibold text-[var(--foreground)]">{user.vehicleCount}</td>
                             <td className="px-3 py-3.5 text-right font-semibold text-[var(--foreground)]">{user.bookingCount}</td>
                             <td className="whitespace-nowrap px-3 py-3.5">
@@ -257,6 +372,8 @@ export function AdminCustomersPanel() {
           )}
         </>
       )}
+      {editingUser ? <RoleDialog onClose={() => setEditingUser(null)} onSaved={handleRoleSaved} user={editingUser} /> : null}
+      <AdminToast message={toast} onDone={clearToast} />
     </main>
   );
 }

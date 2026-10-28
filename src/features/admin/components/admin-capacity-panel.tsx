@@ -11,6 +11,7 @@ import {
   type AdminGarageCapacityInput,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { blockNonNumericKeys } from "@/lib/validation";
 import {
   AdminActiveSwitch,
   AdminDateHeading,
@@ -166,6 +167,7 @@ function CapacityEditor({
               max={100}
               min={minimum}
               onChange={(event) => setMaxBookings(Math.min(100, Math.max(0, Math.floor(Number(event.target.value) || 0))))}
+              onKeyDown={blockNonNumericKeys}
               type="number"
               value={maxBookings}
             />

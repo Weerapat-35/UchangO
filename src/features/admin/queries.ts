@@ -2745,6 +2745,14 @@ export async function deleteAdminFinanceTransaction(
 }
 
 // บันทึกค่าใช้จ่ายประจำของเดือนที่ถึงกำหนดแล้วลงการเงิน (เรียกซ้ำได้ ไม่บันทึกซ้ำ)
+export async function setAdminUserRole(
+  supabase: BCareSupabaseClient,
+  userId: string,
+  role: "customer" | "technician" | "admin",
+) {
+  return supabase.rpc("admin_set_user_role", { p_role: role, p_user_id: userId });
+}
+
 export async function generateAdminRecurringExpenses(
   supabase: BCareSupabaseClient,
 ) {

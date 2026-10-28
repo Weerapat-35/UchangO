@@ -18,6 +18,7 @@ import {
 import { ProductImageThumb } from "@/features/products/components/product-image-thumb";
 import { createClient } from "@/lib/supabase/browser";
 import { LOW_STOCK_THRESHOLD } from "./admin-inventory-panel";
+import { blockNonDecimalKeys } from "@/lib/validation";
 import {
   AdminActiveSwitch,
   AdminEmptyState,
@@ -57,7 +58,7 @@ const currencyFormatter = new Intl.NumberFormat("th-TH", {
 function validateProductInput(input: AdminProductUpdateInput) {
   if (!input.name) return "กรุณากรอกชื่อสินค้า";
   if (!input.product_category_id) return "กรุณาเลือกหมวดสินค้า";
-  if (!Number.isFinite(input.unit_price) || input.unit_price < 0) return "ราคาขายต้องเป็น 0 หรือมากกว่า";
+  if (!Number.isFinite(input.unit_price) || input.unit_price < 1) return "ราคาขายต้องอย่างน้อย 1 บาท";
   if (!Number.isFinite(input.cost_price) || input.cost_price < 0) return "ราคาต้นทุนต้องเป็น 0 หรือมากกว่า";
   return null;
 }
@@ -225,11 +226,11 @@ function ProductEditor({
         <div className="grid gap-4 sm:grid-cols-2">
           <label className={adminLabelClass}>
             ราคาขาย (บาท)
-            <input className={adminInputClass} inputMode="decimal" min={0} onChange={(event) => setUnitPrice(event.target.value)} placeholder="0" step="0.01" type="number" value={unitPrice} />
+            <input className={adminInputClass} inputMode="decimal" min={1} onChange={(event) => setUnitPrice(event.target.value)} onKeyDown={blockNonDecimalKeys} placeholder="1" required step="0.01" type="number" value={unitPrice} />
           </label>
           <label className={adminLabelClass}>
             ต้นทุน (บาท)
-            <input className={adminInputClass} inputMode="decimal" min={0} onChange={(event) => setCostPrice(event.target.value)} placeholder="0" step="0.01" type="number" value={costPrice} />
+            <input className={adminInputClass} inputMode="decimal" min={0} onChange={(event) => setCostPrice(event.target.value)} onKeyDown={blockNonDecimalKeys} placeholder="0" step="0.01" type="number" value={costPrice} />
           </label>
         </div>
         {margin !== null ? (

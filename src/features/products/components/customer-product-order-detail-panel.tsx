@@ -5,7 +5,7 @@ import type { OrderStatus } from "@/components/order-status-stepper";
 
 import Link from "next/link";
 import type { FormEvent, ReactNode, SyntheticEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   cancelOwnProductOrder,
   getActivePaymentSetting,
@@ -20,6 +20,7 @@ import { ProductImageThumb } from "./product-image-thumb";
 import { OrderStatusStepper } from "@/components/order-status-stepper";
 import { CancelOrderDialog } from "@/components/cancel-order-dialog";
 import { SignInPrompt } from "@/components/sign-in-prompt";
+import { blockNonDecimalKeys } from "@/lib/validation";
 
 type LoadState =
   | {
@@ -488,6 +489,85 @@ function PaymentInstructionPanel({
   );
 }
 
+const MAX_AUTO_RECHECKS = 6;
+
+type AutoRecheck = {
+  attempt: number;
+  paymentId: string;
+  secondsLeft: number;
+};
+
+type SlipOkVerifyOutcome = {
+  failureKind?: string;
+  message: string;
+  ok: boolean;
+  order?: { payment_status?: ProductOrderWithItems["payment_status"] };
+  payment?: ProductPayment;
+  retryAfterSeconds?: number;
+};
+
+function isWaitingForBank(payment: ProductPayment) {
+  const response = payment.verification_response;
+  return (
+    payment.verification_status === "submitted" &&
+    payment.payment_status === "pending" &&
+    typeof response === "object" &&
+    response !== null &&
+    !Array.isArray(response) &&
+    response.failureKind === "bank_delay"
+  );
+}
+
+async function requestSlipOkVerification(
+  paymentId: string,
+): Promise<SlipOkVerifyOutcome> {
+  try {
+    const supabase = createClient();
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+
+    if (sessionError || !accessToken) {
+      return {
+        message: "ส่งสลิปแล้ว แต่ระบบตรวจอัตโนมัติยังไม่ได้ทำงาน กรุณาลองใหม่จากรายการคำสั่งซื้อ",
+        ok: false,
+      };
+    }
+
+    const response = await fetch(
+      `/api/product-payments/${paymentId}/verify-slipok`,
+      {
+        body: JSON.stringify({ accessToken }),
+        credentials: "include",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    );
+    const result = (await response
+      .json()
+      .catch(() => null)) as Partial<SlipOkVerifyOutcome> | null;
+
+    return {
+      ...result,
+      message:
+        result?.message ??
+        "ส่งสลิปแล้ว แต่ SlipOK ยังตรวจไม่ได้ชั่วคราว กรุณารอสักครู่หรือให้แอดมินตรวจซ้ำ",
+      ok: result?.ok === true,
+    };
+  } catch (error) {
+    return {
+      message:
+        error instanceof Error
+          ? `ส่งสลิปสำเร็จ แต่ตรวจ SlipOK อัตโนมัติไม่สำเร็จ: ${error.message}`
+          : "ส่งสลิปสำเร็จ แต่ตรวจ SlipOK อัตโนมัติไม่สำเร็จ",
+      ok: false,
+    };
+  }
+}
+
 function PaymentSlipUploadPanel({
   onPaymentUpdated,
   order,
@@ -527,6 +607,17 @@ function PaymentSlipUploadPanel({
     error: null,
     status: "idle",
   });
+  const [autoRecheck, setAutoRecheck] = useState<AutoRecheck | null>(() =>
+    latestPayment && isWaitingForBank(latestPayment)
+      ? { attempt: 1, paymentId: latestPayment.id, secondsLeft: 5 }
+      : null,
+  );
+  const [recheckGaveUp, setRecheckGaveUp] = useState(false);
+  const recheckInFlightRef = useRef<string | null>(null);
+  const recheckKey = autoRecheck
+    ? `${autoRecheck.paymentId}:${autoRecheck.attempt}`
+    : null;
+
   const resolvedPaymentMethod =
     paymentMethod === "promptpay" && displaySettings.promptPayEnabled
       ? "promptpay"
@@ -557,7 +648,7 @@ function PaymentSlipUploadPanel({
 
     const resolvedAmount = Number(amount);
 
-    if (!Number.isFinite(resolvedAmount) || resolvedAmount <= 0) {
+    if (!Number.isFinite(resolvedAmount) || resolvedAmount < 1) {
       setSubmitState({
         error: "กรุณากรอกยอดเงินให้ถูกต้อง",
         status: "error",
@@ -600,82 +691,64 @@ function PaymentSlipUploadPanel({
     setSlipReference("");
 
     // ตรวจสลิปด้วย SlipOK อัตโนมัติทันทีหลังบันทึกสลิป
-    setSubmitState({
-      error: null,
-      status: "submitting",
-    });
-
-    try {
-      const { data: sessionData, error: sessionError } =
-        await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-
-      if (sessionError || !accessToken) {
-        setSubmitState({
-          error: "ส่งสลิปแล้ว แต่ระบบตรวจอัตโนมัติยังไม่ได้ทำงาน กรุณาลองใหม่จากรายการคำสั่งซื้อ",
-          status: "error",
-        });
-        return;
-      }
-
-      const verifyResponse = await fetch(
-        `/api/product-payments/${data.id}/verify-slipok`,
-        {
-          body: JSON.stringify({ accessToken }),
-          credentials: "include",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          method: "POST",
-        },
-      );
-
-      const verifyResult = (await verifyResponse
-        .json()
-        .catch(() => null)) as {
-        message?: string;
-        ok?: boolean;
-        order?: { payment_status?: ProductOrderWithItems["payment_status"] };
-        payment?: ProductPayment;
-      } | null;
-
-      if (verifyResult?.payment && verifyResult.order?.payment_status) {
-        onPaymentUpdated(
-          verifyResult.payment,
-          verifyResult.order.payment_status,
-        );
-      }
-
-      if (verifyResult?.ok === true) {
-        setSubmitState({ error: null, status: "success" });
-        return;
-      }
-
-      // กรณี SlipOK ตรวจไม่ผ่าน ให้แสดงผลทันที แต่ยังคงให้ลูกค้าส่งใหม่ได้
-      if (verifyResult?.payment) {
-        setSubmitState({
-          error: verifyResult.message ?? "SlipOK ตรวจสลิปไม่ผ่าน กรุณาตรวจสอบสลิปอีกครั้ง",
-          status: "error",
-        });
-        return;
-      }
-
-      // กรณีบริการ SlipOK ชั่วคราวใช้งานไม่ได้: สลิปถูกบันทึกแล้วและ Admin ตรวจซ้ำได้
-      setSubmitState({
-        error: verifyResult?.message ?? "ส่งสลิปแล้ว แต่ SlipOK ยังตรวจไม่ได้ชั่วคราว กรุณารอสักครู่หรือให้แอดมินตรวจซ้ำ",
-        status: "error",
-      });
-    } catch (error) {
-      setSubmitState({
-        error:
-          error instanceof Error
-            ? `ส่งสลิปสำเร็จ แต่ตรวจ SlipOK อัตโนมัติไม่สำเร็จ: ${error.message}`
-            : "ส่งสลิปสำเร็จ แต่ตรวจ SlipOK อัตโนมัติไม่สำเร็จ",
-        status: "error",
-      });
-    }
+    await runVerification(data.id, 1);
   }
+
+  async function runVerification(paymentId: string, attempt: number) {
+    const result = await requestSlipOkVerification(paymentId);
+
+    if (result.payment && result.order?.payment_status) {
+      onPaymentUpdated(result.payment, result.order.payment_status);
+    }
+
+    if (result.ok) {
+      setAutoRecheck(null);
+      setSubmitState({ error: null, status: "success" });
+      return;
+    }
+
+    // ธนาคารยังยืนยันรายการไม่ทัน: รอแล้วตรวจซ้ำเอง ลูกค้าไม่ต้องทำอะไร
+    if (result.failureKind === "bank_delay") {
+      setSubmitState({ error: null, status: "idle" });
+
+      if (attempt < MAX_AUTO_RECHECKS) {
+        setAutoRecheck({
+          attempt: attempt + 1,
+          paymentId,
+          secondsLeft: result.retryAfterSeconds ?? 30,
+        });
+        return;
+      }
+
+      setAutoRecheck(null);
+      setRecheckGaveUp(true);
+      return;
+    }
+
+    setAutoRecheck(null);
+    setSubmitState({ error: result.message, status: "error" });
+  }
+
+  useEffect(() => {
+    if (!recheckKey) return;
+    const timer = window.setInterval(() => {
+      setAutoRecheck((current) =>
+        current && current.secondsLeft > 0
+          ? { ...current, secondsLeft: current.secondsLeft - 1 }
+          : current,
+      );
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [recheckKey]);
+
+  useEffect(() => {
+    if (!autoRecheck || autoRecheck.secondsLeft > 0 || !recheckKey) return;
+    if (recheckInFlightRef.current === recheckKey) return;
+    recheckInFlightRef.current = recheckKey;
+    void runVerification(autoRecheck.paymentId, autoRecheck.attempt);
+    // runVerification อ่านค่า props ล่าสุดทุกครั้งที่เรียก ไม่ต้องอยู่ใน deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRecheck, recheckKey]);
 
   return (
     <section
@@ -710,6 +783,30 @@ function PaymentSlipUploadPanel({
         <p className="font-semibold">{paymentNotice.title}</p>
         <p className="mt-1">{paymentNotice.message}</p>
       </div>
+
+      {autoRecheck ? (
+        <div
+          aria-live="polite"
+          className="mt-3 flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800"
+        >
+          <span className="mt-1 h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-amber-600 border-t-transparent" />
+          <p>
+            ธนาคารกำลังยืนยันรายการโอน ไม่ต้องโอนใหม่ —{" "}
+            {autoRecheck.secondsLeft > 0
+              ? `ระบบจะตรวจสลิปอีกครั้งใน ${autoRecheck.secondsLeft} วินาที`
+              : "กำลังตรวจสลิปอีกครั้ง..."}{" "}
+            (ครั้งที่ {autoRecheck.attempt}/{MAX_AUTO_RECHECKS})
+          </p>
+        </div>
+      ) : recheckGaveUp && latestPayment?.verification_status === "submitted" ? (
+        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
+          ธนาคารยังไม่ยืนยันรายการโอนในตอนนี้ สลิปถูกบันทึกไว้แล้ว แอดมินจะตรวจให้อีกครั้ง ไม่ต้องโอนใหม่
+        </div>
+      ) : !canSubmit && submitState.status === "error" ? (
+        <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-700">
+          {submitState.error}
+        </div>
+      ) : null}
 
       {!hasPaymentMethod ? (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-700">
@@ -808,8 +905,10 @@ function PaymentSlipUploadPanel({
             ยอดเงินบนสลิป
             <input
               className="min-h-11 rounded-md border border-[var(--line)] bg-white px-3 text-sm outline-none focus:border-[var(--brand)]"
+              inputMode="decimal"
               min="1"
               onChange={(event) => setAmount(event.target.value)}
+              onKeyDown={blockNonDecimalKeys}
               required
               step="0.01"
               type="number"

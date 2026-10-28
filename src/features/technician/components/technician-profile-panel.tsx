@@ -19,6 +19,7 @@ import {
   type TechnicianWorkOrder,
 } from "@/features/technician";
 import { createClient } from "@/lib/supabase/browser";
+import { isValidThaiPhone, normalizeThaiPhone } from "@/lib/validation";
 
 type ReadyProfile = Extract<TechnicianProfile, { allowed: true }>;
 
@@ -153,6 +154,7 @@ export function TechnicianProfilePanel() {
     if (loadState.status !== "ready") return;
     if (!draft.fullName.trim()) return setFormError("กรุณากรอกชื่อ-นามสกุล");
     if (!draft.phoneNumber.trim()) return setFormError("กรุณากรอกเบอร์โทรศัพท์");
+    if (!isValidThaiPhone(draft.phoneNumber)) return setFormError("เบอร์โทรศัพท์ต้องมี 10 หลักและขึ้นต้นด้วย 0");
 
     setSaving(true);
     setFormError("");
@@ -248,7 +250,7 @@ export function TechnicianProfilePanel() {
             </label>
             <label className={adminLabelClass}>
               เบอร์โทรศัพท์
-              <input className={adminInputClass} inputMode="tel" onChange={(event) => { setFormError(""); setDraft({ ...draft, phoneNumber: event.target.value }); }} value={draft.phoneNumber} />
+              <input className={adminInputClass} inputMode="numeric" onChange={(event) => { setFormError(""); setDraft({ ...draft, phoneNumber: normalizeThaiPhone(event.target.value) }); }} placeholder="08xxxxxxxx" value={draft.phoneNumber} />
             </label>
             <label className={`${adminLabelClass} sm:col-span-2`}>
               ความถนัดหลัก <span className="font-normal text-[var(--muted)]">(สั้น ๆ)</span>

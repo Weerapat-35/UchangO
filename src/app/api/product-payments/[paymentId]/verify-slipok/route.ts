@@ -56,6 +56,8 @@ type SlipOkFailureKind =
   | "unreadable_slip"
   | "verification_failed";
 
+const BANK_DELAY_RETRY_SECONDS = 30;
+
 type VerifySlipOkRequestBody = {
   accessToken?: string;
 };
@@ -185,7 +187,7 @@ function getCustomerSlipOkRejectedReason(
   const providerMessage = getReadableSlipOkMessage(response);
 
   if (failureKind === "bank_delay") {
-    return "ธนาคารกำลังยืนยันรายการโอน กรุณารอ 1–2 นาทีแล้วกดตรวจสลิปอีกครั้ง (ไม่ต้องโอนใหม่)";
+    return "ธนาคารกำลังยืนยันรายการโอน ระบบจะตรวจสลิปซ้ำให้อัตโนมัติ (ไม่ต้องโอนใหม่)";
   }
 
   if (failureKind === "duplicate_slip") {
@@ -573,6 +575,52 @@ export async function POST(request: Request, context: RouteContext) {
       payment: paymentUpdateResult.data,
       slipOkStatus: slipOkHttpResponse.status,
     });
+  }
+
+  // ธนาคารยังยืนยันรายการไม่ทัน: ไม่ปฏิเสธสลิป คงสถานะรอตรวจไว้ให้หน้าเว็บตรวจซ้ำอัตโนมัติ
+  if (failureKind === "bank_delay") {
+    const pendingUpdateResult = await adminSupabase
+      .from("product_payments")
+      .update({
+        payment_status: "pending",
+        rejected_reason: null,
+        verification_provider: "slipok",
+        verification_response: toJson({
+          failureKind,
+          httpStatus: slipOkHttpResponse.status,
+          response: slipOkResponse,
+        }),
+        verification_status: "submitted",
+      })
+      .eq("id", payment.id)
+      .select("*")
+      .single();
+
+    if (pendingUpdateResult.error) {
+      return NextResponse.json(
+        { message: pendingUpdateResult.error.message, ok: false },
+        { status: 500 },
+      );
+    }
+
+    const pendingOrderResult = await adminSupabase
+      .from("product_orders")
+      .select("*")
+      .eq("id", payment.product_order_id)
+      .single();
+
+    return NextResponse.json(
+      {
+        failureKind,
+        message: getCustomerSlipOkRejectedReason(failureKind, slipOkResponse),
+        ok: false,
+        order: pendingOrderResult.data ?? undefined,
+        payment: pendingUpdateResult.data,
+        retryAfterSeconds: BANK_DELAY_RETRY_SECONDS,
+        slipOkStatus: slipOkHttpResponse.status,
+      },
+      { status: 202 },
+    );
   }
 
   const rejectedReason = getCustomerSlipOkRejectedReason(

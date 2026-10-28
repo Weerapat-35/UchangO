@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getCurrentProfile, upsertCurrentProfile } from "@/features/auth";
 import { createClient } from "@/lib/supabase/browser";
+import { isValidThaiPhone, normalizeThaiPhone } from "@/lib/validation";
 
 type AuthMode = "login" | "register";
 
@@ -151,6 +152,11 @@ export function AuthPanel() {
       return;
     }
 
+    if (mode === "register" && !isValidThaiPhone(phoneNumber)) {
+      setMessage({ text: "เบอร์โทรศัพท์ต้องมี 10 หลักและขึ้นต้นด้วย 0", tone: "error" });
+      return;
+    }
+
     setIsSubmitting(true);
     const supabase = createClient();
 
@@ -293,7 +299,7 @@ export function AuthPanel() {
             {!isLogin ? (
               <div className="auth-grid-2">
                 <Field label="ชื่อ-นามสกุล" icon={<UserIcon />} autoComplete="name" onChange={(e) => setFullName(e.target.value)} placeholder="เช่น สมชาย ใจดี" value={fullName} />
-                <Field label="เบอร์โทรศัพท์" icon={<PhoneIcon />} type="tel" inputMode="tel" autoComplete="tel" onChange={(e) => setPhoneNumber(e.target.value)} placeholder="08x-xxx-xxxx" value={phoneNumber} />
+                <Field label="เบอร์โทรศัพท์" icon={<PhoneIcon />} type="tel" inputMode="numeric" autoComplete="tel" onChange={(e) => setPhoneNumber(normalizeThaiPhone(e.target.value))} placeholder="08xxxxxxxx" value={phoneNumber} />
               </div>
             ) : null}
 

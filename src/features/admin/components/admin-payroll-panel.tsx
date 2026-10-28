@@ -12,6 +12,7 @@ import {
   type AdminPayrollInput,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { blockNonDecimalKeys } from "@/lib/validation";
 
 const currency = new Intl.NumberFormat("th-TH", {
   style: "currency",
@@ -299,7 +300,7 @@ export function AdminPayrollPanel() {
                 <label className="block text-sm font-semibold" key={key}>
                   <span className="leading-5">{label}</span>
                   <div className="relative mt-2">
-                    <input required className="min-h-11 w-full rounded-xl border border-[var(--line)] bg-white px-3 pr-10 text-right font-medium tabular-nums outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-red-100" min="0" step="0.01" type="number" value={Number(form[key]) || ""} onChange={(event) => setForm({ ...form, [key]: Number(event.target.value) } as AdminPayrollInput)} placeholder="0.00" />
+                    <input required className="min-h-11 w-full rounded-xl border border-[var(--line)] bg-white px-3 pr-10 text-right font-medium tabular-nums outline-none focus:border-[var(--brand)] focus:ring-2 focus:ring-red-100" min="0" onKeyDown={blockNonDecimalKeys} step="0.01" type="number" value={Number(form[key]) || ""} onChange={(event) => setForm({ ...form, [key]: Number(event.target.value) } as AdminPayrollInput)} placeholder="0.00" />
                     <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted)]">฿</span>
                   </div>
                 </label>

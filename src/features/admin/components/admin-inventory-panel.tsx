@@ -13,6 +13,7 @@ import {
 } from "@/features/admin";
 import { ProductImageThumb } from "@/features/products/components/product-image-thumb";
 import { createClient } from "@/lib/supabase/browser";
+import { blockNonNumericKeys, blockNonDecimalKeys } from "@/lib/validation";
 import {
   AdminEmptyState,
   AdminLoadMessage,
@@ -167,6 +168,7 @@ function MovementForm({
               inputMode="numeric"
               min={1}
               onChange={(event) => setQuantity(Math.max(1, Math.floor(Number(event.target.value) || 1)))}
+              onKeyDown={blockNonNumericKeys}
               type="number"
               value={quantity}
             />
@@ -185,7 +187,7 @@ function MovementForm({
           <div className="rounded-xl bg-[var(--color-concrete)] p-3">
             <label className={adminLabelClass}>
               ราคาทุนต่อชิ้น (บาท)
-              <input className={adminInputClass} min={0} onChange={(event) => setUnitCost(event.target.value)} step="0.01" type="number" value={unitCost} />
+              <input className={adminInputClass} inputMode="decimal" min={0} onChange={(event) => setUnitCost(event.target.value)} onKeyDown={blockNonDecimalKeys} step="0.01" type="number" value={unitCost} />
             </label>
             <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
               {purchaseTotal > 0

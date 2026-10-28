@@ -13,6 +13,7 @@ import {
 } from "@/features/products";
 import { ProductImageThumb } from "./product-image-thumb";
 import { SignInPrompt } from "@/components/sign-in-prompt";
+import { blockNonNumericKeys } from "@/lib/validation";
 
 type AuthState =
   | { status: "loading"; user: null; error: null }
@@ -124,10 +125,11 @@ function CartItemRow({
               disabled={isUpdating}
               max={maxQuantity}
               min={1}
+              onKeyDown={blockNonNumericKeys}
               onChange={(event) => {
                 const quantity = Number(event.target.value);
 
-                if (Number.isInteger(quantity)) {
+                if (Number.isInteger(quantity) && quantity >= 1) {
                   onUpdateQuantity(item, quantity);
                 }
               }}

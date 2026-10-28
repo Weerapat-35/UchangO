@@ -15,6 +15,7 @@ import {
   type AdminPaymentSettingUpdateInput,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { digitsOnly } from "@/lib/validation";
 
 type LoadState =
   | { status: "loading"; access: null; setting: null; error: null }
@@ -121,6 +122,11 @@ function validatePaymentSettings(input: PaymentSettingsFormState) {
       return "กรุณากรอกชื่อผู้รับ พร้อมเพย์";
     }
 
+    const promptPayDigits = digitsOnly(input.promptpay_id);
+    if (promptPayDigits && promptPayDigits.length !== 10 && promptPayDigits.length !== 13) {
+      return "เลขพร้อมเพย์ต้องเป็นเบอร์โทร 10 หลัก หรือเลขบัตรประชาชน 13 หลัก";
+    }
+
     if (!input.promptpay_qr_image_url.trim()) {
       return "กรุณากรอกลิงก์รูป QR Code";
     }
@@ -133,6 +139,10 @@ function validatePaymentSettings(input: PaymentSettingsFormState) {
 
     if (!input.bank_account_number.trim()) {
       return "กรุณากรอกเลขบัญชี";
+    }
+
+    if (digitsOnly(input.bank_account_number).length < 10) {
+      return "เลขบัญชีต้องมีอย่างน้อย 10 หลัก";
     }
 
     if (!input.bank_account_name.trim()) {
@@ -167,11 +177,13 @@ function handleQrImageError(event: SyntheticEvent<HTMLImageElement>) {
 }
 
 function TextInput({
+  inputMode,
   label,
   onChange,
   placeholder,
   value,
 }: {
+  inputMode?: "numeric";
   label: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -182,6 +194,7 @@ function TextInput({
       {label}
       <input
         className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
+        inputMode={inputMode}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         value={value}
@@ -664,9 +677,10 @@ export function AdminPaymentSettingsPanel() {
                     value={formState.promptpay_display_name}
                   />
                   <TextInput
+                    inputMode="numeric"
                     label="เบอร์/เลข พร้อมเพย์"
-                    onChange={(value) => patchFormState({ promptpay_id: value })}
-                    placeholder="เช่น 099-999-9999"
+                    onChange={(value) => patchFormState({ promptpay_id: digitsOnly(value, 13) })}
+                    placeholder="เบอร์ 10 หลัก หรือเลขบัตร 13 หลัก"
                     value={formState.promptpay_id}
                   />
                   <TextInput
@@ -732,9 +746,10 @@ export function AdminPaymentSettingsPanel() {
                     value={formState.bank_name}
                   />
                   <TextInput
+                    inputMode="numeric"
                     label="เลขบัญชี"
                     onChange={(value) =>
-                      patchFormState({ bank_account_number: value })
+                      patchFormState({ bank_account_number: value.replace(/[^\d-]/g, "").slice(0, 20) })
                     }
                     value={formState.bank_account_number}
                   />

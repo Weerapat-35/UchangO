@@ -11,6 +11,7 @@ import {
 import { uploadVehicleImage, updateVehicleImageUrl } from "@/features/vehicles/image";
 import { createClient } from "@/lib/supabase/browser";
 import { SignInPrompt } from "@/components/sign-in-prompt";
+import { digitsOnly } from "@/lib/validation";
 
 type LoadState =
   | { status: "loading"; vehicles: null; error: null; userId: null }
@@ -199,7 +200,7 @@ function AddVehicleForm({
             <input
               className="mt-2 min-h-10 w-full rounded-xl border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--brand)] focus:ring-4 focus:ring-red-500/10"
               inputMode="numeric"
-              onChange={(event) => updateValue("year", event.target.value)}
+              onChange={(event) => updateValue("year", digitsOnly(event.target.value, 4))}
               placeholder="2020"
               value={values.year}
             />
@@ -218,7 +219,7 @@ function AddVehicleForm({
 
         <label className="text-sm font-medium text-[var(--foreground)]">
           เลขไมล์ปัจจุบัน (กม.)
-          <input className="mt-2 min-h-10 w-full rounded-xl border border-[var(--line)] bg-white px-3 text-sm outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-red-500/10" inputMode="numeric" min="0" onChange={(event) => updateValue("mileage", event.target.value)} placeholder="เช่น 45000" value={values.mileage} />
+          <input className="mt-2 min-h-10 w-full rounded-xl border border-[var(--line)] bg-white px-3 text-sm outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-red-500/10" inputMode="numeric" min="0" onChange={(event) => updateValue("mileage", digitsOnly(event.target.value, 7))} placeholder="เช่น 45000" value={values.mileage} />
         </label>
         <div className="text-sm font-medium text-[var(--foreground)]">
           รูปรถ (JPG, PNG, WEBP ไม่เกิน 2 MB)
@@ -412,12 +413,12 @@ function VehicleCard({
           <div>
             <p className="text-xs text-gray-500">ปีรถ</p>
             {isแก้ไขing ? (
-              <input className="mt-1 min-h-9 w-full rounded-lg border border-gray-200 px-2 text-sm outline-none focus:border-red-500" inputMode="numeric" onChange={(event) => updateValue("year", event.target.value)} value={values.year} />
+              <input className="mt-1 min-h-9 w-full rounded-lg border border-gray-200 px-2 text-sm outline-none focus:border-red-500" inputMode="numeric" onChange={(event) => updateValue("year", digitsOnly(event.target.value, 4))} value={values.year} />
             ) : <p className="mt-1 text-base font-semibold text-gray-900">{vehicle.year ?? "-"}</p>}
           </div>
           <div>
             <p className="text-xs text-gray-500">เลขไมล์ล่าสุด</p>
-            {isแก้ไขing ? <input className="mt-1 min-h-9 w-full rounded-lg border border-gray-200 px-2 text-sm outline-none focus:border-red-500" inputMode="numeric" min="0" onChange={(event) => updateValue("mileage", event.target.value)} placeholder="เช่น 45000" value={values.mileage} /> : <p className="mt-1 text-base font-semibold text-gray-900">{vehicle.current_mileage == null ? "ยังไม่มีข้อมูล" : `${Number(vehicle.current_mileage).toLocaleString("th-TH")} กม.`}</p>}
+            {isแก้ไขing ? <input className="mt-1 min-h-9 w-full rounded-lg border border-gray-200 px-2 text-sm outline-none focus:border-red-500" inputMode="numeric" min="0" onChange={(event) => updateValue("mileage", digitsOnly(event.target.value, 7))} placeholder="เช่น 45000" value={values.mileage} /> : <p className="mt-1 text-base font-semibold text-gray-900">{vehicle.current_mileage == null ? "ยังไม่มีข้อมูล" : `${Number(vehicle.current_mileage).toLocaleString("th-TH")} กม.`}</p>}
           </div>
         </div>
 

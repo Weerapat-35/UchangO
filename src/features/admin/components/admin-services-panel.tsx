@@ -15,6 +15,7 @@ import {
   type AdminServiceCreateInput,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
+import { blockNonDecimalKeys, blockNonNumericKeys } from "@/lib/validation";
 import {
   AdminActiveSwitch,
   AdminEmptyState,
@@ -213,11 +214,11 @@ function ServiceEditor({
         <div className="grid gap-4 sm:grid-cols-2">
           <label className={adminLabelClass}>
             ราคาเริ่มต้น (บาท)
-            <input className={adminInputClass} inputMode="decimal" min={0} onChange={(event) => setBasePrice(event.target.value)} type="number" value={basePrice} />
+            <input className={adminInputClass} inputMode="decimal" min={0} onChange={(event) => setBasePrice(event.target.value)} onKeyDown={blockNonDecimalKeys} step="0.01" type="number" value={basePrice} />
           </label>
           <label className={adminLabelClass}>
             เวลาโดยประมาณ (นาที)
-            <input className={adminInputClass} inputMode="numeric" min={1} onChange={(event) => setDuration(event.target.value)} type="number" value={duration} />
+            <input className={adminInputClass} inputMode="numeric" min={1} onChange={(event) => setDuration(event.target.value)} onKeyDown={blockNonNumericKeys} type="number" value={duration} />
           </label>
         </div>
 

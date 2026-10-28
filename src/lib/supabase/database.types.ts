@@ -1947,6 +1947,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_set_user_role: {
+        Args: {
+          p_role: string
+          p_user_id: string
+        }
+        Returns: Database["public"]["Tables"]["profiles"]["Row"]
+      }
       generate_recurring_expenses: {
         Args: Record<PropertyKey, never>
         Returns: number
