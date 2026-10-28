@@ -91,24 +91,22 @@ function RoleDialog({
         <legend className="sr-only">บทบาท</legend>
         {ROLE_OPTIONS.map((option) => (
           <label
-            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${role === option.value ? "border-[var(--color-safety)] bg-red-50/60" : "border-[var(--line)] hover:bg-[var(--color-concrete)]"}`}
+            className={`grid cursor-pointer grid-cols-[auto_1fr] items-start gap-x-3 rounded-xl border p-4 transition ${role === option.value ? "border-[var(--color-safety)] bg-red-50/60" : "border-[var(--line)] hover:bg-[var(--color-concrete)]"}`}
             key={option.value}
           >
             <input
               checked={role === option.value}
-              className="mt-1 h-4 w-4 accent-[var(--color-safety)]"
+              className="row-span-2 mt-1 h-4 w-4 accent-[var(--color-safety)]"
               name="user-role"
               onChange={() => setRole(option.value)}
               type="radio"
               value={option.value}
             />
-            <span>
-              <span className="block font-semibold text-[var(--foreground)]">
-                {option.label}
-                {option.value === user.role ? <span className="ml-2 text-xs font-normal text-[var(--muted)]">(ปัจจุบัน)</span> : null}
-              </span>
-              <span className="mt-0.5 block text-sm text-[var(--muted)]">{option.description}</span>
+            <span className="font-semibold text-[var(--foreground)]">
+              {option.label}
+              {option.value === user.role ? " (ปัจจุบัน)" : ""}
             </span>
+            <span className="mt-0.5 text-sm text-[var(--muted)]">{option.description}</span>
           </label>
         ))}
       </fieldset>

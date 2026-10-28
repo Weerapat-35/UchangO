@@ -35,7 +35,7 @@ function toDraft(profile: ReadyProfile): Draft {
     fullName: profile.profile.full_name,
     phoneNumber: profile.profile.phone_number,
     specialty: profile.profile.technician_specialty ?? "",
-    skillIds: [...profile.selectedSkillIds].sort(),
+    skillIds: [...profile.selectedSkillIds].sort((a, b) => a.localeCompare(b)),
   };
 }
 
@@ -122,7 +122,7 @@ export function TechnicianProfilePanel() {
     setFormError("");
     setDraft((current) => ({
       ...current,
-      skillIds: (current.skillIds.includes(skillId) ? current.skillIds.filter((id) => id !== skillId) : [...current.skillIds, skillId]).sort(),
+      skillIds: (current.skillIds.includes(skillId) ? current.skillIds.filter((id) => id !== skillId) : [...current.skillIds, skillId]).sort((a, b) => a.localeCompare(b)),
     }));
   }
 

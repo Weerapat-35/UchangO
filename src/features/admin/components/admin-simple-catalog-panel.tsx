@@ -111,7 +111,7 @@ function CatalogEditor<T extends CatalogItem, E extends CatalogError>({
       <form className="space-y-4" id="catalog-editor" onSubmit={handleSubmit}>
         <label className={adminLabelClass}>
           ชื่อ{config.noun}
-          <input autoFocus className={adminInputClass} onChange={(event) => setName(event.target.value)} placeholder={config.namePlaceholder} value={name} />
+          <input className={adminInputClass} onChange={(event) => setName(event.target.value)} placeholder={config.namePlaceholder} value={name} />
         </label>
         <label className={adminLabelClass}>
           รายละเอียด <span className="font-normal text-[var(--muted)]">(ไม่บังคับ)</span>

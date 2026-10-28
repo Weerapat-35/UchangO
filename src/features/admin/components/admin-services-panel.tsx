@@ -192,7 +192,7 @@ function ServiceEditor({
           <div className="flex-1 space-y-4">
             <label className={adminLabelClass}>
               ชื่อบริการ
-              <input autoFocus className={adminInputClass} onChange={(event) => setName(event.target.value)} placeholder="เช่น เติมน้ำยาแอร์" value={name} />
+              <input className={adminInputClass} onChange={(event) => setName(event.target.value)} placeholder="เช่น เติมน้ำยาแอร์" value={name} />
             </label>
             <label className={adminLabelClass}>
               หมวดหมู่

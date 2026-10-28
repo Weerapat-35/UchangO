@@ -203,7 +203,7 @@ function ProductEditor({
           <div className="flex-1 space-y-4">
             <label className={adminLabelClass}>
               ชื่อสินค้า
-              <input autoFocus className={adminInputClass} onChange={(event) => setName(event.target.value)} placeholder="เช่น น้ำมันเครื่องสังเคราะห์ 5W-30 (4 ลิตร)" value={name} />
+              <input className={adminInputClass} onChange={(event) => setName(event.target.value)} placeholder="เช่น น้ำมันเครื่องสังเคราะห์ 5W-30 (4 ลิตร)" value={name} />
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className={adminLabelClass}>
