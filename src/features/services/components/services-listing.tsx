@@ -980,13 +980,33 @@ function BookingForm({
   );
 }
 
-export function ServicesListing() {
+// หน้าหลักลิงก์มาพร้อม ?category=<คำในชื่อหมวด> เช่น "แอร์" → หมวด "ระบบแอร์"
+function findCategoryIdByKeyword(
+  categories: ServiceCategoryWithServices[],
+  keyword: string | undefined,
+) {
+  const normalizedKeyword = keyword?.trim();
+  if (!normalizedKeyword) return null;
+  return (
+    categories.find((category) => category.name.includes(normalizedKeyword))
+      ?.id ?? null
+  );
+}
+
+export function ServicesListing({
+  initialCategory,
+}: {
+  initialCategory?: string;
+}) {
   const [loadState, setLoadState] = useState<LoadState>({
     data: null,
     error: null,
     status: "loading",
   });
-  const [selectedCategoryId, setSelectedCategoryId] = useState("all");
+  // null = ยังไม่ได้กดเลือกเอง ให้ใช้หมวดจากลิงก์ (ถ้ามี)
+  const [chosenCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null,
+  );
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
     null,
   );
@@ -1119,6 +1139,10 @@ export function ServicesListing() {
     () => findSelectedService(categories, selectedServiceId),
     [categories, selectedServiceId],
   );
+  const selectedCategoryId =
+    chosenCategoryId ??
+    findCategoryIdByKeyword(categories, initialCategory) ??
+    "all";
   const visibleCategories = useMemo(() => {
     if (selectedCategoryId === "all") {
       return categories;

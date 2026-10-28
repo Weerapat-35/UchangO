@@ -112,7 +112,7 @@ export default async function Home() {
         </div>
         <div className="home-services">
           {services.map((service) => (
-            <Link key={service.title} href="/services" className="home-service">
+            <Link key={service.title} href={`/services?category=${encodeURIComponent(service.category)}`} className="home-service">
               <span className="home-service__icon" aria-hidden="true">{service.icon}</span>
               <span className="home-service__text">
                 <strong>{service.title}</strong>
@@ -231,31 +231,37 @@ const quickLinks = [
 const services = [
   {
     title: "ซ่อมทั่วไป",
+    category: "เครื่องยนต์",
     description: "ซ่อมเครื่องยนต์และระบบต่าง ๆ",
     icon: <Icon><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6Z" /></Icon>,
   },
   {
     title: "เปลี่ยนถ่ายน้ำมันเครื่อง",
+    category: "เครื่องยนต์",
     description: "น้ำมันเครื่องและไส้กรอง",
     icon: <Icon><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z" /></Icon>,
   },
   {
     title: "ระบบเบรก",
+    category: "ช่วงล่าง",
     description: "ตรวจเช็กและเปลี่ยนผ้าเบรก",
     icon: <Icon><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /><path d="M5 7a9 9 0 0 1 4-3" /></Icon>,
   },
   {
     title: "ช่วงล่างและยาง",
+    category: "ช่วงล่าง",
     description: "ยางรถยนต์และระบบช่วงล่าง",
     icon: <Icon><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M12 3v5M12 16v5M3 12h5M16 12h5" /></Icon>,
   },
   {
     title: "แบตเตอรี่",
+    category: "แบต",
     description: "ตรวจเช็กและเปลี่ยนแบตเตอรี่",
     icon: <Icon><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M7 7V4h3v3M14 7V4h3v3M7 13.5h4M15 11.5v4M13 13.5h4" /></Icon>,
   },
   {
     title: "แอร์รถยนต์",
+    category: "แอร์",
     description: "ตรวจเช็กและซ่อมระบบแอร์",
     icon: <Icon><path d="M12 2v20M4.9 7l14.2 10M4.9 17 19.1 7M9 4l3 2 3-2M9 20l3-2 3 2" /></Icon>,
   },
