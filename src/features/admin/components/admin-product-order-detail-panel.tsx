@@ -56,6 +56,7 @@ type PaymentActionState =
 type SlipOkVerifyResult = {
   failureKind?:
     | "amount_mismatch"
+    | "bank_delay"
     | "duplicate_slip"
     | "provider_error"
     | "provider_unavailable"
@@ -81,6 +82,10 @@ function getSlipOkActionErrorMessage(result: SlipOkVerifyResult | null) {
     result?.failureKind === "unauthorized_provider"
   ) {
     return `${baseMessage} สถานะ payment ยังไม่ถูกเปลี่ยน กรุณาตรวจการตั้งค่าหรือลองใหม่ภายหลัง`;
+  }
+
+  if (result?.failureKind === "bank_delay") {
+    return `${baseMessage} ลูกค้าไม่ต้องโอนใหม่ รอสักครู่แล้วกดตรวจสลิปอีกครั้ง`;
   }
 
   if (
@@ -256,6 +261,21 @@ function formatPaymentMethod(
   }
 
   return "อื่น ๆ";
+}
+
+/** ข้อความต้นฉบับจาก SlipOK (code + message) ที่เก็บไว้ใน verification_response ใช้ดูสาเหตุจริงที่ตรวจไม่ผ่าน */
+function getSlipOkProviderNote(verificationResponse: unknown) {
+  if (!verificationResponse || typeof verificationResponse !== "object") return null;
+  const record = verificationResponse as { httpStatus?: number; response?: { code?: number | string; message?: string; data?: { message?: string } } };
+  const response = record.response;
+  if (!response) return null;
+  const message = response.data?.message ?? response.message;
+  const parts = [
+    response.code !== undefined ? `code ${response.code}` : null,
+    message ?? null,
+    record.httpStatus ? `(HTTP ${record.httpStatus})` : null,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 function formatVerificationStatus(
@@ -724,6 +744,12 @@ function PaymentProofReview({
                   label="เหตุผลที่ไม่ผ่าน"
                   value={payment.rejected_reason ?? "-"}
                 />
+                {getSlipOkProviderNote(payment.verification_response) ? (
+                  <DetailItem
+                    label="ข้อความจาก SlipOK"
+                    value={getSlipOkProviderNote(payment.verification_response) ?? "-"}
+                  />
+                ) : null}
               </dl>
 
               {payment.slip_image_url ? (

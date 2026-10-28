@@ -25,7 +25,7 @@ export const ADMIN_NAV_GROUPS: StaffNavGroup[] = [
     { href: "/admin/payroll", label: "เงินเดือนช่าง", icon: "money" },
   ]},
   { label: "จัดการระบบ", items: [
-    { href: "/admin/customers", label: "ลูกค้า", icon: "users" },
+    { href: "/admin/customers", label: "รายชื่อผู้ใช้", icon: "users" },
     { href: "/admin/payment-settings", label: "การชำระเงิน", icon: "card" },
     { href: "/admin/reports", label: "รายงาน", icon: "chart" },
     { href: "/admin/notifications", label: "การแจ้งเตือน", icon: "bell" },

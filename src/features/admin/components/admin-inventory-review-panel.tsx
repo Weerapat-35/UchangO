@@ -2,69 +2,42 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AppNav } from "@/components/app-nav";
 import {
   checkAdminAccess,
   getAdminInventoryMovements,
   getAdminProducts,
-  type AdminAccessResult,
   type AdminInventoryMovement,
   type AdminProduct,
 } from "@/features/admin";
+import { ProductImageThumb } from "@/features/products/components/product-image-thumb";
 import { createClient } from "@/lib/supabase/browser";
+import { LOW_STOCK_THRESHOLD, getMovementType } from "./admin-inventory-panel";
+import {
+  AdminEmptyState,
+  AdminFilterBar,
+  AdminLoadMessage,
+  AdminPageIntro,
+  AdminPill,
+  AdminStatCard,
+  adminDarkButtonClass,
+  adminPrimaryButtonClass,
+  type AdminPillTone,
+} from "./admin-list-ui";
 
 type LoadState =
-  | {
-      status: "loading";
-      access: null;
-      movements: null;
-      สินค้า: null;
-      error: null;
-    }
-  | {
-      status: "signed-out";
-      access: null;
-      movements: null;
-      สินค้า: null;
-      error: null;
-    }
-  | {
-      status: "access-denied";
-      access: Extract<AdminAccessResult, { allowed: false }>;
-      movements: null;
-      สินค้า: null;
-      error: null;
-    }
-  | {
-      status: "ready";
-      access: AdminAccessResult;
-      movements: AdminInventoryMovement[];
-      สินค้า: AdminProduct[];
-      error: null;
-    }
-  | {
-      status: "error";
-      access: null;
-      movements: null;
-      สินค้า: null;
-      error: string;
-    };
+  | { status: "loading" | "signed-out"; message: null; products: null; movements: null }
+  | { status: "access-denied" | "error"; message: string; products: null; movements: null }
+  | { status: "ready"; message: null; products: AdminProduct[]; movements: AdminInventoryMovement[] };
 
-type สต็อกFilter = "all" | "out" | "low" | "healthy" | "inactive";
+type StockStatus = "out" | "low" | "healthy" | "inactive";
+type StockFilter = "all" | StockStatus;
 
-type ReviewProduct = AdminProduct & {
-  latestMovement: AdminInventoryMovement | null;
+const STOCK_STATUS: Record<StockStatus, { label: string; tone: AdminPillTone; order: number }> = {
+  out: { label: "หมดสต็อก", tone: "danger", order: 0 },
+  low: { label: "ใกล้หมด", tone: "amber", order: 1 },
+  healthy: { label: "พร้อมขาย", tone: "done", order: 2 },
+  inactive: { label: "ปิดใช้งาน", tone: "muted", order: 3 },
 };
-
-const stockFilters: { label: string; value: สต็อกFilter }[] = [
-  { label: "all", value: "all" },
-  { label: "out", value: "out" },
-  { label: "low", value: "low" },
-  { label: "healthy", value: "healthy" },
-  { label: "inactive", value: "inactive" },
-];
-
-const lowStockThreshold = 2;
 
 const currencyFormatter = new Intl.NumberFormat("th-TH", {
   currency: "THB",
@@ -72,482 +45,170 @@ const currencyFormatter = new Intl.NumberFormat("th-TH", {
   style: "currency",
 });
 
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("th-TH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function getStockStatus(product: AdminProduct): สต็อกFilter {
-  if (product.status === "inactive") {
-    return "inactive";
-  }
-
-  if (product.stock_quantity <= 0) {
-    return "out";
-  }
-
-  if (product.stock_quantity <= lowStockThreshold) {
-    return "low";
-  }
-
+function getStockStatus(product: AdminProduct): StockStatus {
+  if (product.status === "inactive") return "inactive";
+  if (product.stock_quantity <= 0) return "out";
+  if (product.stock_quantity <= LOW_STOCK_THRESHOLD) return "low";
   return "healthy";
 }
 
-function getStockStatusStyle(stockStatus: สต็อกFilter) {
-  if (stockStatus === "out") {
-    return "bg-red-50 text-red-700";
-  }
-
-  if (stockStatus === "low") {
-    return "bg-amber-50 text-amber-800";
-  }
-
-  if (stockStatus === "inactive") {
-    return "bg-slate-100 text-slate-700";
-  }
-
-  return "bg-emerald-50 text-[var(--brand-strong)]";
-}
-
-function buildReviewProducts(
-  สินค้า: AdminProduct[],
-  movements: AdminInventoryMovement[],
-) {
-  const latestMovementByProductId = new Map<string, AdminInventoryMovement>();
-
-  for (const movement of movements) {
-    if (!latestMovementByProductId.has(movement.product_id)) {
-      latestMovementByProductId.set(movement.product_id, movement);
-    }
-  }
-
-  return สินค้า.map(
-    (product) =>
-      ({
-        ...product,
-        latestMovement: latestMovementByProductId.get(product.id) ?? null,
-      }) satisfies ReviewProduct,
-  );
-}
-
-function ReviewProductRow({ product }: { product: ReviewProduct }) {
-  const stockStatus = getStockStatus(product);
-
-  return (
-    <tr className="border-b border-[var(--line)] align-top">
-      <td className="px-4 py-3">
-        <div className="font-semibold text-[var(--foreground)]">
-          {product.name}
-        </div>
-        <div className="mt-1 text-xs text-[var(--muted)]">
-          SKU {product.sku ?? "-"}
-        </div>
-      </td>
-      <td className="px-4 py-3 text-[var(--muted)]">
-        {product.category?.name ?? "-"}
-      </td>
-      <td className="px-4 py-3">
-        <span
-          className={`rounded-md px-2.5 py-1 text-xs font-semibold ${getStockStatusStyle(
-            stockStatus,
-          )}`}
-        >
-          {stockStatus}
-        </span>
-      </td>
-      <td className="px-4 py-3 font-semibold text-[var(--foreground)]">
-        {product.stock_quantity}
-      </td>
-      <td className="px-4 py-3 text-[var(--muted)]">
-        {currencyFormatter.format(product.unit_price)}
-      </td>
-      <td className="px-4 py-3 text-[var(--muted)]">
-        {product.latestMovement ? (
-          <div>
-            <div className="font-medium text-[var(--foreground)]">
-              {product.latestMovement.movement_type} /{" "}
-              {product.latestMovement.quantity}
-            </div>
-            <div className="mt-1 text-xs">
-              {formatDateTime(product.latestMovement.created_at)}
-            </div>
-          </div>
-        ) : (
-          "-"
-        )}
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex flex-col gap-2">
-          <Link
-            className="min-h-9 rounded-md bg-[var(--brand)] px-3 py-2 text-center text-xs font-semibold text-white"
-            href="/admin/inventory"
-          >
-            รับเข้า/จ่ายออก
-          </Link>
-          <Link
-            className="min-h-9 rounded-md border border-[var(--line)] bg-white px-3 py-2 text-center text-xs font-semibold text-[var(--muted)]"
-            href="/admin/products"
-          >
-            แก้ไขสินค้า
-          </Link>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
 export function AdminInventoryReviewPanel() {
-  const [loadState, setLoadState] = useState<LoadState>({
-    access: null,
-    error: null,
-    movements: null,
-    สินค้า: null,
-    status: "loading",
-  });
-  const [searchInput, setSearchInput] = useState("");
-  const [stockFilter, setStockFilter] = useState<สต็อกFilter>("all");
+  const [loadState, setLoadState] = useState<LoadState>({ status: "loading", message: null, products: null, movements: null });
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<StockFilter>("all");
 
   useEffect(() => {
     let isMounted = true;
     const supabase = createClient();
 
     async function loadInventoryReview() {
-      setLoadState({
-        access: null,
-        error: null,
-        movements: null,
-        สินค้า: null,
-        status: "loading",
-      });
-
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (sessionError) {
-        setLoadState({
-          access: null,
-          error: sessionError.message,
-          movements: null,
-          สินค้า: null,
-          status: "error",
-        });
-        return;
-      }
-
-      if (!session?.user) {
-        setLoadState({
-          access: null,
-          error: null,
-          movements: null,
-          สินค้า: null,
-          status: "signed-out",
-        });
-        return;
-      }
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (!isMounted) return;
+      if (sessionError) return setLoadState({ status: "error", message: sessionError.message, products: null, movements: null });
+      if (!session?.user) return setLoadState({ status: "signed-out", message: null, products: null, movements: null });
 
       const access = await checkAdminAccess(supabase, session.user.id);
+      if (!isMounted) return;
+      if (!access.allowed) return setLoadState({ status: "access-denied", message: access.reason, products: null, movements: null });
 
-      if (!isMounted) {
-        return;
-      }
-
-      if (!access.allowed) {
-        setLoadState({
-          access,
-          error: null,
-          movements: null,
-          สินค้า: null,
-          status: "access-denied",
-        });
-        return;
-      }
-
-      const [สินค้าResult, movementsResult] = await Promise.all([
-        getAdminProducts(supabase),
-        getAdminInventoryMovements(supabase, 200),
-      ]);
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (สินค้าResult.error) {
-        setLoadState({
-          access: null,
-          error: สินค้าResult.error.message,
-          movements: null,
-          สินค้า: null,
-          status: "error",
-        });
-        return;
-      }
-
-      if (movementsResult.error) {
-        setLoadState({
-          access: null,
-          error: movementsResult.error.message,
-          movements: null,
-          สินค้า: null,
-          status: "error",
-        });
-        return;
-      }
-
-      setLoadState({
-        access,
-        error: null,
-        movements: movementsResult.data ?? [],
-        สินค้า: สินค้าResult.data ?? [],
-        status: "ready",
-      });
+      const [productsResult, movementsResult] = await Promise.all([getAdminProducts(supabase), getAdminInventoryMovements(supabase, 200)]);
+      if (!isMounted) return;
+      const error = productsResult.error ?? movementsResult.error;
+      if (error) return setLoadState({ status: "error", message: error.message, products: null, movements: null });
+      setLoadState({ status: "ready", message: null, products: productsResult.data ?? [], movements: movementsResult.data ?? [] });
     }
 
     void loadInventoryReview();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void loadInventoryReview();
-    });
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => { void loadInventoryReview(); });
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
-  const reviewProducts = useMemo(() => {
-    if (loadState.status !== "ready") {
-      return [];
-    }
+  const products = useMemo(() => (loadState.status === "ready" ? loadState.products : []), [loadState]);
 
-    return buildReviewProducts(loadState.สินค้า, loadState.movements);
+  const latestMovementByProduct = useMemo(() => {
+    const map = new Map<string, AdminInventoryMovement>();
+    // รายการเรียงล่าสุดก่อน เก็บเฉพาะรายการแรกของแต่ละสินค้า
+    for (const movement of loadState.status === "ready" ? loadState.movements : []) {
+      if (!map.has(movement.product_id)) map.set(movement.product_id, movement);
+    }
+    return map;
   }, [loadState]);
 
-  const summary = useMemo(() => {
-    const activeProducts = reviewProducts.filter(
-      (product) => product.status === "active",
-    );
+  const counts = useMemo(() => {
+    const result: Record<StockStatus, number> = { out: 0, low: 0, healthy: 0, inactive: 0 };
+    for (const product of products) result[getStockStatus(product)] += 1;
+    return result;
+  }, [products]);
+  const totalStock = products.filter((product) => product.status === "active").reduce((total, product) => total + product.stock_quantity, 0);
 
-    return {
-      activeCount: activeProducts.length,
-      healthyCount: activeProducts.filter(
-        (product) => getStockStatus(product) === "healthy",
-      ).length,
-      lowCount: activeProducts.filter(
-        (product) => getStockStatus(product) === "low",
-      ).length,
-      outCount: activeProducts.filter(
-        (product) => getStockStatus(product) === "out",
-      ).length,
-      totalStock: activeProducts.reduce(
-        (total, product) => total + product.stock_quantity,
-        0,
-      ),
-    };
-  }, [reviewProducts]);
-
-  const filteredProducts = useMemo(() => {
-    const normalizedSearch = searchInput.trim().toLowerCase();
-
-    return reviewProducts.filter((product) => {
-      const stockStatus = getStockStatus(product);
-      const matchesStockFilter =
-        stockFilter === "all" || stockStatus === stockFilter;
-      const matchesSearch =
-        !normalizedSearch ||
-        product.name.toLowerCase().includes(normalizedSearch) ||
-        (product.sku ?? "").toLowerCase().includes(normalizedSearch) ||
-        (product.description ?? "").toLowerCase().includes(normalizedSearch) ||
-        (product.category?.name ?? "").toLowerCase().includes(normalizedSearch);
-
-      return matchesStockFilter && matchesSearch;
-    });
-  }, [reviewProducts, searchInput, stockFilter]);
+  const filtered = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    return products
+      .filter((product) =>
+        (filter === "all" || getStockStatus(product) === filter) &&
+        (!keyword ||
+          product.name.toLowerCase().includes(keyword) ||
+          (product.sku ?? "").toLowerCase().includes(keyword) ||
+          (product.category?.name ?? "").toLowerCase().includes(keyword)),
+      )
+      // ของที่ต้องจัดการก่อน (หมด → ใกล้หมด) อยู่บนสุด แล้วเรียงสต็อกน้อยไปมาก
+      .sort((a, b) => STOCK_STATUS[getStockStatus(a)].order - STOCK_STATUS[getStockStatus(b)].order || a.stock_quantity - b.stock_quantity);
+  }, [products, search, filter]);
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
-      <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <AppNav />
-        </div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              ตรวจสต็อก
-            </h1>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Link
-              className="min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/admin/inventory"
-            >
-              บันทึกรายการสต็อก
-            </Link>
-            <Link
-              className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
-              href="/admin/products"
-            >
-              จัดการสินค้า
-            </Link>
-          </div>
-        </div>
-      </header>
+    <main className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+      {loadState.status !== "ready" ? (
+        <AdminLoadMessage loadingLabel="กำลังโหลดสต็อก..." message={loadState.message} status={loadState.status} />
+      ) : (
+        <>
+          <AdminPageIntro
+            action={
+              <>
+                <Link className={adminPrimaryButtonClass} href="/admin/inventory">บันทึกสต็อก</Link>
+                <Link className={adminDarkButtonClass} href="/admin/products">จัดการสินค้า</Link>
+              </>
+            }
+            description="ตรวจสอบสินค้าหมดสต็อก ใกล้หมด และสินค้าพร้อมขาย ก่อนรับสินค้าเข้าหรือตัดสต็อก"
+          />
 
-      {loadState.status === "loading" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            กำลังโหลดข้อมูลตรวจสอบสต็อก...
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "signed-out" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
-            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              ไปหน้าเข้าสู่ระบบ
-            </Link>
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "access-denied" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
-            <p className="mt-2">{loadState.access.reason}</p>
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "error" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-xl rounded-lg border border-red-200 bg-white px-5 py-4 text-sm text-red-700 shadow-sm">
-            {loadState.error}
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "ready" ? (
-        <section className="py-6">
-          <div className="grid gap-3 md:grid-cols-5">
-            <div className="rounded-lg border border-[var(--line)] bg-white p-5">
-              <p className="text-sm font-semibold text-[var(--muted)]">
-                สินค้าที่เปิดขาย
-              </p>
-              <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-                {summary.activeCount}
-              </p>
-            </div>
-            <div className="rounded-lg border border-[var(--line)] bg-white p-5">
-              <p className="text-sm font-semibold text-[var(--muted)]">
-                สินค้าคงเหลือทั้งหมด
-              </p>
-              <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-                {summary.totalStock}
-              </p>
-            </div>
-            <div className="rounded-lg border border-red-200 bg-white p-5">
-              <p className="text-sm font-semibold text-red-700">หมดสต็อก</p>
-              <p className="mt-2 text-3xl font-bold text-red-700">
-                {summary.outCount}
-              </p>
-            </div>
-            <div className="rounded-lg border border-amber-200 bg-white p-5">
-              <p className="text-sm font-semibold text-amber-800">ใกล้หมด</p>
-              <p className="mt-2 text-3xl font-bold text-amber-800">
-                {summary.lowCount}
-              </p>
-            </div>
-            <div className="rounded-lg border border-emerald-200 bg-white p-5">
-              <p className="text-sm font-semibold text-[var(--brand-strong)]">
-                สต็อกปกติ
-              </p>
-              <p className="mt-2 text-3xl font-bold text-[var(--brand-strong)]">
-                {summary.healthyCount}
-              </p>
-            </div>
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+            <AdminStatCard highlight label="สินค้าทั้งหมด" value={products.length} />
+            <AdminStatCard label="หมดสต็อก" value={counts.out} />
+            <AdminStatCard label="ใกล้หมด" value={counts.low} />
+            <AdminStatCard label="จำนวนสต็อกรวม (ชิ้น)" value={totalStock.toLocaleString("th-TH")} />
           </div>
 
-          <div className="mt-5 flex flex-col gap-4 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-[var(--foreground)]">
-                {filteredProducts.length} จาก {reviewProducts.length} สินค้า
-              </p>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                สินค้าจะถือว่าสต็อกใกล้หมดเมื่อเหลือ {lowStockThreshold} ชิ้นหรือน้อยกว่า
-              </p>
-            </div>
+          <AdminFilterBar
+            filter={filter}
+            filters={[
+              { value: "all" as StockFilter, label: "ทั้งหมด", count: products.length },
+              ...(Object.keys(STOCK_STATUS) as StockStatus[]).map((status) => ({ value: status as StockFilter, label: STOCK_STATUS[status].label, count: counts[status] })),
+            ]}
+            onFilterChange={setFilter}
+            onSearchChange={setSearch}
+            search={search}
+            searchPlaceholder="ค้นหาชื่อสินค้า SKU หรือหมวดสินค้า"
+          />
 
-            <div className="flex w-full flex-col gap-2 sm:flex-row lg:max-w-3xl">
-              <input
-                className="min-h-10 flex-1 rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="ค้นหาสินค้า รหัสสินค้า หรือหมวดหมู่"
-                type="search"
-                value={searchInput}
-              />
-              <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
-                {stockFilters.map((filter) => (
-                  <button
-                    className={
-                      stockFilter === filter.value
-                        ? "min-h-10 shrink-0 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white"
-                        : "min-h-10 shrink-0 rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--muted)]"
-                    }
-                    key={filter.value}
-                    onClick={() => setStockFilter(filter.value)}
-                    type="button"
-                  >
-                    {filter.label}
-                  </button>
-                ))}
+          {filtered.length === 0 ? (
+            <AdminEmptyState description={products.length === 0 ? "เพิ่มสินค้าที่หน้าจัดการสินค้าก่อน" : "ลองเปลี่ยนคำค้นหาหรือตัวกรอง"} title={products.length === 0 ? "ยังไม่มีสินค้า" : "ไม่พบสินค้าที่ค้นหา"} />
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[860px] border-collapse text-left text-sm">
+                  <thead className="bg-[var(--color-asphalt)] text-xs font-semibold text-white">
+                    <tr>
+                      <th className="px-5 py-3 font-semibold" scope="col">สินค้า</th>
+                      <th className="px-3 py-3 font-semibold" scope="col">หมวดสินค้า</th>
+                      <th className="px-3 py-3 font-semibold" scope="col">สถานะสต็อก</th>
+                      <th className="px-3 py-3 text-right font-semibold" scope="col">สต็อก</th>
+                      <th className="px-3 py-3 text-right font-semibold" scope="col">ราคาขาย</th>
+                      <th className="px-3 py-3 font-semibold" scope="col">เคลื่อนไหวล่าสุด</th>
+                      <th className="px-5 py-3 text-right font-semibold" scope="col">คำสั่ง</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((product) => {
+                      const status = STOCK_STATUS[getStockStatus(product)];
+                      const latest = latestMovementByProduct.get(product.id);
+                      return (
+                        <tr className={`border-t border-[var(--line)] hover:bg-[var(--color-concrete)] ${product.status === "inactive" ? "text-[var(--muted)]" : ""}`} key={product.id}>
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <ProductImageThumb alt={`รูปสินค้า ${product.name}`} size="sm" src={product.image_url} />
+                              <div className="min-w-0">
+                                <p className="font-semibold text-[var(--foreground)]">{product.name}</p>
+                                {product.sku ? <p className="text-xs text-[var(--muted)]">SKU {product.sku}</p> : null}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-[var(--muted)]">{product.category?.name ?? "-"}</td>
+                          <td className="whitespace-nowrap px-3 py-3"><AdminPill tone={status.tone}>{status.label}</AdminPill></td>
+                          <td className={`px-3 py-3 text-right text-base font-bold ${product.stock_quantity <= 0 ? "text-[var(--color-safety)]" : "text-[var(--foreground)]"}`}>{product.stock_quantity}</td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right">{currencyFormatter.format(product.unit_price)}</td>
+                          <td className="whitespace-nowrap px-3 py-3 text-[var(--muted)]">
+                            {latest
+                              ? `${getMovementType(latest.movement_type)?.label ?? latest.movement_type} · ${new Date(latest.created_at).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}`
+                              : "-"}
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <Link className="inline-flex min-h-9 items-center whitespace-nowrap rounded-xl bg-[var(--color-asphalt)] px-3.5 text-xs font-semibold text-white hover:bg-[var(--color-asphalt-2)]" href={`/admin/inventory?product=${product.id}`}>
+                              รับเข้า/ตัดสต็อก
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
-
-          <section className="mt-5 overflow-auto rounded-lg border border-[var(--line)] bg-white shadow-sm">
-            {filteredProducts.length > 0 ? (
-              <table className="w-full min-w-[1040px] border-collapse text-left text-sm">
-                <thead className="border-b border-[var(--line)] bg-slate-50 text-[var(--foreground)]">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold">สินค้า</th>
-                    <th className="px-4 py-3 font-semibold">หมวดหมู่</th>
-                    <th className="px-4 py-3 font-semibold">สถานะสต็อก</th>
-                    <th className="px-4 py-3 font-semibold">สต็อก</th>
-                    <th className="px-4 py-3 font-semibold">ราคาขาย</th>
-                    <th className="px-4 py-3 font-semibold">การเคลื่อนไหวล่าสุด</th>
-                    <th className="px-4 py-3 font-semibold">การดำเนินการ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredProducts.map((product) => (
-                    <ReviewProductRow key={product.id} product={product} />
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="p-6 text-sm leading-6 text-[var(--muted)]">
-                ไม่พบสินค้าที่ตรงกับตัวกรอง
-              </div>
-            )}
-          </section>
-        </section>
-      ) : null}
+          )}
+        </>
+      )}
     </main>
   );
 }

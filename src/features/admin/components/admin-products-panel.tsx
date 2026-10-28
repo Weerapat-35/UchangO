@@ -1,11 +1,7 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
 import Link from "next/link";
-import type { FormEvent, SyntheticEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { AppNav } from "@/components/app-nav";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   checkAdminAccess,
@@ -15,74 +11,40 @@ import {
   getAdminProductCategories,
   getAdminProducts,
   updateAdminProduct,
-  type AdminAccessResult,
   type AdminProduct,
   type AdminProductCategory,
-  type AdminProductCreateInput,
   type AdminProductUpdateInput,
 } from "@/features/admin";
+import { ProductImageThumb } from "@/features/products/components/product-image-thumb";
 import { createClient } from "@/lib/supabase/browser";
-import { recordStatusLabel } from "@/lib/status-labels";
+import { LOW_STOCK_THRESHOLD } from "./admin-inventory-panel";
+import {
+  AdminActiveSwitch,
+  AdminEmptyState,
+  AdminFilterBar,
+  AdminIcon,
+  AdminLoadMessage,
+  AdminModal,
+  AdminPageIntro,
+  AdminPill,
+  AdminStatCard,
+  AdminToast,
+  adminDarkButtonClass,
+  adminInputClass,
+  adminLabelClass,
+  adminPrimaryButtonClass,
+  adminSecondaryButtonClass,
+  adminTextareaClass,
+} from "./admin-list-ui";
 
 type LoadState =
-  | {
-      status: "loading";
-      access: null;
-      categories: null;
-      สินค้า: null;
-      error: null;
-    }
-  | {
-      status: "signed-out";
-      access: null;
-      categories: null;
-      สินค้า: null;
-      error: null;
-    }
-  | {
-      status: "access-denied";
-      access: Extract<AdminAccessResult, { allowed: false }>;
-      categories: null;
-      สินค้า: null;
-      error: null;
-    }
-  | {
-      status: "ready";
-      access: AdminAccessResult;
-      categories: AdminProductCategory[];
-      สินค้า: AdminProduct[];
-      error: null;
-    }
-  | {
-      status: "error";
-      access: null;
-      categories: null;
-      สินค้า: null;
-      error: string;
-    };
+  | { status: "loading" | "signed-out"; message: null; products: null; categories: null }
+  | { status: "access-denied" | "error"; message: string; products: null; categories: null }
+  | { status: "ready"; message: null; products: AdminProduct[]; categories: AdminProductCategory[] };
 
-type ActionState =
-  | { status: "idle"; productId: null; error: null; message: null }
-  | { status: "saving"; productId: string; error: null; message: null }
-  | { status: "deleting"; productId: string; error: null; message: null }
-  | { status: "error"; productId: string; error: string; message: null }
-  | { status: "saved"; productId: string; error: null; message: string };
+type StatusFilter = "all" | "active" | "inactive";
+type EditorState = { mode: "create" } | { mode: "edit"; product: AdminProduct } | null;
 
-type CreateState =
-  | { status: "idle"; error: null; message: null }
-  | { status: "creating"; error: null; message: null }
-  | { status: "error"; error: string; message: null }
-  | { status: "created"; error: null; message: string };
-
-type สินค้าImageUploadState =
-  | { status: "idle"; error: null; message: null }
-  | { status: "uploading"; error: null; message: null }
-  | { status: "uploaded"; error: null; message: string }
-  | { status: "error"; error: string; message: null };
-
-type StatusFilter = "all" | AdminProduct["status"];
-
-const statusFilters: StatusFilter[] = ["all", "active", "inactive"];
 const productImagesBucket = "product-images";
 const productImagePlaceholder = "/product-placeholder.svg";
 
@@ -92,1286 +54,481 @@ const currencyFormatter = new Intl.NumberFormat("th-TH", {
   style: "currency",
 });
 
-function getStatusStyle(status: AdminProduct["status"]) {
-  if (status === "active") {
-    return "bg-emerald-50 text-[var(--brand-strong)]";
-  }
-
-  return "bg-slate-100 text-slate-700";
-}
-
 function validateProductInput(input: AdminProductUpdateInput) {
-  if (!input.name.trim()) {
-    return "กรุณากรอกชื่อสินค้า";
-  }
-
-  if (!input.product_category_id) {
-    return "กรุณาเลือกหมวดหมู่";
-  }
-
-  if (!Number.isFinite(input.unit_price) || input.unit_price < 0) {
-    return "ราคาขายต้องเป็น 0 หรือมากกว่า";
-  }
-
-  if (!Number.isFinite(input.cost_price) || input.cost_price < 0) {
-    return "ราคาต้นทุนต้องเป็น 0 หรือมากกว่า";
-  }
-
+  if (!input.name) return "กรุณากรอกชื่อสินค้า";
+  if (!input.product_category_id) return "กรุณาเลือกหมวดสินค้า";
+  if (!Number.isFinite(input.unit_price) || input.unit_price < 0) return "ราคาขายต้องเป็น 0 หรือมากกว่า";
+  if (!Number.isFinite(input.cost_price) || input.cost_price < 0) return "ราคาต้นทุนต้องเป็น 0 หรือมากกว่า";
   return null;
 }
 
-function buildProductPayload({
-  costPrice,
-  description,
-  imageUrl,
-  name,
-  productCategoryId,
-  sku,
-  status,
-  unitPrice,
-}: {
-  costPrice: string;
-  description: string;
-  imageUrl: string;
-  name: string;
-  productCategoryId: string;
-  sku: string;
-  status: AdminProduct["status"];
-  unitPrice: string;
-}): AdminProductUpdateInput {
-  return {
-    cost_price: Number(costPrice),
-    description: description.trim() || null,
-    image_url: imageUrl.trim() || null,
-    name: name.trim(),
-    product_category_id: productCategoryId,
-    sku: sku.trim() || null,
-    status,
-    unit_price: Number(unitPrice),
-  };
-}
-
 function getSafeProductImageExtension(file: File) {
-  if (file.type === "image/png") {
-    return "png";
-  }
-
-  if (file.type === "image/webp") {
-    return "webp";
-  }
-
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/webp") return "webp";
   return "jpg";
 }
 
-function handleProductImageError(event: SyntheticEvent<HTMLImageElement>) {
-  const image = event.currentTarget;
-
-  if (image.src.endsWith(productImagePlaceholder)) {
-    return;
-  }
-
-  image.src = productImagePlaceholder;
-  image.alt = "ยังไม่มีรูปสินค้า";
-}
-
 async function uploadProductImage(file: File) {
-  if (
-    file.type !== "image/png" &&
-    file.type !== "image/jpeg" &&
-    file.type !== "image/webp"
-  ) {
-    return {
-      error: "รองรับเฉพาะไฟล์ PNG, JPG หรือ WEBP",
-      publicUrl: null,
-    };
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+    return { error: "รองรับเฉพาะไฟล์ PNG, JPG หรือ WEBP", publicUrl: null };
   }
-
   if (file.size > 2 * 1024 * 1024) {
-    return {
-      error: "ไฟล์รูปสินค้าต้องไม่เกิน 2 MB",
-      publicUrl: null,
-    };
+    return { error: "ไฟล์รูปสินค้าต้องไม่เกิน 2 MB", publicUrl: null };
   }
 
-  const extension = getSafeProductImageExtension(file);
-  const uploadPath = `สินค้า/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const uploadPath = `สินค้า/${Date.now()}-${crypto.randomUUID()}.${getSafeProductImageExtension(file)}`;
   const supabase = createClient();
-  const uploadResult = await supabase.storage
-    .from(productImagesBucket)
-    .upload(uploadPath, file, {
-      cacheControl: "3600",
-      contentType: file.type,
-      upsert: false,
-    });
+  const uploadResult = await supabase.storage.from(productImagesBucket).upload(uploadPath, file, {
+    cacheControl: "3600",
+    contentType: file.type,
+    upsert: false,
+  });
 
   if (uploadResult.error) {
     return {
-      error:
-        uploadResult.error.message.includes("Bucket not found") ||
-        uploadResult.error.message.includes("bucket")
-          ? "ยังไม่มี bucket product-images กรุณารันไฟล์ supabase/product-image-upload.sql ก่อน"
-          : uploadResult.error.message,
+      error: uploadResult.error.message.toLowerCase().includes("bucket")
+        ? "ยังไม่มี bucket product-images กรุณารันไฟล์ supabase/product-image-upload.sql ก่อน"
+        : uploadResult.error.message,
       publicUrl: null,
     };
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(productImagesBucket).getPublicUrl(uploadPath);
-
-  return {
-    error: null,
-    publicUrl,
-  };
+  const { data: { publicUrl } } = supabase.storage.from(productImagesBucket).getPublicUrl(uploadPath);
+  return { error: null, publicUrl };
 }
 
-function สินค้าImagePreview({
-  imageUrl,
-  label,
-}: {
-  imageUrl: string | null;
-  label: string;
-}) {
-  return (
-    <img
-      alt={label}
-      className="h-24 w-24 rounded-md border border-[var(--line)] bg-slate-50 object-cover"
-      onError={handleProductImageError}
-      src={imageUrl || productImagePlaceholder}
-    />
-  );
+function stockTone(product: AdminProduct) {
+  if (product.stock_quantity <= 0) return "text-[var(--color-safety)]";
+  if (product.stock_quantity <= LOW_STOCK_THRESHOLD) return "text-amber-600";
+  return "text-[var(--color-signal)]";
 }
 
-function AddProductForm({
+function ProductEditor({
   categories,
-  createState,
-  onCreate,
-}: {
-  categories: AdminProductCategory[];
-  createState: CreateState;
-  onCreate: (input: AdminProductCreateInput) => void;
-}) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-  const [sku, setSku] = useState("");
-  const [productCategoryId, setProductCategoryId] = useState(
-    categories[0]?.id ?? "",
-  );
-  const [unitPrice, setUnitPrice] = useState("0");
-  const [costPrice, setCostPrice] = useState("0");
-  const [status, setStatus] = useState<AdminProduct["status"]>("active");
-  const [imageUploadState, setImageUploadState] =
-    useState<สินค้าImageUploadState>({
-      error: null,
-      message: null,
-      status: "idle",
-    });
-  const isCreating = createState.status === "creating";
-
-  async function handleImageUpload(file: File | null) {
-    if (!file) {
-      return;
-    }
-
-    setImageUploadState({
-      error: null,
-      message: null,
-      status: "uploading",
-    });
-
-    const result = await uploadProductImage(file);
-
-    if (result.error || !result.publicUrl) {
-      setImageUploadState({
-        error: result.error ?? "อัปโหลดรูปสินค้าไม่สำเร็จ",
-        message: null,
-        status: "error",
-      });
-      return;
-    }
-
-    setImageUrl(result.publicUrl);
-    setImageUploadState({
-      error: null,
-      message: "อัปโหลดรูปแล้ว กด เพิ่มสินค้า เพื่อบันทึกสินค้า",
-      status: "uploaded",
-    });
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onCreate(
-      buildProductPayload({
-        costPrice,
-        description,
-        imageUrl,
-        name,
-        productCategoryId,
-        sku,
-        status,
-        unitPrice,
-      }),
-    );
-  }
-
-  return (
-    <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
-      <div className="border-b border-[var(--line)] pb-4">
-        <p className="text-sm font-semibold text-[var(--brand)]">เพิ่มสินค้า</p>
-        <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-          สินค้าใหม่เริ่มต้นที่สต็อก 0 ชิ้น การรับเข้า/จ่ายออกให้ทำที่หน้าคลังสินค้า
-        </p>
-      </div>
-
-      <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_150px_150px_140px] lg:items-end">
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            ชื่อสินค้า
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setName(event.target.value)}
-              value={name}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            หมวดหมู่
-            <select
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setProductCategoryId(event.target.value)}
-              value={productCategoryId}
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                  {category.status === "inactive" ? " (ปิดใช้งาน)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            ราคาขาย
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              min={0}
-              onChange={(event) => setUnitPrice(event.target.value)}
-              step="0.01"
-              type="number"
-              value={unitPrice}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            ราคาต้นทุน
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              min={0}
-              onChange={(event) => setCostPrice(event.target.value)}
-              step="0.01"
-              type="number"
-              value={costPrice}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            สถานะ
-            <select
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) =>
-                setStatus(event.target.value as AdminProduct["status"])
-              }
-              value={status}
-            >
-              <option value="active">เปิดใช้งาน</option>
-              <option value="inactive">ปิดใช้งาน</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            SKU
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setSku(event.target.value)}
-              value={sku}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            รายละเอียด
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setDescription(event.target.value)}
-              value={description}
-            />
-          </label>
-        </div>
-
-        <div className="grid gap-3 lg:grid-cols-[96px_minmax(0,1fr)_220px] lg:items-end">
-          <สินค้าImagePreview imageUrl={imageUrl} label="ตัวอย่างรูปสินค้า" />
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            ลิงก์รูปสินค้า
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setImageUrl(event.target.value)}
-              placeholder="https://... หรืออัปโหลดรูปจากเครื่อง"
-              value={imageUrl}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            อัปโหลดรูปภาพ
-            <input
-              accept="image/png,image/jpeg,image/webp"
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)]"
-              disabled={imageUploadState.status === "uploading"}
-              onChange={(event) => {
-                void handleImageUpload(event.target.files?.[0] ?? null);
-                event.target.value = "";
-              }}
-              type="file"
-            />
-          </label>
-        </div>
-
-        {imageUploadState.status === "uploading" ? (
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
-            กำลังอัปโหลดรูปสินค้า...
-          </div>
-        ) : null}
-
-        {imageUploadState.status === "uploaded" ? (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm leading-6 text-[var(--brand-strong)]">
-            {imageUploadState.message}
-          </div>
-        ) : null}
-
-        {imageUploadState.status === "error" ? (
-          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-700">
-            {imageUploadState.error}
-          </div>
-        ) : null}
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isCreating || categories.length === 0}
-            type="submit"
-          >
-            {isCreating ? "กำลังเพิ่ม..." : "เพิ่มสินค้า"}
-          </button>
-
-          {createState.status === "error" ? (
-            <p className="text-sm text-red-700">{createState.error}</p>
-          ) : null}
-
-          {createState.status === "created" ? (
-            <p className="text-sm font-semibold text-[var(--brand-strong)]">
-              {createState.message}
-            </p>
-          ) : null}
-        </div>
-      </form>
-    </section>
-  );
-}
-
-function AdminProductRow({
-  actionState,
-  categories,
+  editor,
+  error,
+  onClose,
   onDelete,
-  onSave,
-  product,
+  onSubmit,
+  saving,
 }: {
-  actionState: ActionState;
   categories: AdminProductCategory[];
+  editor: Exclude<EditorState, null>;
+  error: string;
+  onClose: () => void;
   onDelete: (product: AdminProduct) => void;
-  onSave: (product: AdminProduct, input: AdminProductUpdateInput) => void;
-  product: AdminProduct;
+  onSubmit: (input: AdminProductUpdateInput, imageFile: File | null) => void;
+  saving: boolean;
 }) {
-  const [name, setName] = useState(product.name);
-  const [description, setDescription] = useState(product.description ?? "");
-  const [imageUrl, setImageUrl] = useState(product.image_url ?? "");
-  const [sku, setSku] = useState(product.sku ?? "");
-  const [productCategoryId, setProductCategoryId] = useState(
-    product.product_category_id,
-  );
-  const [unitPrice, setUnitPrice] = useState(String(product.unit_price));
-  const [costPrice, setCostPrice] = useState(String(product.cost_price));
-  const [status, setStatus] = useState<AdminProduct["status"]>(product.status);
-  const [imageUploadState, setImageUploadState] =
-    useState<สินค้าImageUploadState>({
-      error: null,
-      message: null,
-      status: "idle",
-    });
-  const isSaving =
-    actionState.status === "saving" && actionState.productId === product.id;
-  const isDeleting =
-    actionState.status === "deleting" && actionState.productId === product.id;
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const hasChanges =
-    name.trim() !== product.name ||
-    description.trim() !== (product.description ?? "") ||
-    imageUrl.trim() !== (product.image_url ?? "") ||
-    sku.trim() !== (product.sku ?? "") ||
-    productCategoryId !== product.product_category_id ||
-    Number(unitPrice) !== product.unit_price ||
-    Number(costPrice) !== product.cost_price ||
-    status !== product.status;
+  const initial = editor.mode === "edit" ? editor.product : null;
+  const [name, setName] = useState(initial?.name ?? "");
+  const [sku, setSku] = useState(initial?.sku ?? "");
+  const [categoryId, setCategoryId] = useState(initial?.product_category_id ?? categories.find((category) => category.status === "active")?.id ?? categories[0]?.id ?? "");
+  const [unitPrice, setUnitPrice] = useState(String(initial?.unit_price ?? ""));
+  const [costPrice, setCostPrice] = useState(String(initial?.cost_price ?? ""));
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [active, setActive] = useState((initial?.status ?? "active") === "active");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(initial?.image_url ?? null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const objectUrlRef = useRef<string | null>(null);
+  const price = Number(unitPrice) || 0;
+  const cost = Number(costPrice) || 0;
+  const margin = price > 0 ? Math.round(((price - cost) / price) * 100) : null;
 
-  async function handleImageUpload(file: File | null) {
-    if (!file) {
-      return;
-    }
+  // ล้าง object URL ของรูปตัวอย่างเมื่อปิดหน้าต่าง
+  useEffect(() => () => {
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+  }, []);
 
-    setImageUploadState({
-      error: null,
-      message: null,
-      status: "uploading",
-    });
-
-    const result = await uploadProductImage(file);
-
-    if (result.error || !result.publicUrl) {
-      setImageUploadState({
-        error: result.error ?? "อัปโหลดรูปสินค้าไม่สำเร็จ",
-        message: null,
-        status: "error",
-      });
-      return;
-    }
-
-    setImageUrl(result.publicUrl);
-    setImageUploadState({
-      error: null,
-      message: "อัปโหลดรูปแล้ว กดบันทึกสินค้าเพื่อใช้งานรูปนี้",
-      status: "uploaded",
-    });
+  function pickImage(file: File | null) {
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    objectUrlRef.current = file ? URL.createObjectURL(file) : null;
+    setImageFile(file);
+    setPreviewUrl(objectUrlRef.current ?? initial?.image_url ?? null);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSave(
-      product,
-      buildProductPayload({
-        costPrice,
-        description,
-        imageUrl,
-        name,
-        productCategoryId,
-        sku,
-        status,
-        unitPrice,
-      }),
-    );
-  }
-
-  function handleDeleteClick() {
-    setIsConfirmOpen(true);
-  }
-
-  function handleConfirmDelete() {
-    setIsConfirmOpen(false);
-    onDelete(product);
+    onSubmit({
+      cost_price: cost,
+      description: description.trim() || null,
+      image_url: initial?.image_url ?? null,
+      name: name.trim(),
+      product_category_id: categoryId,
+      sku: sku.trim() || null,
+      status: active ? "active" : "inactive",
+      unit_price: price,
+    }, imageFile);
   }
 
   return (
-    <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
-      <div className="mb-3 flex justify-end">
-        <button
-          aria-label="ลบสินค้า"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-red-200 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSaving || isDeleting}
-          onClick={handleDeleteClick}
-          title="ลบสินค้า"
-          type="button"
-        >
-          {isDeleting ? (
-            <span className="text-xs">...</span>
-          ) : (
-            <svg
-              aria-hidden="true"
-              fill="none"
-              height="18"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              width="18"
-            >
-              <path d="M3 6h18" />
-              <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
-              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-              <path d="M10 11v6" />
-              <path d="M14 11v6" />
-            </svg>
-          )}
-        </button>
-      </div>
-      <div className="flex flex-col gap-3 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <สินค้าImagePreview
-            imageUrl={product.image_url}
-            label={`รูป ${product.name}`}
-          />
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--brand)]">
-                {product.category?.name ?? "ไม่มีหมวดหมู่"}
-              </p>
-              <span
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
-                  product.status,
-                )}`}
-              >
-                {recordStatusLabel(product.status)}
-              </span>
-            </div>
-            <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
-              {product.name}
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-              {product.description ?? "-"}
-            </p>
-            <p className="mt-2 text-xs text-[var(--muted)]">
-              SKU: {product.sku ?? "-"}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-3 text-sm lg:min-w-[360px]">
-          <div className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs text-[var(--muted)]">ราคาขาย</p>
-            <p className="mt-1 font-semibold text-[var(--foreground)]">
-              {currencyFormatter.format(product.unit_price)}
-            </p>
-          </div>
-          <div className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs text-[var(--muted)]">ต้นทุน</p>
-            <p className="mt-1 font-semibold text-[var(--foreground)]">
-              {currencyFormatter.format(product.cost_price)}
-            </p>
-          </div>
-          <div className="rounded-md bg-slate-50 p-3">
-            <p className="text-xs text-[var(--muted)]">สต็อก</p>
-            <p className="mt-1 font-semibold text-[var(--foreground)]">
-              {product.stock_quantity}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_150px_150px_140px] lg:items-end">
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            ชื่อสินค้า
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setName(event.target.value)}
-              value={name}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            หมวดหมู่
-            <select
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setProductCategoryId(event.target.value)}
-              value={productCategoryId}
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                  {category.status === "inactive" ? " (ปิดใช้งาน)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            ราคาขาย
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              min={0}
-              onChange={(event) => setUnitPrice(event.target.value)}
-              step="0.01"
-              type="number"
-              value={unitPrice}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            ราคาต้นทุน
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              min={0}
-              onChange={(event) => setCostPrice(event.target.value)}
-              step="0.01"
-              type="number"
-              value={costPrice}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            สถานะ
-            <select
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) =>
-                setStatus(event.target.value as AdminProduct["status"])
-              }
-              value={status}
-            >
-              <option value="active">เปิดใช้งาน</option>
-              <option value="inactive">ปิดใช้งาน</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="grid gap-3 lg:grid-cols-[96px_minmax(0,1fr)_220px] lg:items-end">
-          <สินค้าImagePreview imageUrl={imageUrl} label={`ตัวอย่างรูป ${name}`} />
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            ลิงก์รูปสินค้า
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setImageUrl(event.target.value)}
-              placeholder="https://... หรืออัปโหลดรูปจากเครื่อง"
-              value={imageUrl}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            อัปโหลดรูปภาพ
-            <input
-              accept="image/png,image/jpeg,image/webp"
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)]"
-              disabled={imageUploadState.status === "uploading"}
-              onChange={(event) => {
-                void handleImageUpload(event.target.files?.[0] ?? null);
-                event.target.value = "";
-              }}
-              type="file"
-            />
-          </label>
-        </div>
-
-        {imageUploadState.status === "uploading" ? (
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
-            กำลังอัปโหลดรูปสินค้า...
-          </div>
-        ) : null}
-
-        {imageUploadState.status === "uploaded" ? (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm leading-6 text-[var(--brand-strong)]">
-            {imageUploadState.message}
-          </div>
-        ) : null}
-
-        {imageUploadState.status === "error" ? (
-          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm leading-6 text-red-700">
-            {imageUploadState.error}
-          </div>
-        ) : null}
-
-        <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_160px] lg:items-end">
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            SKU
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setSku(event.target.value)}
-              value={sku}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            รายละเอียด
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setDescription(event.target.value)}
-              value={description}
-            />
-          </label>
-
-          <button
-            className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!hasChanges || isSaving || isDeleting}
-            type="submit"
-          >
-            {isSaving ? "กำลังบันทึก..." : "บันทึกสินค้า"}
+    <AdminModal
+      footer={
+        <>
+          {initial ? (
+            <button className="min-h-11 rounded-xl px-4 text-sm font-semibold text-[var(--color-safety)] hover:bg-red-50 sm:mr-auto" onClick={() => onDelete(initial)} type="button">ลบสินค้า</button>
+          ) : null}
+          <button className={adminSecondaryButtonClass} onClick={onClose} type="button">ยกเลิก</button>
+          <button className={adminPrimaryButtonClass} disabled={saving || !name.trim() || categories.length === 0} form="product-editor" type="submit">
+            {saving ? "กำลังบันทึก..." : initial ? "บันทึกการแก้ไข" : "เพิ่มสินค้า"}
           </button>
+        </>
+      }
+      onClose={onClose}
+      open
+      size="lg"
+      title={initial ? "แก้ไขสินค้า" : "เพิ่มสินค้าใหม่"}
+    >
+      <form className="space-y-4" id="product-editor" onSubmit={handleSubmit}>
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <div className="sm:w-44">
+            <p className={adminLabelClass}>รูปสินค้า</p>
+            <button
+              className="group relative mt-1.5 block aspect-square w-full overflow-hidden rounded-xl border border-dashed border-[var(--line)] bg-[var(--color-concrete)]"
+              onClick={() => fileInputRef.current?.click()}
+              type="button"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- รูปจาก Supabase storage หรือ blob ที่เพิ่งเลือก */}
+              <img alt="ตัวอย่างรูปสินค้า" className="h-full w-full object-cover" src={previewUrl || productImagePlaceholder} />
+              <span className="absolute inset-0 grid place-items-center bg-[var(--color-asphalt)]/45 text-sm font-semibold text-white opacity-0 transition group-hover:opacity-100">
+                {previewUrl ? "เปลี่ยนรูป" : "เลือกรูป"}
+              </span>
+            </button>
+            <input accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => pickImage(event.target.files?.[0] ?? null)} ref={fileInputRef} type="file" />
+            <p className="mt-1.5 text-xs text-[var(--muted)]">{imageFile ? imageFile.name : "PNG, JPG, WEBP ไม่เกิน 2 MB"}</p>
+          </div>
+
+          <div className="flex-1 space-y-4">
+            <label className={adminLabelClass}>
+              ชื่อสินค้า
+              <input autoFocus className={adminInputClass} onChange={(event) => setName(event.target.value)} placeholder="เช่น น้ำมันเครื่องสังเคราะห์ 5W-30 (4 ลิตร)" value={name} />
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className={adminLabelClass}>
+                SKU <span className="font-normal text-[var(--muted)]">(ไม่บังคับ)</span>
+                <input className={`${adminInputClass} uppercase`} onChange={(event) => setSku(event.target.value)} placeholder="OIL-5W30-4L" value={sku} />
+              </label>
+              <label className={adminLabelClass}>
+                หมวดสินค้า
+                <select className={adminInputClass} onChange={(event) => setCategoryId(event.target.value)} value={categoryId}>
+                  {categories.length === 0 ? <option value="">ยังไม่มีหมวด เพิ่มที่หน้าหมวดสินค้าก่อน</option> : null}
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>{category.name}{category.status === "active" ? "" : " (ปิดใช้งาน)"}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
         </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className={adminLabelClass}>
+            ราคาขาย (บาท)
+            <input className={adminInputClass} inputMode="decimal" min={0} onChange={(event) => setUnitPrice(event.target.value)} placeholder="0" step="0.01" type="number" value={unitPrice} />
+          </label>
+          <label className={adminLabelClass}>
+            ต้นทุน (บาท)
+            <input className={adminInputClass} inputMode="decimal" min={0} onChange={(event) => setCostPrice(event.target.value)} placeholder="0" step="0.01" type="number" value={costPrice} />
+          </label>
+        </div>
+        {margin !== null ? (
+          <p className={`-mt-2 text-xs ${margin < 0 ? "text-[var(--color-safety)]" : "text-[var(--muted)]"}`}>
+            กำไรต่อชิ้น {currencyFormatter.format(price - cost)} ({margin}%){margin < 0 ? " · ราคาขายต่ำกว่าต้นทุน" : ""}
+          </p>
+        ) : null}
+
+        <label className={adminLabelClass}>
+          รายละเอียด <span className="font-normal text-[var(--muted)]">(ไม่บังคับ)</span>
+          <textarea className={adminTextareaClass} onChange={(event) => setDescription(event.target.value)} placeholder="ข้อมูลที่แสดงในหน้าร้านค้าของลูกค้า" value={description} />
+        </label>
+
+        <div className="flex items-center justify-between gap-4 rounded-xl bg-[var(--color-concrete)] px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-[var(--foreground)]">เปิดขายในหน้าร้าน</p>
+            <p className="text-xs text-[var(--muted)]">
+              {initial ? `สต็อกคงเหลือ ${initial.stock_quantity} ชิ้น · ปรับจำนวนที่หน้าคลังสินค้า` : "สต็อกเริ่มต้นเป็น 0 รับสินค้าเข้าที่หน้าคลังสินค้า"}
+            </p>
+          </div>
+          <AdminActiveSwitch active={active} label="เปิดขายในหน้าร้าน" onToggle={() => setActive((value) => !value)} />
+        </div>
+
+        {error ? <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
       </form>
-
-      {actionState.status === "error" &&
-      actionState.productId === product.id ? (
-        <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700">
-          {actionState.error}
-        </p>
-      ) : null}
-
-      {actionState.status === "saved" &&
-      actionState.productId === product.id ? (
-        <p className="mt-3 rounded-md bg-emerald-50 p-3 text-sm font-semibold text-[var(--brand-strong)]">
-          {actionState.message}
-        </p>
-      ) : null}
-
-      <ConfirmDialog
-        description={`"${product.name}" จะถูกลบถาวร รวมถึงข้อมูลที่เกี่ยวข้อง (เช่น ประวัติออเดอร์ สต็อก และรายการอะไหล่) และไม่สามารถกู้คืนได้ คุณแน่ใจหรือไม่?`}
-        onCancel={() => setIsConfirmOpen(false)}
-        onConfirm={handleConfirmDelete}
-        open={isConfirmOpen}
-        title="ลบสินค้านี้?"
-      />
-    </article>
+    </AdminModal>
   );
 }
 
 export function AdminProductsPanel() {
-  const [loadState, setLoadState] = useState<LoadState>({
-    access: null,
-    categories: null,
-    error: null,
-    สินค้า: null,
-    status: "loading",
-  });
+  const [loadState, setLoadState] = useState<LoadState>({ status: "loading", message: null, products: null, categories: null });
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [searchInput, setSearchInput] = useState("");
-  const [actionState, setActionState] = useState<ActionState>({
-    error: null,
-    message: null,
-    productId: null,
-    status: "idle",
-  });
-  const [createState, setCreateState] = useState<CreateState>({
-    error: null,
-    message: null,
-    status: "idle",
-  });
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [editor, setEditor] = useState<EditorState>(null);
+  const [editorError, setEditorError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminProduct | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
+  const clearToast = useCallback(() => setToast(null), []);
 
   useEffect(() => {
     let isMounted = true;
     const supabase = createClient();
 
     async function loadProducts() {
-      setLoadState({
-        access: null,
-        categories: null,
-        error: null,
-        สินค้า: null,
-        status: "loading",
-      });
-
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (sessionError) {
-        setLoadState({
-          access: null,
-          categories: null,
-          error: sessionError.message,
-          สินค้า: null,
-          status: "error",
-        });
-        return;
-      }
-
-      if (!session?.user) {
-        setLoadState({
-          access: null,
-          categories: null,
-          error: null,
-          สินค้า: null,
-          status: "signed-out",
-        });
-        return;
-      }
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (!isMounted) return;
+      if (sessionError) return setLoadState({ status: "error", message: sessionError.message, products: null, categories: null });
+      if (!session?.user) return setLoadState({ status: "signed-out", message: null, products: null, categories: null });
 
       const access = await checkAdminAccess(supabase, session.user.id);
+      if (!isMounted) return;
+      if (!access.allowed) return setLoadState({ status: "access-denied", message: access.reason, products: null, categories: null });
 
-      if (!isMounted) {
-        return;
-      }
-
-      if (!access.allowed) {
-        setLoadState({
-          access,
-          categories: null,
-          error: null,
-          สินค้า: null,
-          status: "access-denied",
-        });
-        return;
-      }
-
-      const [สินค้าResult, categoriesResult] = await Promise.all([
-        getAdminProducts(supabase),
-        getAdminProductCategories(supabase),
-      ]);
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (สินค้าResult.error) {
-        setLoadState({
-          access: null,
-          categories: null,
-          error: สินค้าResult.error.message,
-          สินค้า: null,
-          status: "error",
-        });
-        return;
-      }
-
-      if (categoriesResult.error) {
-        setLoadState({
-          access: null,
-          categories: null,
-          error: categoriesResult.error.message,
-          สินค้า: null,
-          status: "error",
-        });
-        return;
-      }
-
-      setLoadState({
-        access,
-        categories: categoriesResult.data ?? [],
-        error: null,
-        สินค้า: สินค้าResult.data ?? [],
-        status: "ready",
-      });
+      const [productsResult, categoriesResult] = await Promise.all([getAdminProducts(supabase), getAdminProductCategories(supabase)]);
+      if (!isMounted) return;
+      const error = productsResult.error ?? categoriesResult.error;
+      if (error) return setLoadState({ status: "error", message: error.message, products: null, categories: null });
+      setLoadState({ status: "ready", message: null, products: productsResult.data ?? [], categories: categoriesResult.data ?? [] });
     }
 
     void loadProducts();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void loadProducts();
-    });
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => { void loadProducts(); });
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
-  const filteredProducts = useMemo(() => {
-    if (loadState.status !== "ready") {
-      return [];
-    }
+  const products = useMemo(() => (loadState.status === "ready" ? loadState.products : []), [loadState]);
+  const categories = useMemo(() => (loadState.status === "ready" ? loadState.categories : []), [loadState]);
+  const activeCount = products.filter((product) => product.status === "active").length;
+  const lowStockCount = products.filter((product) => product.status === "active" && product.stock_quantity <= LOW_STOCK_THRESHOLD).length;
 
-    const normalizedSearch = searchInput.trim().toLowerCase();
-
-    return loadState.สินค้า.filter((product) => {
-      const matchesStatus =
-        statusFilter === "all" || product.status === statusFilter;
-      const matchesSearch =
-        !normalizedSearch ||
-        product.name.toLowerCase().includes(normalizedSearch) ||
-        (product.description ?? "").toLowerCase().includes(normalizedSearch) ||
-        (product.sku ?? "").toLowerCase().includes(normalizedSearch) ||
-        (product.category?.name ?? "").toLowerCase().includes(normalizedSearch);
-
-      return matchesStatus && matchesSearch;
-    });
-  }, [loadState, searchInput, statusFilter]);
-
-  const lowStockProducts = useMemo(() => {
-    if (loadState.status !== "ready") {
-      return [];
-    }
-
-    return loadState.สินค้า.filter((product) => product.stock_quantity <= 2);
-  }, [loadState]);
-
-  async function handleCreateProduct(input: AdminProductCreateInput) {
-    if (loadState.status !== "ready") {
-      return;
-    }
-
-    const validationError = validateProductInput(input);
-
-    if (validationError) {
-      setCreateState({
-        error: validationError,
-        message: null,
-        status: "error",
-      });
-      return;
-    }
-
-    const duplicateSku =
-      input.sku &&
-      loadState.สินค้า.find(
-        (product) =>
-          product.sku?.toLowerCase() === input.sku?.toLowerCase(),
-      );
-
-    if (duplicateSku) {
-      setCreateState({
-        error: "รหัสสินค้า (SKU) นี้มีอยู่แล้ว",
-        message: null,
-        status: "error",
-      });
-      return;
-    }
-
-    setCreateState({
-      error: null,
-      message: null,
-      status: "creating",
-    });
-
-    const supabase = createClient();
-    const { data, error } = await createAdminProduct(supabase, input);
-
-    if (error) {
-      setCreateState({
-        error: error.message,
-        message: null,
-        status: "error",
-      });
-      return;
-    }
-
-    const nextProduct = {
-      ...data,
-      category:
-        loadState.categories.find(
-          (category) => category.id === data.product_category_id,
-        ) ?? null,
-    } satisfies AdminProduct;
-
-    setLoadState({
-      ...loadState,
-      สินค้า: [...loadState.สินค้า, nextProduct].sort((a, b) =>
-        a.name.localeCompare(b.name, "th"),
-      ),
-    });
-    setCreateState({
-      error: null,
-      message: "เพิ่มสินค้าเรียบร้อยแล้ว",
-      status: "created",
-    });
-  }
-
-  async function handleSaveProduct(
-    product: AdminProduct,
-    input: AdminProductUpdateInput,
-  ) {
-    if (loadState.status !== "ready") {
-      return;
-    }
-
-    const validationError = validateProductInput(input);
-
-    if (validationError) {
-      setActionState({
-        error: validationError,
-        message: null,
-        productId: product.id,
-        status: "error",
-      });
-      return;
-    }
-
-    const duplicateSku =
-      input.sku &&
-      loadState.สินค้า.find(
-        (currentProduct) =>
-          currentProduct.id !== product.id &&
-          currentProduct.sku?.toLowerCase() === input.sku?.toLowerCase(),
-      );
-
-    if (duplicateSku) {
-      setActionState({
-        error: "รหัสสินค้า (SKU) นี้มีอยู่แล้ว",
-        message: null,
-        productId: product.id,
-        status: "error",
-      });
-      return;
-    }
-
-    setActionState({
-      error: null,
-      message: null,
-      productId: product.id,
-      status: "saving",
-    });
-
-    const supabase = createClient();
-    const { data, error } = await updateAdminProduct(
-      supabase,
-      product.id,
-      input,
+  const filtered = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    return products.filter((product) =>
+      (statusFilter === "all" || product.status === statusFilter) &&
+      (categoryFilter === "all" || product.product_category_id === categoryFilter) &&
+      (!keyword ||
+        product.name.toLowerCase().includes(keyword) ||
+        (product.sku ?? "").toLowerCase().includes(keyword) ||
+        (product.category?.name ?? "").toLowerCase().includes(keyword)),
     );
+  }, [products, search, statusFilter, categoryFilter]);
 
-    if (error) {
-      setActionState({
-        error: error.message,
-        message: null,
-        productId: product.id,
-        status: "error",
-      });
-      return;
-    }
-
-    setLoadState({
-      ...loadState,
-      สินค้า: loadState.สินค้า.map((currentProduct) =>
-        currentProduct.id === product.id
-          ? {
-              ...data,
-              category:
-                loadState.categories.find(
-                  (category) => category.id === data.product_category_id,
-                ) ?? null,
-            }
-          : currentProduct,
-      ),
-    });
-    setActionState({
-      error: null,
-      message: "บันทึกสินค้าเรียบร้อยแล้ว",
-      productId: product.id,
-      status: "saved",
-    });
+  function withCategory(product: Omit<AdminProduct, "category">): AdminProduct {
+    return { ...product, category: categories.find((category) => category.id === product.product_category_id) ?? null };
   }
 
-  async function handleDeleteProduct(product: AdminProduct) {
-    if (loadState.status !== "ready") {
-      return;
+  function replaceProducts(next: AdminProduct[]) {
+    if (loadState.status === "ready") setLoadState({ ...loadState, products: next });
+  }
+
+  function openEditor(next: EditorState) {
+    setEditorError("");
+    setEditor(next);
+  }
+
+  async function handleSubmit(input: AdminProductUpdateInput, imageFile: File | null) {
+    if (!editor) return;
+    const validationError = validateProductInput(input);
+    if (validationError) return setEditorError(validationError);
+    const editingId = editor.mode === "edit" ? editor.product.id : null;
+    if (input.sku && products.some((product) => product.id !== editingId && product.sku?.toLowerCase() === input.sku?.toLowerCase())) {
+      return setEditorError("SKU นี้ถูกใช้กับสินค้าอื่นแล้ว");
     }
 
-    setActionState({
-      error: null,
-      message: null,
-      productId: product.id,
-      status: "deleting",
-    });
+    setSaving(true);
+    setEditorError("");
+    let imageUrl = input.image_url;
+    if (imageFile) {
+      const upload = await uploadProductImage(imageFile);
+      if (upload.error || !upload.publicUrl) {
+        setSaving(false);
+        return setEditorError(upload.error ?? "อัปโหลดรูปไม่สำเร็จ");
+      }
+      imageUrl = upload.publicUrl;
+    }
 
     const supabase = createClient();
-    const { error } = await deleteAdminProduct(supabase, product.id);
+    const payload = { ...input, image_url: imageUrl };
+    const { data, error } = editingId ? await updateAdminProduct(supabase, editingId, payload) : await createAdminProduct(supabase, payload);
+    setSaving(false);
+    if (error || !data) return setEditorError(error?.message ?? "บันทึกไม่สำเร็จ");
 
-    if (error) {
-      setActionState({
-        error: getAdminDeleteErrorMessage(error, "สินค้า"),
-        message: null,
-        productId: product.id,
-        status: "error",
-      });
-      return;
-    }
-
-    setLoadState({
-      ...loadState,
-      สินค้า: loadState.สินค้า.filter(
-        (current) => current.id !== product.id,
-      ),
-    });
-    setActionState({
-      error: null,
-      message: null,
-      productId: null,
-      status: "idle",
-    });
+    const saved = withCategory(data);
+    replaceProducts(editingId ? products.map((product) => (product.id === saved.id ? saved : product)) : [saved, ...products]);
+    setEditor(null);
+    setToast({ message: editingId ? `บันทึก "${saved.name}" แล้ว` : `เพิ่มสินค้า "${saved.name}" แล้ว`, tone: "success" });
   }
+
+  async function handleToggle(product: AdminProduct) {
+    setTogglingId(product.id);
+    const { data, error } = await updateAdminProduct(createClient(), product.id, {
+      cost_price: product.cost_price,
+      description: product.description,
+      image_url: product.image_url,
+      name: product.name,
+      product_category_id: product.product_category_id,
+      sku: product.sku,
+      status: product.status === "active" ? "inactive" : "active",
+      unit_price: product.unit_price,
+    });
+    setTogglingId(null);
+    if (error || !data) return setToast({ message: error?.message ?? "เปลี่ยนสถานะไม่สำเร็จ", tone: "error" });
+    const saved = withCategory(data);
+    replaceProducts(products.map((current) => (current.id === saved.id ? saved : current)));
+    setToast({ message: `${saved.status === "active" ? "เปิดขาย" : "ปิดขาย"} "${saved.name}" แล้ว`, tone: "success" });
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await deleteAdminProduct(createClient(), deleteTarget.id);
+    setDeleting(false);
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    if (error) return setToast({ message: getAdminDeleteErrorMessage(error, "สินค้า"), tone: "error" });
+    setEditor(null);
+    replaceProducts(products.filter((product) => product.id !== target.id));
+    setToast({ message: `ลบ "${target.name}" แล้ว`, tone: "success" });
+  }
+
+  const addButton = (
+    <button className={adminPrimaryButtonClass} onClick={() => openEditor({ mode: "create" })} type="button">
+      <AdminIcon name="plus" /> เพิ่มสินค้า
+    </button>
+  );
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
-      <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <AppNav />
-        </div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              สินค้า
-            </h1>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Link
-              className="min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/admin/inventory"
-            >
-              จัดการคลังสินค้า
-            </Link>
-            <Link
-              className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
-              href="/admin/inventory-review"
-            >
-              ตรวจสต็อก
-            </Link>
-            <Link
-              className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
-              href="/admin/product-categories"
-            >
-              หมวดสินค้า
-            </Link>
-            <Link
-              className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
-              href="/admin"
-            >
-              กลับแดชบอร์ด
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {loadState.status === "loading" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            กำลังโหลดสินค้า...
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "signed-out" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
-            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              ไปหน้าเข้าสู่ระบบ
-            </Link>
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "access-denied" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
-            <p className="mt-2">{loadState.access.reason}</p>
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "error" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-xl rounded-lg border border-red-200 bg-white px-5 py-4 text-sm text-red-700 shadow-sm">
-            {loadState.error}
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "ready" ? (
-        <section className="py-6">
-          <AddProductForm
-            categories={loadState.categories}
-            createState={createState}
-            key={`${loadState.categories.length}-${loadState.สินค้า.length}`}
-            onCreate={handleCreateProduct}
+    <main className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+      {loadState.status !== "ready" ? (
+        <AdminLoadMessage loadingLabel="กำลังโหลดสินค้า..." message={loadState.message} status={loadState.status} />
+      ) : (
+        <>
+          <AdminPageIntro
+            action={
+              <>
+                {addButton}
+                <Link className={adminDarkButtonClass} href="/admin/inventory">จัดการคลังสินค้า</Link>
+                <Link className={adminSecondaryButtonClass} href="/admin/inventory-review">ตรวจสต็อก</Link>
+              </>
+            }
+            description="จัดการรายละเอียดสินค้า SKU ราคา ต้นทุน สถานะการขาย และจำนวนสต็อกปัจจุบัน"
           />
 
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg border border-[var(--line)] bg-white p-5">
-              <p className="text-sm font-semibold text-[var(--muted)]">
-                สินค้า
-              </p>
-              <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-                {loadState.สินค้า.length}
-              </p>
-            </div>
-            <div className="rounded-lg border border-[var(--line)] bg-white p-5">
-              <p className="text-sm font-semibold text-[var(--muted)]">
-                สินค้าที่เปิดขาย
-              </p>
-              <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-                {
-                  loadState.สินค้า.filter(
-                    (product) => product.status === "active",
-                  ).length
-                }
-              </p>
-            </div>
-            <div className="rounded-lg border border-[var(--line)] bg-white p-5">
-              <p className="text-sm font-semibold text-[var(--muted)]">
-                สต็อกใกล้หมด
-              </p>
-              <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-                {lowStockProducts.length}
-              </p>
-            </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <AdminStatCard highlight label="สินค้าทั้งหมด" value={products.length} />
+            <AdminStatCard label="สินค้าที่เปิดขาย" value={activeCount} />
+            <AdminStatCard label="สต็อกใกล้หมด" value={lowStockCount} />
           </div>
 
-          <div className="mt-5 flex flex-col gap-4 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-[var(--foreground)]">
-                {filteredProducts.length} จาก {loadState.สินค้า.length}{" "}
-                สินค้า
-              </p>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                จำนวนสต็อกแสดงไว้ให้ดู การปรับเพิ่ม/ลดให้ทำที่หน้าคลังสินค้า
-              </p>
-            </div>
+          <AdminFilterBar
+            filter={statusFilter}
+            filters={[
+              { value: "all", label: "ทั้งหมด", count: products.length },
+              { value: "active", label: "เปิดขาย", count: activeCount },
+              { value: "inactive", label: "ปิดใช้งาน", count: products.length - activeCount },
+            ]}
+            onFilterChange={setStatusFilter}
+            onSearchChange={setSearch}
+            search={search}
+            searchPlaceholder="ค้นหาชื่อสินค้า SKU หรือหมวดสินค้า"
+            trailing={
+              <select aria-label="กรองตามหมวดสินค้า" className="min-h-11 rounded-xl border border-[var(--line)] bg-white px-3 text-sm font-semibold text-[var(--foreground)] lg:w-48" onChange={(event) => setCategoryFilter(event.target.value)} value={categoryFilter}>
+                <option value="all">ทุกหมวดสินค้า</option>
+                {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+              </select>
+            }
+          />
 
-            <div className="flex w-full flex-col gap-2 sm:flex-row lg:max-w-2xl">
-              <input
-                className="min-h-10 flex-1 rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="ค้นหาสินค้า รหัสสินค้า หรือหมวดหมู่"
-                type="search"
-                value={searchInput}
-              />
-              <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
-                {statusFilters.map((status) => (
-                  <button
-                    className={
-                      statusFilter === status
-                        ? "min-h-10 shrink-0 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white"
-                        : "min-h-10 shrink-0 rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--muted)]"
-                    }
-                    key={status}
-                    onClick={() => setStatusFilter(status)}
-                    type="button"
-                  >
-                    {status}
-                  </button>
-                ))}
+          {filtered.length === 0 ? (
+            <AdminEmptyState
+              action={products.length === 0 ? addButton : undefined}
+              description={products.length === 0 ? "เพิ่มสินค้าแรกเพื่อเริ่มขายในหน้าร้าน" : "ลองเปลี่ยนคำค้นหาหรือตัวกรอง"}
+              title={products.length === 0 ? "ยังไม่มีสินค้า" : "ไม่พบสินค้าที่ค้นหา"}
+            />
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[880px] border-collapse text-left text-sm">
+                  <thead className="bg-[var(--color-asphalt)] text-xs font-semibold text-white">
+                    <tr>
+                      <th className="px-5 py-3.5 font-semibold" scope="col">สินค้า</th>
+                      <th className="px-3 py-3.5 font-semibold" scope="col">หมวดสินค้า</th>
+                      <th className="px-3 py-3.5 text-right font-semibold" scope="col">ราคาขาย</th>
+                      <th className="px-3 py-3.5 text-right font-semibold" scope="col">ต้นทุน</th>
+                      <th className="px-3 py-3.5 text-right font-semibold" scope="col">สต็อก</th>
+                      <th className="px-3 py-3.5 font-semibold" scope="col">สถานะ</th>
+                      <th className="px-5 py-3.5 text-right font-semibold" scope="col"><span className="sr-only">แก้ไข</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((product) => {
+                      const isActive = product.status === "active";
+                      return (
+                        <tr className={`border-t border-[var(--line)] transition hover:bg-[var(--color-concrete)] ${isActive ? "" : "bg-[var(--color-concrete)]/60"}`} key={product.id}>
+                          <td className="px-5 py-3">
+                            <button className="flex items-center gap-3.5 text-left" onClick={() => openEditor({ mode: "edit", product })} type="button">
+                              <ProductImageThumb alt={`รูปสินค้า ${product.name}`} className={`!rounded-xl ${isActive ? "" : "opacity-60 grayscale"}`} size="sm" src={product.image_url} />
+                              <span className="min-w-0">
+                                <span className="block font-semibold text-[var(--foreground)] hover:text-[var(--color-safety)]">{product.name}</span>
+                                <span className="mt-0.5 block text-xs text-[var(--muted)]">{product.sku ? `SKU ${product.sku}` : "ไม่มี SKU"}</span>
+                              </span>
+                            </button>
+                          </td>
+                          <td className="px-3 py-3 text-[var(--color-steel)]">{product.category?.name ?? "-"}</td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right font-semibold text-[var(--foreground)]">{currencyFormatter.format(product.unit_price)}</td>
+                          <td className="whitespace-nowrap px-3 py-3 text-right text-[var(--muted)]">{currencyFormatter.format(product.cost_price)}</td>
+                          <td className={`whitespace-nowrap px-3 py-3 text-right text-base font-bold ${stockTone(product)}`}>{product.stock_quantity}</td>
+                          <td className="whitespace-nowrap px-3 py-3">
+                            <span className="flex items-center gap-2.5">
+                              <AdminActiveSwitch active={isActive} disabled={togglingId === product.id} label={`เปิด/ปิดขาย ${product.name}`} onToggle={() => void handleToggle(product)} />
+                              {isActive ? <AdminPill tone="done">เปิดขาย</AdminPill> : <AdminPill tone="muted">ปิดใช้งาน</AdminPill>}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <button className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-[var(--color-asphalt)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-asphalt-2)]" onClick={() => openEditor({ mode: "edit", product })} type="button">
+                              <AdminIcon name="edit" className="h-3.5 w-3.5" /> แก้ไข
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
-
-          {filteredProducts.length > 0 ? (
-            <div className="mt-5 space-y-4">
-              {filteredProducts.map((product) => (
-                <AdminProductRow
-                  actionState={actionState}
-                  categories={loadState.categories}
-                  key={product.id}
-                  onDelete={handleDeleteProduct}
-                  onSave={handleSaveProduct}
-                  product={product}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="mt-5 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              ไม่พบสินค้าที่ตรงกับตัวกรอง
-            </div>
           )}
-        </section>
+        </>
+      )}
+
+      {editor ? (
+        <ProductEditor
+          categories={categories}
+          editor={editor}
+          error={editorError}
+          key={editor.mode === "edit" ? editor.product.id : "create"}
+          onClose={() => setEditor(null)}
+          onDelete={setDeleteTarget}
+          onSubmit={(input, imageFile) => void handleSubmit(input, imageFile)}
+          saving={saving}
+        />
       ) : null}
+
+      <ConfirmDialog
+        description={deleteTarget ? `"${deleteTarget.name}" จะถูกลบถาวรและไม่สามารถกู้คืนได้ ถ้าแค่ไม่อยากให้ลูกค้าเห็น ให้ปิดขายแทน` : ""}
+        isLoading={deleting}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => void handleDelete()}
+        open={deleteTarget !== null}
+        title="ลบสินค้านี้?"
+      />
+
+      <AdminToast message={toast?.message ?? null} onDone={clearToast} tone={toast?.tone} />
     </main>
   );
 }

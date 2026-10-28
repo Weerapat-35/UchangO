@@ -41,12 +41,14 @@ type SlipOkResponse = {
     transRef?: string;
     transTimestamp?: string;
   };
+  code?: number | string;
   message?: string;
   success?: boolean;
 };
 
 type SlipOkFailureKind =
   | "amount_mismatch"
+  | "bank_delay"
   | "duplicate_slip"
   | "provider_error"
   | "provider_unavailable"
@@ -98,6 +100,17 @@ function getSlipOkFailureKind(
     return "provider_unavailable";
   }
 
+  // ธนาคารยังส่งข้อมูลรายการโอนให้ SlipOK ไม่ทัน (เพิ่งโอน) — ไม่ใช่สลิปเสีย ให้รอแล้วตรวจใหม่
+  if (
+    String(response.code) === "1010" ||
+    normalizedText.includes("delay") ||
+    normalizedText.includes("try again") ||
+    normalizedText.includes("ล่าช้า") ||
+    normalizedText.includes("รอสักครู่")
+  ) {
+    return "bank_delay";
+  }
+
   if (
     normalizedText.includes("duplicate") ||
     normalizedText.includes("already") ||
@@ -146,6 +159,10 @@ function getAdminSlipOkFailureMessage(
     return "SlipOK ยังตรวจไม่ได้ชั่วคราว กรุณาลองใหม่อีกครั้งภายหลัง";
   }
 
+  if (failureKind === "bank_delay") {
+    return `ธนาคารยังไม่ส่งข้อมูลรายการโอนให้ SlipOK กรุณารอ 1–2 นาทีแล้วกดตรวจอีกครั้ง: ${providerMessage}`;
+  }
+
   if (failureKind === "duplicate_slip") {
     return `สลิปนี้อาจถูกใช้ตรวจไปแล้วหรือเป็นสลิปซ้ำ: ${providerMessage}`;
   }
@@ -166,6 +183,10 @@ function getCustomerSlipOkRejectedReason(
   response: SlipOkResponse,
 ) {
   const providerMessage = getReadableSlipOkMessage(response);
+
+  if (failureKind === "bank_delay") {
+    return "ธนาคารกำลังยืนยันรายการโอน กรุณารอ 1–2 นาทีแล้วกดตรวจสลิปอีกครั้ง (ไม่ต้องโอนใหม่)";
+  }
 
   if (failureKind === "duplicate_slip") {
     return "สลิปนี้อาจถูกใช้ไปแล้ว กรุณาส่งสลิปใหม่";
@@ -402,8 +423,10 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const amountToVerify = payment.slip_amount ?? payment.amount;
+  // ส่งชื่อไฟล์ตามชนิดจริง (สลิปจากแอปธนาคารมักเป็น PNG) ไม่ใช่ .jpg ทุกไฟล์
+  const slipExtension = payment.slip_image_url.split(".").pop()?.toLowerCase() || "jpg";
   const formData = new FormData();
-  formData.append("files", slipResult.data, "payment-slip.jpg");
+  formData.append("files", slipResult.data, `payment-slip.${slipExtension}`);
   formData.append("amount", String(amountToVerify));
   formData.append("log", "true");
 

@@ -1,160 +1,114 @@
 "use client";
 
 import Link from "next/link";
-import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { AppNav } from "@/components/app-nav";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   checkAdminAccess,
   createAdminInventoryMovement,
   getAdminInventoryMovements,
   getAdminProducts,
-  type AdminAccessResult,
   type AdminInventoryMovement,
   type AdminInventoryMovementCreateInput,
   type AdminProduct,
 } from "@/features/admin";
 import { ProductImageThumb } from "@/features/products/components/product-image-thumb";
 import { createClient } from "@/lib/supabase/browser";
+import {
+  AdminEmptyState,
+  AdminLoadMessage,
+  AdminPageIntro,
+  AdminPill,
+  AdminStatCard,
+  AdminToast,
+  adminDarkButtonClass,
+  adminInputClass,
+  adminLabelClass,
+  adminPrimaryButtonClass,
+  adminTextareaClass,
+  type AdminPillTone,
+} from "./admin-list-ui";
 
 type LoadState =
-  | {
-      status: "loading";
-      access: null;
-      movements: null;
-      สินค้า: null;
-      error: null;
-    }
-  | {
-      status: "signed-out";
-      access: null;
-      movements: null;
-      สินค้า: null;
-      error: null;
-    }
-  | {
-      status: "access-denied";
-      access: Extract<AdminAccessResult, { allowed: false }>;
-      movements: null;
-      สินค้า: null;
-      error: null;
-    }
-  | {
-      status: "ready";
-      access: AdminAccessResult;
-      movements: AdminInventoryMovement[];
-      สินค้า: AdminProduct[];
-      error: null;
-    }
-  | {
-      status: "error";
-      access: null;
-      movements: null;
-      สินค้า: null;
-      error: string;
-    };
-
-type CreateState =
-  | { status: "idle"; error: null; message: null }
-  | { status: "saving"; error: null; message: null }
-  | { status: "error"; error: string; message: null }
-  | { status: "saved"; error: null; message: string };
+  | { status: "loading" | "signed-out"; message: null; products: null; movements: null }
+  | { status: "access-denied" | "error"; message: string; products: null; movements: null }
+  | { status: "ready"; message: null; products: AdminProduct[]; movements: AdminInventoryMovement[] };
 
 type MovementType = AdminInventoryMovement["movement_type"];
 
-const movementOptions: { label: string; value: MovementType }[] = [
-  { label: "รับเข้าสต็อก", value: "stock_in" },
-  { label: "จ่ายออกจากสต็อก", value: "stock_out" },
-  { label: "ปรับเพิ่มสต็อก", value: "adjustment_in" },
-  { label: "ปรับลดสต็อก", value: "adjustment_out" },
-  { label: "เบิกใช้ในงานซ่อม", value: "repair_usage" },
-  { label: "รับคืน", value: "return" },
+/** ประเภทรายการสต็อก ใช้ร่วมกับหน้าตรวจสอบสต็อก */
+export const MOVEMENT_TYPES: { value: MovementType; label: string; tone: AdminPillTone; increases: boolean }[] = [
+  { value: "stock_in", label: "รับเข้า", tone: "done", increases: true },
+  { value: "stock_out", label: "ตัดออก", tone: "amber", increases: false },
+  { value: "adjustment_in", label: "ปรับเพิ่ม", tone: "muted", increases: true },
+  { value: "adjustment_out", label: "ปรับลด", tone: "muted", increases: false },
+  { value: "repair_usage", label: "ใช้งานซ่อม", tone: "dark", increases: false },
+  { value: "return", label: "รับคืน", tone: "blue", increases: true },
 ];
 
-const stockIncreasingMovements: MovementType[] = [
-  "stock_in",
-  "adjustment_in",
-  "return",
-];
+export function getMovementType(value: string) {
+  return MOVEMENT_TYPES.find((type) => type.value === value);
+}
+
+/** สต็อกเหลือไม่เกินค่านี้ถือว่าใกล้หมด (เท่ากับแดชบอร์ด) */
+export const LOW_STOCK_THRESHOLD = 5;
+
+const NOTE_PLACEHOLDER: Record<string, string> = {
+  stock_in: "เช่น รับเข้าจากผู้จำหน่าย ใบส่งของ INV-0925",
+  stock_out: "เช่น ขายหน้าร้าน หรือสินค้าชำรุด",
+  adjustment_in: "เช่น นับสต็อกจริงแล้วเจอเพิ่ม",
+  adjustment_out: "เช่น นับสต็อกจริงแล้วขาด",
+  repair_usage: "เช่น ใช้ในงานซ่อมรถ กก 1111",
+  return: "เช่น ลูกค้าคืนสินค้า คำสั่งซื้อ #1024",
+};
+
+async function fetchInventory(): Promise<LoadState> {
+  const supabase = createClient();
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) return { status: "error", message: sessionError.message, products: null, movements: null };
+  if (!session?.user) return { status: "signed-out", message: null, products: null, movements: null };
+
+  const access = await checkAdminAccess(supabase, session.user.id);
+  if (!access.allowed) return { status: "access-denied", message: access.reason, products: null, movements: null };
+
+  const [productsResult, movementsResult] = await Promise.all([getAdminProducts(supabase), getAdminInventoryMovements(supabase, 80)]);
+  const error = productsResult.error ?? movementsResult.error;
+  if (error) return { status: "error", message: error.message, products: null, movements: null };
+  return { status: "ready", message: null, products: productsResult.data ?? [], movements: movementsResult.data ?? [] };
+}
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("th-TH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function getMovementDelta(movement: AdminInventoryMovement) {
-  return stockIncreasingMovements.includes(movement.movement_type)
-    ? movement.quantity
-    : -movement.quantity;
-}
-
-function getMovementStyle(movementType: MovementType) {
-  if (stockIncreasingMovements.includes(movementType)) {
-    return "bg-emerald-50 text-[var(--brand-strong)]";
-  }
-
-  return "bg-amber-50 text-amber-800";
-}
-
-function getProductLabel(product: AdminProduct) {
-  return `${product.name}${product.sku ? ` (${product.sku})` : ""}`;
-}
-
-function validateMovementInput(
-  input: AdminInventoryMovementCreateInput,
-  สินค้า: AdminProduct[],
-) {
-  if (!input.product_id) {
-    return "กรุณาเลือกสินค้า";
-  }
-
-  if (!Number.isFinite(input.quantity) || input.quantity < 1) {
-    return "จำนวนต้องอย่างน้อย 1";
-  }
-
-  const product = สินค้า.find(
-    (currentProduct) => currentProduct.id === input.product_id,
-  );
-
-  if (!product) {
-    return "ไม่พบสินค้าที่เลือก";
-  }
-
-  const isOutOfStock = !stockIncreasingMovements.includes(input.movement_type);
-
-  if (isOutOfStock && input.quantity > product.stock_quantity) {
-    return "จำนวนมากกว่าสต็อกที่มีอยู่";
-  }
-
-  return null;
+  return new Date(value).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 function MovementForm({
-  createState,
+  initialProductId,
   onCreate,
-  สินค้า,
+  products,
+  saving,
+  error,
 }: {
-  createState: CreateState;
+  initialProductId: string | null;
   onCreate: (input: AdminInventoryMovementCreateInput) => void;
-  สินค้า: AdminProduct[];
+  products: AdminProduct[];
+  saving: boolean;
+  error: string;
 }) {
-  const [productId, setProductId] = useState(สินค้า[0]?.id ?? "");
+  const startProduct = products.find((product) => product.id === initialProductId) ?? products[0];
+  const [productId, setProductId] = useState(startProduct?.id ?? "");
   const [movementType, setMovementType] = useState<MovementType>("stock_in");
-  const [quantity, setQuantity] = useState("1");
+  const [quantity, setQuantity] = useState(1);
   const [note, setNote] = useState("");
-  // ราคาทุนต่อชิ้น (เฉพาะรับเข้าสต็อก) เริ่มจากราคาทุนของสินค้า
-  const [unitCost, setUnitCost] = useState(String(สินค้า[0]?.cost_price ?? ""));
-  const selectedProduct = สินค้า.find((product) => product.id === productId);
-  const isSaving = createState.status === "saving";
+  // ราคาทุนต่อชิ้น (เฉพาะรับเข้า) เริ่มจากราคาทุนของสินค้า
+  const [unitCost, setUnitCost] = useState(String(startProduct?.cost_price ?? ""));
+  const selectedProduct = products.find((product) => product.id === productId);
+  const type = getMovementType(movementType);
   const isStockIn = movementType === "stock_in";
-  const purchaseTotal = Math.max(0, Number(quantity) || 0) * Math.max(0, Number(unitCost) || 0);
+  const purchaseTotal = Math.max(0, quantity) * Math.max(0, Number(unitCost) || 0);
+  const stockAfter = selectedProduct ? selectedProduct.stock_quantity + (type?.increases ? quantity : -quantity) : 0;
 
   function handleProductChange(nextProductId: string) {
     setProductId(nextProductId);
-    const nextProduct = สินค้า.find((product) => product.id === nextProductId);
-    setUnitCost(String(nextProduct?.cost_price ?? ""));
+    setUnitCost(String(products.find((product) => product.id === nextProductId)?.cost_price ?? ""));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -163,527 +117,255 @@ function MovementForm({
       movement_type: movementType,
       note: note.trim() || null,
       product_id: productId,
-      quantity: Number(quantity),
+      quantity,
       unit_cost: isStockIn && Number(unitCost) > 0 ? Number(unitCost) : null,
     });
   }
 
   return (
-    <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
-      <div className="border-b border-[var(--line)] pb-4">
-        <p className="text-sm font-semibold text-[var(--brand)]">
-          บันทึกรายการเข้า-ออกสต็อก
-        </p>
-        <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-          ทุกรายการจะถูกเก็บเป็นประวัติ และปรับจำนวนสต็อกสินค้าให้อัตโนมัติ
-        </p>
-      </div>
+    <section className="rounded-2xl border border-[var(--line)] bg-white p-5 shadow-sm">
+      <h2 className="text-lg font-bold text-[var(--foreground)]">บันทึกการเคลื่อนไหวสต็อก</h2>
+      <p className="mt-1 text-sm text-[var(--muted)]">ทุกรายการจะเก็บเป็นประวัติ และปรับจำนวนสต็อกของสินค้าให้อัตโนมัติ</p>
 
-      <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_140px] lg:items-end">
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            สินค้า
-            <select
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => handleProductChange(event.target.value)}
-              value={productId}
-            >
-              {สินค้า.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {getProductLabel(product)} / stock {product.stock_quantity}
-                </option>
-              ))}
-            </select>
-          </label>
+      <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+        <label className={adminLabelClass}>
+          สินค้า
+          <select className={adminInputClass} onChange={(event) => handleProductChange(event.target.value)} value={productId}>
+            {products.map((product) => (
+              <option key={product.id} value={product.id}>{product.name} · คงเหลือ {product.stock_quantity}</option>
+            ))}
+          </select>
+        </label>
 
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            ประเภทรายการ
-            <select
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) =>
-                setMovementType(event.target.value as MovementType)
-              }
-              value={movementType}
-            >
-              {movementOptions.map((option) => (
-                <option key={option.value} value={option.value}>
+        <fieldset>
+          <legend className={adminLabelClass}>ประเภทการปรับสต็อก</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {MOVEMENT_TYPES.map((option) => {
+              const active = option.value === movementType;
+              return (
+                <button
+                  aria-pressed={active}
+                  className={`min-h-9 rounded-full px-4 text-sm font-semibold transition ${active ? "bg-[var(--color-safety)] text-white shadow-sm" : "bg-[var(--color-asphalt)] text-white/90 hover:bg-[var(--color-asphalt-2)]"}`}
+                  key={option.value}
+                  onClick={() => setMovementType(option.value)}
+                  type="button"
+                >
                   {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
 
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            จำนวน
+        <div>
+          <p className={adminLabelClass}>จำนวน</p>
+          <div className="mt-1.5 flex items-center gap-2">
+            <button aria-label="ลดจำนวน" className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--line)] bg-white text-lg font-bold hover:bg-[var(--color-concrete)]" onClick={() => setQuantity((value) => Math.max(1, value - 1))} type="button">−</button>
             <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
+              aria-label="จำนวน"
+              className="min-h-11 w-full rounded-xl border border-[var(--line)] bg-white px-3 text-center text-base font-semibold outline-none focus:border-[var(--brand)] focus:ring-4 focus:ring-red-100"
+              inputMode="numeric"
               min={1}
-              onChange={(event) => setQuantity(event.target.value)}
+              onChange={(event) => setQuantity(Math.max(1, Math.floor(Number(event.target.value) || 1)))}
               type="number"
               value={quantity}
             />
-          </label>
+            <button aria-label="เพิ่มจำนวน" className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--line)] bg-white text-lg font-bold hover:bg-[var(--color-concrete)]" onClick={() => setQuantity((value) => value + 1)} type="button">+</button>
+          </div>
+          {selectedProduct ? (
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              สต็อกปัจจุบัน <span className="font-semibold text-[var(--foreground)]">{selectedProduct.stock_quantity}</span>
+              {" → "}หลังบันทึก{" "}
+              <span className={`font-bold ${stockAfter < 0 ? "text-[var(--color-safety)]" : "text-[var(--foreground)]"}`}>{stockAfter}</span>
+            </p>
+          ) : null}
         </div>
 
         {isStockIn ? (
-          <div className="grid gap-3 rounded-md border border-[var(--line)] bg-slate-50 p-3 sm:grid-cols-[200px_minmax(0,1fr)] sm:items-end">
-            <label className="text-sm font-semibold text-[var(--foreground)]">
+          <div className="rounded-xl bg-[var(--color-concrete)] p-3">
+            <label className={adminLabelClass}>
               ราคาทุนต่อชิ้น (บาท)
-              <input
-                className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-                min={0}
-                onChange={(event) => setUnitCost(event.target.value)}
-                step="0.01"
-                type="number"
-                value={unitCost}
-              />
+              <input className={adminInputClass} min={0} onChange={(event) => setUnitCost(event.target.value)} step="0.01" type="number" value={unitCost} />
             </label>
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              {purchaseTotal > 0 ? (
-                <>
-                  บันทึกเป็น<span className="font-semibold text-red-700">เงินออก หมวดค่าอะไหล่</span> อัตโนมัติ รวม{" "}
-                  <span className="font-semibold text-[var(--foreground)]">
-                    {purchaseTotal.toLocaleString("th-TH", { style: "currency", currency: "THB" })}
-                  </span>
-                </>
-              ) : (
-                "ใส่ 0 หรือเว้นว่างถ้าไม่ต้องบันทึกเป็นเงินออก"
-              )}
+            <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+              {purchaseTotal > 0
+                ? <>บันทึกเป็นเงินออก “ค่าอะไหล่” อัตโนมัติ รวม <span className="font-semibold text-[var(--foreground)]">{purchaseTotal.toLocaleString("th-TH", { style: "currency", currency: "THB" })}</span></>
+                : "ใส่ 0 หรือเว้นว่างถ้าไม่ต้องบันทึกเป็นเงินออก"}
             </p>
           </div>
         ) : null}
 
-        <label className="text-sm font-semibold text-[var(--foreground)]">
+        <label className={adminLabelClass}>
           หมายเหตุ
-          <textarea
-            className="mt-2 min-h-20 w-full resize-y rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-            onChange={(event) => setNote(event.target.value)}
-            value={note}
-          />
+          <textarea className={adminTextareaClass} onChange={(event) => setNote(event.target.value)} placeholder={NOTE_PLACEHOLDER[movementType]} value={note} />
         </label>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-[var(--muted)]">
-            {selectedProduct ? (
-              <span>
-                สต็อกปัจจุบัน:{" "}
-                <span className="font-semibold text-[var(--foreground)]">
-                  {selectedProduct.stock_quantity}
-                </span>
-              </span>
-            ) : (
-              <span>ยังไม่ได้เลือกสินค้า</span>
-            )}
-          </div>
+        {error ? <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
 
-          <button
-            className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isSaving || สินค้า.length === 0}
-            type="submit"
-          >
-            {isSaving ? "กำลังบันทึก..." : "บันทึกรายการสต็อก"}
-          </button>
-        </div>
-
-        {createState.status === "error" ? (
-          <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-            {createState.error}
-          </p>
-        ) : null}
-
-        {createState.status === "saved" ? (
-          <p className="rounded-md bg-emerald-50 p-3 text-sm font-semibold text-[var(--brand-strong)]">
-            {createState.message}
-          </p>
-        ) : null}
+        <button className={`${adminPrimaryButtonClass} w-full`} disabled={saving || products.length === 0} type="submit">
+          {saving ? "กำลังบันทึก..." : "บันทึกการเคลื่อนไหว"}
+        </button>
       </form>
     </section>
   );
 }
 
-function MovementRow({ movement }: { movement: AdminInventoryMovement }) {
-  const delta = getMovementDelta(movement);
-
-  return (
-    <tr className="border-b border-[var(--line)]">
-      <td className="px-4 py-3 text-[var(--foreground)]">
-        {formatDateTime(movement.created_at)}
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-3">
-          <ProductImageThumb
-            alt={`รูปสินค้า ${movement.product?.name ?? "สินค้า"}`}
-            size="sm"
-            src={movement.product?.image_url}
-          />
-          <div>
-            <div className="font-semibold text-[var(--foreground)]">
-              {movement.product?.name ?? "ไม่พบสินค้า"}
-            </div>
-            <div className="text-xs text-[var(--muted)]">
-              SKU {movement.product?.sku ?? "-"}
-            </div>
-          </div>
-        </div>
-      </td>
-      <td className="px-4 py-3">
-        <span
-          className={`rounded-md px-2.5 py-1 text-xs font-semibold ${getMovementStyle(
-            movement.movement_type,
-          )}`}
-        >
-          {movement.movement_type}
-        </span>
-      </td>
-      <td
-        className={
-          delta >= 0
-            ? "px-4 py-3 font-semibold text-[var(--brand-strong)]"
-            : "px-4 py-3 font-semibold text-amber-800"
-        }
-      >
-        {delta >= 0 ? "+" : ""}
-        {delta}
-      </td>
-      <td className="px-4 py-3 text-[var(--muted)]">
-        {movement.note ?? "-"}
-      </td>
-      <td className="px-4 py-3 text-[var(--muted)]">
-        {movement.createdBy?.full_name ?? "-"}
-      </td>
-    </tr>
-  );
-}
-
 export function AdminInventoryPanel() {
-  const [loadState, setLoadState] = useState<LoadState>({
-    access: null,
-    error: null,
-    movements: null,
-    สินค้า: null,
-    status: "loading",
-  });
-  const [createState, setCreateState] = useState<CreateState>({
-    error: null,
-    message: null,
-    status: "idle",
-  });
+  const [loadState, setLoadState] = useState<LoadState>({ status: "loading", message: null, products: null, movements: null });
+  const [initialProductId, setInitialProductId] = useState<string | null>(null);
+  const [formKey, setFormKey] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [showAll, setShowAll] = useState(false);
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
+  const clearToast = useCallback(() => setToast(null), []);
 
-  async function loadInventory() {
-    const supabase = createClient();
-    setLoadState({
-      access: null,
-      error: null,
-      movements: null,
-      สินค้า: null,
-      status: "loading",
-    });
-
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
-
-    if (sessionError) {
-      setLoadState({
-        access: null,
-        error: sessionError.message,
-        movements: null,
-        สินค้า: null,
-        status: "error",
-      });
-      return;
-    }
-
-    if (!session?.user) {
-      setLoadState({
-        access: null,
-        error: null,
-        movements: null,
-        สินค้า: null,
-        status: "signed-out",
-      });
-      return;
-    }
-
-    const access = await checkAdminAccess(supabase, session.user.id);
-
-    if (!access.allowed) {
-      setLoadState({
-        access,
-        error: null,
-        movements: null,
-        สินค้า: null,
-        status: "access-denied",
-      });
-      return;
-    }
-
-    const [สินค้าResult, movementsResult] = await Promise.all([
-      getAdminProducts(supabase),
-      getAdminInventoryMovements(supabase, 80),
-    ]);
-
-    if (สินค้าResult.error) {
-      setLoadState({
-        access: null,
-        error: สินค้าResult.error.message,
-        movements: null,
-        สินค้า: null,
-        status: "error",
-      });
-      return;
-    }
-
-    if (movementsResult.error) {
-      setLoadState({
-        access: null,
-        error: movementsResult.error.message,
-        movements: null,
-        สินค้า: null,
-        status: "error",
-      });
-      return;
-    }
-
-    setLoadState({
-      access,
-      error: null,
-      movements: movementsResult.data ?? [],
-      สินค้า: สินค้าResult.data ?? [],
-      status: "ready",
-    });
-  }
+  const loadInventory = useCallback(async () => {
+    setLoadState(await fetchInventory());
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
     const supabase = createClient();
-
-    async function loadWhenMounted() {
-      await loadInventory();
-    }
-
-    if (isMounted) {
-      void loadWhenMounted();
-    }
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void loadWhenMounted();
+    void fetchInventory().then((state) => {
+      if (!isMounted) return;
+      setLoadState(state);
+      // เปิดจากปุ่ม "รับเข้า/ตัดสต็อก" ในหน้าตรวจสอบสต็อก จะเลือกสินค้านั้นไว้ให้
+      setInitialProductId(new URLSearchParams(window.location.search).get("product"));
     });
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      void fetchInventory().then((state) => { if (isMounted) setLoadState(state); });
+    });
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
-  const stockSummary = useMemo(() => {
-    if (loadState.status !== "ready") {
-      return {
-        lowStockCount: 0,
-        totalStock: 0,
-      };
-    }
-
-    return {
-      lowStockCount: loadState.สินค้า.filter(
-        (product) => product.stock_quantity <= 2,
-      ).length,
-      totalStock: loadState.สินค้า.reduce(
-        (total, product) => total + product.stock_quantity,
-        0,
-      ),
-    };
-  }, [loadState]);
+  const products = useMemo(() => (loadState.status === "ready" ? loadState.products : []), [loadState]);
+  const movements = useMemo(() => (loadState.status === "ready" ? loadState.movements : []), [loadState]);
+  const totalStock = products.reduce((total, product) => total + product.stock_quantity, 0);
+  const lowStockCount = products.filter((product) => product.status === "active" && product.stock_quantity <= LOW_STOCK_THRESHOLD).length;
 
   async function handleCreateMovement(input: AdminInventoryMovementCreateInput) {
-    if (loadState.status !== "ready") {
-      return;
+    const product = products.find((current) => current.id === input.product_id);
+    if (!product) return setFormError("กรุณาเลือกสินค้า");
+    if (!Number.isFinite(input.quantity) || input.quantity < 1) return setFormError("จำนวนต้องอย่างน้อย 1");
+    if (!getMovementType(input.movement_type)?.increases && input.quantity > product.stock_quantity) {
+      return setFormError(`จำนวนมากกว่าสต็อกที่มีอยู่ (${product.stock_quantity})`);
     }
 
-    const validationError = validateMovementInput(input, loadState.สินค้า);
-
-    if (validationError) {
-      setCreateState({
-        error: validationError,
-        message: null,
-        status: "error",
-      });
-      return;
-    }
-
-    setCreateState({
-      error: null,
-      message: null,
-      status: "saving",
-    });
-
-    const supabase = createClient();
-    const { error } = await createAdminInventoryMovement(supabase, input);
-
-    if (error) {
-      setCreateState({
-        error: error.message,
-        message: null,
-        status: "error",
-      });
-      return;
-    }
+    setSaving(true);
+    setFormError("");
+    const { error } = await createAdminInventoryMovement(createClient(), input);
+    setSaving(false);
+    if (error) return setFormError(error.message);
 
     await loadInventory();
-    setCreateState({
-      error: null,
+    setInitialProductId(input.product_id);
+    setFormKey((value) => value + 1);
+    setToast({
       message: input.unit_cost
-        ? "บันทึกรายการสต็อกเรียบร้อยแล้ว และบันทึกเงินออกค่าอะไหล่ในหน้าการเงินแล้ว"
-        : "บันทึกรายการสต็อกเรียบร้อยแล้ว",
-      status: "saved",
+        ? `บันทึก${getMovementType(input.movement_type)?.label ?? ""} ${product.name} แล้ว และลงเงินออกค่าอะไหล่ให้แล้ว`
+        : `บันทึก${getMovementType(input.movement_type)?.label ?? ""} ${product.name} ${input.quantity} ชิ้นแล้ว`,
+      tone: "success",
     });
   }
 
+  const visibleMovements = showAll ? movements : movements.slice(0, 12);
+
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
-      <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <AppNav />
-        </div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              คลังสินค้า
-            </h1>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Link
-              className="min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/admin/inventory-review"
-            >
-              ตรวจสต็อก
-            </Link>
-            <Link
-              className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
-              href="/admin/products"
-            >
-              จัดการสินค้า
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {loadState.status === "loading" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            กำลังโหลดคลังสินค้า...
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "signed-out" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
-            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              ไปหน้าเข้าสู่ระบบ
-            </Link>
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "access-denied" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
-            <p className="mt-2">{loadState.access.reason}</p>
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "error" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-xl rounded-lg border border-red-200 bg-white px-5 py-4 text-sm text-red-700 shadow-sm">
-            {loadState.error}
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "ready" ? (
-        <section className="py-6">
-          <MovementForm
-            createState={createState}
-            onCreate={handleCreateMovement}
-            สินค้า={loadState.สินค้า}
+    <main className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+      {loadState.status !== "ready" ? (
+        <AdminLoadMessage loadingLabel="กำลังโหลดคลังสินค้า..." message={loadState.message} status={loadState.status} />
+      ) : (
+        <>
+          <AdminPageIntro
+            action={
+              <>
+                <Link className={adminPrimaryButtonClass} href="/admin/inventory-review">ตรวจสต็อก</Link>
+                <Link className={adminDarkButtonClass} href="/admin/products">จัดการสินค้า</Link>
+              </>
+            }
+            description="บันทึกรับเข้า ตัดออก ปรับสต็อก ใช้อะไหล่งานซ่อม และรับคืน พร้อมประวัติครบถ้วน"
           />
 
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg border border-[var(--line)] bg-white p-5">
-              <p className="text-sm font-semibold text-[var(--muted)]">
-                สินค้า
-              </p>
-              <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-                {loadState.สินค้า.length}
-              </p>
-            </div>
-            <div className="rounded-lg border border-[var(--line)] bg-white p-5">
-              <p className="text-sm font-semibold text-[var(--muted)]">
-                สินค้าคงเหลือทั้งหมด
-              </p>
-              <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-                {stockSummary.totalStock}
-              </p>
-            </div>
-            <div className="rounded-lg border border-[var(--line)] bg-white p-5">
-              <p className="text-sm font-semibold text-[var(--muted)]">
-                สต็อกใกล้หมด
-              </p>
-              <p className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-                {stockSummary.lowStockCount}
-              </p>
-            </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <AdminStatCard highlight label="สินค้าทั้งหมด" value={products.length} />
+            <AdminStatCard label="สต็อกรวม (ชิ้น)" value={totalStock.toLocaleString("th-TH")} />
+            <AdminStatCard label="สินค้าใกล้หมด" value={lowStockCount} />
           </div>
 
-          <section className="mt-5 rounded-lg border border-[var(--line)] bg-white shadow-sm">
-            <div className="border-b border-[var(--line)] p-5">
-              <h2 className="text-xl font-bold text-[var(--foreground)]">
-                รายการเข้า-ออกสต็อกล่าสุด
-              </h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                การเปลี่ยนแปลงสต็อกล่าสุดของสินค้าทั้งหมด
-              </p>
-            </div>
+          <div className="grid items-start gap-5 lg:grid-cols-[400px_minmax(0,1fr)]">
+            <MovementForm
+              error={formError}
+              initialProductId={initialProductId}
+              key={`${formKey}-${initialProductId ?? ""}`}
+              onCreate={(input) => void handleCreateMovement(input)}
+              products={products}
+              saving={saving}
+            />
 
-            {loadState.movements.length > 0 ? (
-              <div className="overflow-auto">
-                <table className="w-full min-w-[980px] border-collapse text-left text-sm">
-                  <thead className="border-b border-[var(--line)] bg-slate-50 text-[var(--foreground)]">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">วันที่</th>
-                      <th className="px-4 py-3 font-semibold">สินค้า</th>
-                      <th className="px-4 py-3 font-semibold">ประเภท</th>
-                      <th className="px-4 py-3 font-semibold">จำนวน</th>
-                      <th className="px-4 py-3 font-semibold">หมายเหตุ</th>
-                      <th className="px-4 py-3 font-semibold">สร้างโดย</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loadState.movements.map((movement) => (
-                      <MovementRow key={movement.id} movement={movement} />
-                    ))}
-                  </tbody>
-                </table>
+            <section className="overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-sm">
+              <div className="px-5 py-4">
+                <h2 className="text-lg font-bold text-[var(--color-safety)]">ประวัติการเคลื่อนไหวล่าสุด</h2>
+                <p className="mt-1 text-sm text-[var(--muted)]">รายการปรับเปลี่ยนสต็อกล่าสุดของสินค้าทั้งหมด</p>
               </div>
-            ) : (
-              <div className="p-6 text-sm leading-6 text-[var(--muted)]">
-                ยังไม่มีรายการเข้า-ออกสต็อก
-              </div>
-            )}
-          </section>
-        </section>
-      ) : null}
+              {movements.length === 0 ? (
+                <div className="px-5 pb-5"><AdminEmptyState title="ยังไม่มีรายการเคลื่อนไหว" description="บันทึกรายการแรกจากฟอร์มด้านซ้าย" /></div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                      <thead className="bg-[var(--color-asphalt)] text-xs font-semibold text-white">
+                        <tr>
+                          <th className="px-5 py-3 font-semibold" scope="col">วันที่</th>
+                          <th className="px-3 py-3 font-semibold" scope="col">สินค้า</th>
+                          <th className="px-3 py-3 font-semibold" scope="col">ประเภท</th>
+                          <th className="px-3 py-3 text-right font-semibold" scope="col">จำนวน</th>
+                          <th className="px-5 py-3 font-semibold" scope="col">ผู้บันทึก</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleMovements.map((movement) => {
+                          const type = getMovementType(movement.movement_type);
+                          const delta = type?.increases ? movement.quantity : -movement.quantity;
+                          return (
+                            <tr className="border-t border-[var(--line)] align-top hover:bg-[var(--color-concrete)]" key={movement.id}>
+                              <td className="whitespace-nowrap px-5 py-3 text-[var(--muted)]">{formatDateTime(movement.created_at)}</td>
+                              <td className="px-3 py-3">
+                                <div className="flex items-center gap-3">
+                                  <ProductImageThumb alt={`รูปสินค้า ${movement.product?.name ?? "สินค้า"}`} size="sm" src={movement.product?.image_url} />
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-[var(--foreground)]">{movement.product?.name ?? "ไม่พบสินค้า"}</p>
+                                    {movement.note ? <p className="line-clamp-1 text-xs text-[var(--muted)]">{movement.note}</p> : null}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="whitespace-nowrap px-3 py-3"><AdminPill tone={type?.tone ?? "muted"}>{type?.label ?? movement.movement_type}</AdminPill></td>
+                              <td className={`whitespace-nowrap px-3 py-3 text-right text-base font-bold ${delta >= 0 ? "text-[var(--color-signal)]" : "text-[var(--color-safety)]"}`}>
+                                {delta >= 0 ? "+" : "−"}{Math.abs(delta)}
+                              </td>
+                              <td className="whitespace-nowrap px-5 py-3 text-[var(--muted)]">{movement.createdBy?.full_name ?? "-"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {movements.length > 12 ? (
+                    <button className="w-full border-t border-[var(--line)] py-3 text-sm font-semibold text-[var(--muted)] hover:bg-[var(--color-concrete)] hover:text-[var(--foreground)]" onClick={() => setShowAll((value) => !value)} type="button">
+                      {showAll ? "แสดงน้อยลง" : `ดูทั้งหมด ${movements.length} รายการ`}
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </section>
+          </div>
+        </>
+      )}
+
+      <AdminToast message={toast?.message ?? null} onDone={clearToast} tone={toast?.tone} />
     </main>
   );
 }

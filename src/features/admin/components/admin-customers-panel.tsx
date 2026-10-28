@@ -2,326 +2,261 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AppNav } from "@/components/app-nav";
 import {
   checkAdminAccess,
   getAdminCustomers,
-  type AdminAccessResult,
   type AdminCustomerSummary,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
 import { bookingStatusLabel } from "@/lib/status-labels";
+import {
+  AdminEmptyState,
+  AdminFilterBar,
+  AdminLoadMessage,
+  AdminPageIntro,
+  AdminPill,
+  AdminStatCard,
+  adminSecondaryButtonClass,
+  type AdminPillTone,
+} from "./admin-list-ui";
 
 type LoadState =
-  | { status: "loading"; access: null; customers: null; error: null }
-  | { status: "signed-out"; access: null; customers: null; error: null }
-  | {
-      status: "access-denied";
-      access: Extract<AdminAccessResult, { allowed: false }>;
-      customers: null;
-      error: null;
-    }
-  | {
-      status: "ready";
-      access: AdminAccessResult;
-      customers: AdminCustomerSummary[];
-      error: null;
-    }
-  | { status: "error"; access: null; customers: null; error: string };
+  | { status: "loading" | "signed-out"; message: null; users: null }
+  | { status: "access-denied" | "error"; message: string; users: null }
+  | { status: "ready"; message: null; users: AdminCustomerSummary[] };
 
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("th-TH");
+type RoleFilter = "all" | "customer" | "technician" | "admin";
+type SortKey = "newest" | "latest-booking" | "most-bookings" | "name";
+
+const pageSize = 10;
+
+const ROLE: Record<string, { label: string; tone: AdminPillTone }> = {
+  customer: { label: "ลูกค้า", tone: "danger" },
+  technician: { label: "ช่าง", tone: "dark" },
+  admin: { label: "ผู้ดูแล", tone: "brand" },
+};
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function ลูกค้าCard({ customer }: { customer: AdminCustomerSummary }) {
+function UserAvatar({ user }: { user: AdminCustomerSummary }) {
+  if (user.avatar_url) {
+    // eslint-disable-next-line @next/next/no-img-element -- รูปโปรไฟล์จาก Supabase storage
+    return <img alt="" className="h-10 w-10 shrink-0 rounded-full border border-[var(--line)] object-cover" src={user.avatar_url} />;
+  }
   return (
-    <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-[var(--brand)]">
-              {customer.role}
-            </p>
-            <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-              {customer.email ?? "ไม่มีอีเมล"}
-            </span>
-          </div>
-          <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
-            {customer.full_name}
-          </h2>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            {customer.phone_number}
-          </p>
-        </div>
-
-        <Link
-          className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
-          href={`/admin/customers/${customer.id}`}
-        >
-          ดูข้อมูลลูกค้า
-        </Link>
-      </div>
-
-      <dl className="mt-5 grid gap-4 border-t border-[var(--line)] pt-4 text-sm sm:grid-cols-4">
-        <div>
-          <dt className="text-[var(--muted)]">รถยนต์</dt>
-          <dd className="mt-1 text-lg font-bold text-[var(--foreground)]">
-            {customer.vehicleCount}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[var(--muted)]">การจองคิว</dt>
-          <dd className="mt-1 text-lg font-bold text-[var(--foreground)]">
-            {customer.bookingCount}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[var(--muted)]">การจองล่าสุด</dt>
-          <dd className="mt-1 font-semibold text-[var(--foreground)]">
-            {customer.latestBooking
-              ? `${customer.latestBooking.booking_date} ${customer.latestBooking.booking_time.slice(
-                  0,
-                  5,
-                )}`
-              : "-"}
-          </dd>
-          {customer.latestBooking ? (
-            <dd className="mt-1 text-xs text-[var(--muted)]">
-              {bookingStatusLabel(customer.latestBooking.status)}
-            </dd>
-          ) : null}
-        </div>
-        <div>
-          <dt className="text-[var(--muted)]">วันที่สมัคร</dt>
-          <dd className="mt-1 font-semibold text-[var(--foreground)]">
-            {formatDateTime(customer.created_at)}
-          </dd>
-        </div>
-      </dl>
-    </article>
+    <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold ${user.role === "customer" ? "bg-red-50 text-[var(--color-safety)]" : "bg-[var(--color-asphalt)] text-white"}`}>
+      {(user.full_name || user.email || "?").trim().charAt(0).toUpperCase()}
+    </span>
   );
 }
 
+function pageNumbers(current: number, total: number) {
+  // แสดงหน้าแรก หน้าสุดท้าย และรอบหน้าปัจจุบัน ที่เหลือเป็น …
+  const pages = new Set([1, total, current - 1, current, current + 1].filter((page) => page >= 1 && page <= total));
+  const sorted = [...pages].sort((a, b) => a - b);
+  return sorted.flatMap((page, index) => (index > 0 && page - sorted[index - 1] > 1 ? ["…", page] : [page])) as (number | "…")[];
+}
+
 export function AdminCustomersPanel() {
-  const [loadState, setLoadState] = useState<LoadState>({
-    access: null,
-    customers: null,
-    error: null,
-    status: "loading",
-  });
-  const [searchInput, setSearchInput] = useState("");
+  const [loadState, setLoadState] = useState<LoadState>({ status: "loading", message: null, users: null });
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("newest");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let isMounted = true;
     const supabase = createClient();
 
-    async function loadCustomers() {
-      setLoadState({
-        access: null,
-        customers: null,
-        error: null,
-        status: "loading",
-      });
-
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (sessionError) {
-        setLoadState({
-          access: null,
-          customers: null,
-          error: sessionError.message,
-          status: "error",
-        });
-        return;
-      }
-
-      if (!session?.user) {
-        setLoadState({
-          access: null,
-          customers: null,
-          error: null,
-          status: "signed-out",
-        });
-        return;
-      }
+    async function loadUsers() {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (!isMounted) return;
+      if (sessionError) return setLoadState({ status: "error", message: sessionError.message, users: null });
+      if (!session?.user) return setLoadState({ status: "signed-out", message: null, users: null });
 
       const access = await checkAdminAccess(supabase, session.user.id);
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (!access.allowed) {
-        setLoadState({
-          access,
-          customers: null,
-          error: null,
-          status: "access-denied",
-        });
-        return;
-      }
+      if (!isMounted) return;
+      if (!access.allowed) return setLoadState({ status: "access-denied", message: access.reason, users: null });
 
       const { data, error } = await getAdminCustomers(supabase);
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (error) {
-        setLoadState({
-          access: null,
-          customers: null,
-          error: error.message,
-          status: "error",
-        });
-        return;
-      }
-
-      setLoadState({
-        access,
-        customers: data ?? [],
-        error: null,
-        status: "ready",
-      });
+      if (!isMounted) return;
+      if (error) return setLoadState({ status: "error", message: error.message, users: null });
+      setLoadState({ status: "ready", message: null, users: data ?? [] });
     }
 
-    void loadCustomers();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void loadCustomers();
-    });
-
+    void loadUsers();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => { void loadUsers(); });
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
-  const filteredCustomers = useMemo(() => {
-    if (loadState.status !== "ready") {
-      return [];
-    }
+  const users = useMemo(() => (loadState.status === "ready" ? loadState.users : []), [loadState]);
+  const roleCounts = useMemo(() => {
+    const counts: Record<string, number> = { customer: 0, technician: 0, admin: 0 };
+    for (const user of users) counts[user.role] = (counts[user.role] ?? 0) + 1;
+    return counts;
+  }, [users]);
+  const newThisMonth = useMemo(() => {
+    const now = new Date();
+    return users.filter((user) => {
+      const created = new Date(user.created_at);
+      return user.role === "customer" && created.getFullYear() === now.getFullYear() && created.getMonth() === now.getMonth();
+    }).length;
+  }, [users]);
 
-    const normalizedSearch = searchInput.trim().toLowerCase();
-
-    return loadState.customers.filter((customer) => {
-      if (!normalizedSearch) {
-        return true;
-      }
-
-      return (
-        customer.full_name.toLowerCase().includes(normalizedSearch) ||
-        customer.phone_number.toLowerCase().includes(normalizedSearch) ||
-        (customer.email ?? "").toLowerCase().includes(normalizedSearch)
-      );
+  const filtered = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    const list = users.filter((user) =>
+      (roleFilter === "all" || user.role === roleFilter) &&
+      (!keyword ||
+        user.full_name.toLowerCase().includes(keyword) ||
+        user.phone_number.toLowerCase().includes(keyword) ||
+        (user.email ?? "").toLowerCase().includes(keyword)),
+    );
+    const latestKey = (user: AdminCustomerSummary) => (user.latestBooking ? `${user.latestBooking.booking_date} ${user.latestBooking.booking_time}` : "");
+    return [...list].sort((a, b) => {
+      if (sortKey === "name") return a.full_name.localeCompare(b.full_name, "th");
+      if (sortKey === "most-bookings") return b.bookingCount - a.bookingCount;
+      if (sortKey === "latest-booking") return latestKey(b).localeCompare(latestKey(a));
+      return b.created_at.localeCompare(a.created_at);
     });
-  }, [loadState, searchInput]);
+  }, [users, search, roleFilter, sortKey]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageUsers = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
-      <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <AppNav />
-        </div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              ลูกค้า
-            </h1>
-          </div>
-          <Link
-            className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
-            href="/admin"
-          >
-            กลับแดชบอร์ด
-          </Link>
-        </div>
-      </header>
+    <main className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+      {loadState.status !== "ready" ? (
+        <AdminLoadMessage loadingLabel="กำลังโหลดรายชื่อผู้ใช้..." message={loadState.message} status={loadState.status} />
+      ) : (
+        <>
+          <AdminPageIntro description="ตรวจสอบโปรไฟล์ผู้ใช้ จำนวนรถ ประวัติการจอง และสิทธิ์ลูกค้า / ช่าง / ผู้ดูแล" />
 
-      {loadState.status === "loading" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            กำลังโหลดข้อมูลลูกค้า...
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "signed-out" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
-            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              ไปหน้าเข้าสู่ระบบ
-            </Link>
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "access-denied" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
-            <p className="mt-2">{loadState.access.reason}</p>
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "error" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-xl rounded-lg border border-red-200 bg-white px-5 py-4 text-sm text-red-700 shadow-sm">
-            {loadState.error}
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "ready" ? (
-        <section className="py-6">
-          <div className="flex flex-col gap-4 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-[var(--foreground)]">
-                {filteredCustomers.length} จาก {loadState.customers.length}{" "}
-                customers
-              </p>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                ข้อมูลลูกค้าในหน้านี้ดูได้อย่างเดียว
-              </p>
-            </div>
-
-            <input
-              className="min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)] lg:max-w-md"
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="ค้นหาชื่อลูกค้า เบอร์โทร หรืออีเมล"
-              type="search"
-              value={searchInput}
-            />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <AdminStatCard highlight label="ผู้ใช้ทั้งหมด" value={users.length} />
+            <AdminStatCard label="ลูกค้า" value={roleCounts.customer ?? 0} />
+            <AdminStatCard label="ช่าง / ผู้ดูแล" value={`${roleCounts.technician ?? 0} / ${roleCounts.admin ?? 0}`} />
+            <AdminStatCard label="ลูกค้าใหม่เดือนนี้" value={newThisMonth} />
           </div>
 
-          {filteredCustomers.length > 0 ? (
-            <div className="mt-5 space-y-4">
-              {filteredCustomers.map((customer) => (
-                <ลูกค้าCard customer={customer} key={customer.id} />
-              ))}
-            </div>
+          <AdminFilterBar
+            filter={roleFilter}
+            filters={[
+              { value: "all" as RoleFilter, label: "ทั้งหมด", count: users.length },
+              { value: "customer" as RoleFilter, label: "ลูกค้า", count: roleCounts.customer ?? 0 },
+              { value: "technician" as RoleFilter, label: "ช่าง", count: roleCounts.technician ?? 0 },
+              { value: "admin" as RoleFilter, label: "ผู้ดูแล", count: roleCounts.admin ?? 0 },
+            ]}
+            onFilterChange={(value) => { setRoleFilter(value); setPage(1); }}
+            onSearchChange={(value) => { setSearch(value); setPage(1); }}
+            search={search}
+            searchPlaceholder="ค้นหาชื่อ อีเมล หรือเบอร์โทร"
+            trailing={
+              <select aria-label="เรียงลำดับ" className="min-h-11 rounded-xl border border-[var(--line)] bg-white px-3 text-sm font-semibold text-[var(--foreground)] lg:w-48" onChange={(event) => setSortKey(event.target.value as SortKey)} value={sortKey}>
+                <option value="newest">สมัครล่าสุดก่อน</option>
+                <option value="latest-booking">จองล่าสุดก่อน</option>
+                <option value="most-bookings">จองบ่อยที่สุดก่อน</option>
+                <option value="name">เรียงตามชื่อ</option>
+              </select>
+            }
+          />
+
+          {filtered.length === 0 ? (
+            <AdminEmptyState description="ลองเปลี่ยนคำค้นหาหรือตัวกรองสิทธิ์" title="ไม่พบผู้ใช้" />
           ) : (
-            <div className="mt-5 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              ไม่พบลูกค้าที่ตรงกับคำค้นหา
-            </div>
+            <>
+              <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[900px] border-collapse text-left text-sm">
+                    <thead className="bg-[var(--color-asphalt)] text-xs font-semibold text-white">
+                      <tr>
+                        <th className="px-5 py-3.5 font-semibold" scope="col">ผู้ใช้</th>
+                        <th className="px-3 py-3.5 font-semibold" scope="col">สิทธิ์</th>
+                        <th className="px-3 py-3.5 text-right font-semibold" scope="col">รถ</th>
+                        <th className="px-3 py-3.5 text-right font-semibold" scope="col">การจอง</th>
+                        <th className="px-3 py-3.5 font-semibold" scope="col">การจองล่าสุด</th>
+                        <th className="px-3 py-3.5 font-semibold" scope="col">วันที่สร้างบัญชี</th>
+                        <th className="px-5 py-3.5" scope="col"><span className="sr-only">ดูข้อมูล</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageUsers.map((user) => {
+                        const role = ROLE[user.role] ?? { label: user.role, tone: "muted" as AdminPillTone };
+                        return (
+                          <tr className="border-t border-[var(--line)] transition hover:bg-[var(--color-concrete)]" key={user.id}>
+                            <td className="px-5 py-3.5">
+                              <div className="flex items-center gap-3">
+                                <UserAvatar user={user} />
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-[var(--foreground)]">{user.full_name || "ไม่ระบุชื่อ"}</p>
+                                  <p className="text-xs text-[var(--muted)]">
+                                    {user.phone_number ? <a className="hover:text-[var(--color-safety)]" href={`tel:${user.phone_number}`}>{user.phone_number}</a> : "ไม่มีเบอร์โทร"}
+                                    {user.email ? <span className="hidden xl:inline"> · {user.email}</span> : null}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-3.5"><AdminPill tone={role.tone}>{role.label}</AdminPill></td>
+                            <td className="px-3 py-3.5 text-right font-semibold text-[var(--foreground)]">{user.vehicleCount}</td>
+                            <td className="px-3 py-3.5 text-right font-semibold text-[var(--foreground)]">{user.bookingCount}</td>
+                            <td className="whitespace-nowrap px-3 py-3.5">
+                              {user.latestBooking ? (
+                                <>
+                                  <p className="text-[var(--foreground)]">{formatDate(`${user.latestBooking.booking_date}T00:00:00`)}</p>
+                                  <p className="text-xs text-[var(--muted)]">{bookingStatusLabel(user.latestBooking.status)}</p>
+                                </>
+                              ) : <span className="text-[var(--muted)]">ยังไม่เคยจอง</span>}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-3.5 text-[var(--muted)]">{formatDate(user.created_at)}</td>
+                            <td className="px-5 py-3.5 text-right">
+                              <Link className="inline-flex min-h-9 items-center whitespace-nowrap rounded-xl bg-[var(--color-safety)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-safety-dim)]" href={`/admin/customers/${user.id}`}>
+                                ดูข้อมูลผู้ใช้
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <nav aria-label="เปลี่ยนหน้า" className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+                <p className="text-sm text-[var(--muted)]">
+                  แสดง {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filtered.length)} จาก {filtered.length} บัญชี
+                </p>
+                {totalPages > 1 ? (
+                  <div className="flex items-center gap-1.5">
+                    <button className={`${adminSecondaryButtonClass} min-h-10 px-4`} disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)} type="button">ก่อนหน้า</button>
+                    {pageNumbers(currentPage, totalPages).map((value, index) =>
+                      value === "…" ? (
+                        <span className="px-1 text-[var(--muted)]" key={`gap-${index}`}>…</span>
+                      ) : (
+                        <button
+                          aria-current={value === currentPage ? "page" : undefined}
+                          className={`grid h-10 min-w-10 place-items-center rounded-xl px-3 text-sm font-semibold ${value === currentPage ? "bg-[var(--color-safety)] text-white" : "bg-[var(--color-asphalt)] text-white hover:bg-[var(--color-asphalt-2)]"}`}
+                          key={value}
+                          onClick={() => setPage(value)}
+                          type="button"
+                        >
+                          {value}
+                        </button>
+                      ),
+                    )}
+                    <button className={`${adminSecondaryButtonClass} min-h-10 px-4`} disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)} type="button">ถัดไป</button>
+                  </div>
+                ) : null}
+              </nav>
+            </>
           )}
-        </section>
-      ) : null}
+        </>
+      )}
     </main>
   );
 }

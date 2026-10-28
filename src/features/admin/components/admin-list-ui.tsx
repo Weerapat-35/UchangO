@@ -111,6 +111,7 @@ export function AdminFilterBar<T extends string>({
 
 const PILL_TONES = {
   green: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  danger: "bg-red-50 text-[var(--color-safety)] ring-red-100",
   gray: "bg-slate-100 text-slate-600 ring-slate-200",
   amber: "bg-amber-50 text-amber-700 ring-amber-100",
   blue: "bg-sky-50 text-sky-700 ring-sky-100",
@@ -207,6 +208,20 @@ export function AdminLoadMessage({ status, message, loadingLabel }: { status: "l
     </div>
   );
 }
+
+/** การ์ดตัวเลขสรุป (ใบแรกของแถวใช้ highlight = พื้นแดง) */
+export function AdminStatCard({ value, label, highlight = false }: { value: ReactNode; label: string; highlight?: boolean }) {
+  return (
+    <div className={`rounded-2xl border px-5 py-4 shadow-sm ${highlight ? "border-[var(--color-safety)] bg-[var(--color-safety)] text-white" : "border-[var(--line)] bg-white text-[var(--foreground)]"}`}>
+      <p className="text-3xl font-bold tracking-tight">{value}</p>
+      <p className={`mt-1 text-sm ${highlight ? "text-white/85" : "text-[var(--muted)]"}`}>{label}</p>
+    </div>
+  );
+}
+
+/** ปุ่มลิงก์สีดำ asphalt (ปุ่มรองบนหัวหน้า) */
+export const adminDarkButtonClass =
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--color-asphalt)] px-5 text-sm font-semibold text-white transition hover:bg-[var(--color-asphalt-2)]";
 
 /** ป้ายทะเบียนรถแบบป้ายจริง อ่านง่ายจากระยะไกล */
 export function AdminPlate({ plate }: { plate: string | null | undefined }) {

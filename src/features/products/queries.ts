@@ -975,6 +975,14 @@ export async function submitProductPaymentSlip(
     };
   }
 
+  // SlipOK อ่านได้เฉพาะ JPG/PNG — รูป HEIC (iPhone) หรือ WEBP จะถูกตีกลับว่าอ่านสลิปไม่ได้
+  if (!["image/jpeg", "image/jpg", "image/png"].includes(input.file.type)) {
+    return {
+      data: null,
+      error: new Error("รองรับเฉพาะรูป JPG หรือ PNG แนะนำให้แคปหน้าจอสลิปจากแอปธนาคารแล้วแนบรูปนั้น"),
+    };
+  }
+
   const extension = getSafePaymentSlipExtension(input.file);
   const uploadedPath = `${customerId}/${input.orderId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const uploadResult = await supabase.storage

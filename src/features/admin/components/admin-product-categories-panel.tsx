@@ -1,9 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { AppNav } from "@/components/app-nav";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   checkAdminAccess,
@@ -11,770 +8,279 @@ import {
   deleteAdminProductCategory,
   getAdminDeleteErrorMessage,
   getAdminProductCategories,
+  getAdminProducts,
   updateAdminProductCategory,
-  type AdminAccessResult,
+  type AdminProduct,
   type AdminProductCategory,
-  type AdminProductCategoryCreateInput,
-  type AdminProductCategoryUpdateInput,
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
-import { recordStatusLabel } from "@/lib/status-labels";
+import {
+  AdminActiveSwitch,
+  AdminEmptyState,
+  AdminIcon,
+  AdminLoadMessage,
+  AdminPageIntro,
+  AdminPill,
+  AdminToast,
+  adminInputClass,
+  adminLabelClass,
+  adminPrimaryButtonClass,
+  adminSecondaryButtonClass,
+  adminTextareaClass,
+} from "./admin-list-ui";
 
 type LoadState =
-  | { status: "loading"; access: null; categories: null; error: null }
-  | { status: "signed-out"; access: null; categories: null; error: null }
-  | {
-      status: "access-denied";
-      access: Extract<AdminAccessResult, { allowed: false }>;
-      categories: null;
-      error: null;
-    }
-  | {
-      status: "ready";
-      access: AdminAccessResult;
-      categories: AdminProductCategory[];
-      error: null;
-    }
-  | { status: "error"; access: null; categories: null; error: string };
+  | { status: "loading" | "signed-out"; message: null; categories: null; products: null }
+  | { status: "access-denied" | "error"; message: string; categories: null; products: null }
+  | { status: "ready"; message: null; categories: AdminProductCategory[]; products: AdminProduct[] };
 
-type ActionState =
-  | { status: "idle"; categoryId: null; error: null; message: null }
-  | { status: "saving"; categoryId: string; error: null; message: null }
-  | { status: "deleting"; categoryId: string; error: null; message: null }
-  | { status: "error"; categoryId: string; error: string; message: null }
-  | { status: "saved"; categoryId: string; error: null; message: string };
-
-type CreateState =
-  | { status: "idle"; error: null; message: null }
-  | { status: "creating"; error: null; message: null }
-  | { status: "error"; error: string; message: null }
-  | { status: "created"; error: null; message: string };
-
-type StatusFilter = "all" | AdminProductCategory["status"];
-
-const statusFilters: StatusFilter[] = ["all", "active", "inactive"];
-
-function getStatusStyle(status: AdminProductCategory["status"]) {
-  if (status === "active") {
-    return "bg-emerald-50 text-[var(--brand-strong)]";
-  }
-
-  return "bg-slate-100 text-slate-700";
-}
-
-function validateCategoryInput(input: AdminProductCategoryUpdateInput) {
-  if (!input.name.trim()) {
-    return "กรุณากรอกชื่อหมวดหมู่";
-  }
-
-  return null;
-}
-
-function AddProductCategoryForm({
-  createState,
-  onCreate,
+function CategoryForm({
+  category,
+  error,
+  onCancel,
+  onDelete,
+  onSubmit,
+  saving,
 }: {
-  createState: CreateState;
-  onCreate: (input: AdminProductCategoryCreateInput) => void;
+  category: AdminProductCategory | null;
+  error: string;
+  onCancel: () => void;
+  onDelete: (category: AdminProductCategory) => void;
+  onSubmit: (input: { name: string; description: string | null; status: string }) => void;
+  saving: boolean;
 }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [status, setStatus] =
-    useState<AdminProductCategory["status"]>("active");
-  const isCreating = createState.status === "creating";
+  const [name, setName] = useState(category?.name ?? "");
+  const [description, setDescription] = useState(category?.description ?? "");
+  const [active, setActive] = useState((category?.status ?? "active") === "active");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onCreate({
-      description: description.trim() || null,
-      name: name.trim(),
-      status,
-    });
+    onSubmit({ name: name.trim(), description: description.trim() || null, status: active ? "active" : "inactive" });
   }
 
   return (
-    <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
-      <div className="border-b border-[var(--line)] pb-4">
-        <p className="text-sm font-semibold text-[var(--brand)]">
-          เพิ่มหมวดสินค้า
-        </p>
-        <p className="mt-1 text-sm leading-6 text-[var(--muted)]">
-          หมวดหมู่ใหม่จะแสดงในตัวเลือกหมวดสินค้าทันที
-        </p>
+    <section className={`rounded-2xl border bg-white p-5 shadow-sm lg:sticky lg:top-24 ${category ? "border-[var(--color-safety)]/40 ring-4 ring-red-50" : "border-[var(--line)]"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-[var(--foreground)]">{category ? "แก้ไขหมวดสินค้า" : "เพิ่มหมวดสินค้า"}</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">{category ? `กำลังแก้ไข "${category.name}"` : "หมวดใหม่จะเลือกได้ทันทีในหน้าสินค้า"}</p>
+        </div>
+        {category ? (
+          <button aria-label="ยกเลิกการแก้ไข" className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--color-concrete-2)]" onClick={onCancel} type="button">
+            <AdminIcon name="close" />
+          </button>
+        ) : null}
       </div>
 
-      <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px] md:items-end">
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            ชื่อหมวดหมู่
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setName(event.target.value)}
-              placeholder="เช่น อะไหล่เครื่องยนต์"
-              value={name}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            สถานะ
-            <select
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) =>
-                setStatus(event.target.value as AdminProductCategory["status"])
-              }
-              value={status}
-            >
-              <option value="active">เปิดใช้งาน</option>
-              <option value="inactive">ปิดใช้งาน</option>
-            </select>
-          </label>
-        </div>
-
-        <label className="text-sm font-semibold text-[var(--foreground)]">
-          รายละเอียด
-          <textarea
-            className="mt-2 min-h-20 w-full resize-y rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-            onChange={(event) => setDescription(event.target.value)}
-            value={description}
-          />
+      <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
+        <label className={adminLabelClass}>
+          ชื่อหมวดสินค้า
+          <input className={adminInputClass} onChange={(event) => setName(event.target.value)} placeholder="เช่น น้ำมันเครื่อง" value={name} />
         </label>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isCreating}
-            type="submit"
-          >
-            {isCreating ? "กำลังเพิ่ม..." : "เพิ่มหมวดสินค้า"}
-          </button>
-
-          {createState.status === "error" ? (
-            <p className="text-sm text-red-700">{createState.error}</p>
-          ) : null}
-
-          {createState.status === "created" ? (
-            <p className="text-sm font-semibold text-[var(--brand-strong)]">
-              {createState.message}
-            </p>
-          ) : null}
+        <label className={adminLabelClass}>
+          รายละเอียด <span className="font-normal text-[var(--muted)]">(ไม่บังคับ)</span>
+          <textarea className={adminTextareaClass} onChange={(event) => setDescription(event.target.value)} placeholder="คำอธิบายสั้น ๆ เช่น น้ำมันเครื่องและน้ำมันเกียร์" value={description} />
+        </label>
+        <div className="flex items-center justify-between gap-4 rounded-xl bg-[var(--color-concrete)] px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-[var(--foreground)]">เปิดใช้งาน</p>
+            <p className="text-xs text-[var(--muted)]">หมวดที่ปิดจะไม่แสดงในหน้าร้าน</p>
+          </div>
+          <AdminActiveSwitch active={active} label="เปิดใช้งาน" onToggle={() => setActive((value) => !value)} />
         </div>
+
+        {error ? <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
+
+        <button className={`${adminPrimaryButtonClass} w-full`} disabled={saving || !name.trim()} type="submit">
+          {saving ? "กำลังบันทึก..." : category ? "บันทึกการแก้ไข" : <><AdminIcon name="plus" /> เพิ่มหมวดสินค้า</>}
+        </button>
+        {category ? (
+          <div className="flex gap-2">
+            <button className={`${adminSecondaryButtonClass} flex-1`} onClick={onCancel} type="button">ยกเลิก</button>
+            <button className="min-h-11 flex-1 rounded-xl text-sm font-semibold text-[var(--color-safety)] hover:bg-red-50" onClick={() => onDelete(category)} type="button">ลบหมวดนี้</button>
+          </div>
+        ) : null}
       </form>
     </section>
   );
 }
 
-function AdminProductCategoryRow({
-  actionState,
-  category,
-  onDelete,
-  onSave,
-}: {
-  actionState: ActionState;
-  category: AdminProductCategory;
-  onDelete: (category: AdminProductCategory) => void;
-  onSave: (
-    category: AdminProductCategory,
-    input: AdminProductCategoryUpdateInput,
-  ) => void;
-}) {
-  const [name, setName] = useState(category.name);
-  const [description, setDescription] = useState(category.description ?? "");
-  const [status, setStatus] =
-    useState<AdminProductCategory["status"]>(category.status);
-  const isSaving =
-    actionState.status === "saving" && actionState.categoryId === category.id;
-  const isDeleting =
-    actionState.status === "deleting" && actionState.categoryId === category.id;
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const hasChanges =
-    name.trim() !== category.name ||
-    description.trim() !== (category.description ?? "") ||
-    status !== category.status;
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    onSave(category, {
-      description: description.trim() || null,
-      name: name.trim(),
-      status,
-    });
-  }
-
-  function handleDeleteClick() {
-    setIsConfirmOpen(true);
-  }
-
-  function handleConfirmDelete() {
-    setIsConfirmOpen(false);
-    onDelete(category);
-  }
-
-  return (
-    <article className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
-      <div className="mb-3 flex justify-end">
-        <button
-          aria-label="ลบหมวดหมู่สินค้า"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-red-200 bg-white text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={isSaving || isDeleting}
-          onClick={handleDeleteClick}
-          title="ลบหมวดหมู่สินค้า"
-          type="button"
-        >
-          {isDeleting ? (
-            <span className="text-xs">...</span>
-          ) : (
-            <svg
-              aria-hidden="true"
-              fill="none"
-              height="18"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              width="18"
-            >
-              <path d="M3 6h18" />
-              <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
-              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-              <path d="M10 11v6" />
-              <path d="M14 11v6" />
-            </svg>
-          )}
-        </button>
-      </div>
-      <div className="flex flex-col gap-3 border-b border-[var(--line)] pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <span
-            className={`rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusStyle(
-              category.status,
-            )}`}
-          >
-            {recordStatusLabel(category.status)}
-          </span>
-          <h2 className="mt-2 text-xl font-bold text-[var(--foreground)]">
-            {category.name}
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
-            {category.description ?? "-"}
-          </p>
-        </div>
-        <p className="text-xs text-[var(--muted)]">
-          แก้ไขล่าสุด {new Date(category.updated_at).toLocaleString("th-TH")}
-        </p>
-      </div>
-
-      <form className="mt-4 grid gap-3" onSubmit={handleSubmit}>
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_160px] md:items-end">
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            ชื่อหมวดหมู่
-            <input
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) => setName(event.target.value)}
-              value={name}
-            />
-          </label>
-
-          <label className="text-sm font-semibold text-[var(--foreground)]">
-            สถานะ
-            <select
-              className="mt-2 min-h-10 w-full rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-              onChange={(event) =>
-                setStatus(event.target.value as AdminProductCategory["status"])
-              }
-              value={status}
-            >
-              <option value="active">เปิดใช้งาน</option>
-              <option value="inactive">ปิดใช้งาน</option>
-            </select>
-          </label>
-        </div>
-
-        <label className="text-sm font-semibold text-[var(--foreground)]">
-          รายละเอียด
-          <textarea
-            className="mt-2 min-h-24 w-full resize-y rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-            onChange={(event) => setDescription(event.target.value)}
-            value={description}
-          />
-        </label>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            className="min-h-10 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!hasChanges || isSaving || isDeleting}
-            type="submit"
-          >
-            {isSaving ? "กำลังบันทึก..." : "บันทึกหมวดสินค้า"}
-          </button>
-
-          {actionState.status === "error" &&
-          actionState.categoryId === category.id ? (
-            <p className="text-sm text-red-700">{actionState.error}</p>
-          ) : null}
-
-          {actionState.status === "saved" &&
-          actionState.categoryId === category.id ? (
-            <p className="text-sm font-semibold text-[var(--brand-strong)]">
-              {actionState.message}
-            </p>
-          ) : null}
-        </div>
-      </form>
-
-      <ConfirmDialog
-        description={`"${category.name}" จะถูกลบถาวร รวมถึงสินค้าทั้งหมดในหมวดนี้และข้อมูลที่เกี่ยวข้อง และไม่สามารถกู้คืนได้ คุณแน่ใจหรือไม่?`}
-        onCancel={() => setIsConfirmOpen(false)}
-        onConfirm={handleConfirmDelete}
-        open={isConfirmOpen}
-        title="ลบหมวดหมู่สินค้านี้?"
-      />
-    </article>
-  );
-}
-
 export function AdminProductCategoriesPanel() {
-  const [loadState, setLoadState] = useState<LoadState>({
-    access: null,
-    categories: null,
-    error: null,
-    status: "loading",
-  });
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [searchInput, setSearchInput] = useState("");
-  const [actionState, setActionState] = useState<ActionState>({
-    categoryId: null,
-    error: null,
-    message: null,
-    status: "idle",
-  });
-  const [createState, setCreateState] = useState<CreateState>({
-    error: null,
-    message: null,
-    status: "idle",
-  });
+  const [loadState, setLoadState] = useState<LoadState>({ status: "loading", message: null, categories: null, products: null });
+  const [editing, setEditing] = useState<AdminProductCategory | null>(null);
+  const [formKey, setFormKey] = useState(0);
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AdminProductCategory | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
+  const clearToast = useCallback(() => setToast(null), []);
 
   useEffect(() => {
     let isMounted = true;
     const supabase = createClient();
 
     async function loadCategories() {
-      setLoadState({
-        access: null,
-        categories: null,
-        error: null,
-        status: "loading",
-      });
-
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (sessionError) {
-        setLoadState({
-          access: null,
-          categories: null,
-          error: sessionError.message,
-          status: "error",
-        });
-        return;
-      }
-
-      if (!session?.user) {
-        setLoadState({
-          access: null,
-          categories: null,
-          error: null,
-          status: "signed-out",
-        });
-        return;
-      }
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (!isMounted) return;
+      if (sessionError) return setLoadState({ status: "error", message: sessionError.message, categories: null, products: null });
+      if (!session?.user) return setLoadState({ status: "signed-out", message: null, categories: null, products: null });
 
       const access = await checkAdminAccess(supabase, session.user.id);
+      if (!isMounted) return;
+      if (!access.allowed) return setLoadState({ status: "access-denied", message: access.reason, categories: null, products: null });
 
-      if (!isMounted) {
-        return;
-      }
-
-      if (!access.allowed) {
-        setLoadState({
-          access,
-          categories: null,
-          error: null,
-          status: "access-denied",
-        });
-        return;
-      }
-
-      const { data, error } = await getAdminProductCategories(supabase);
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (error) {
-        setLoadState({
-          access: null,
-          categories: null,
-          error: error.message,
-          status: "error",
-        });
-        return;
-      }
-
-      setLoadState({
-        access,
-        categories: data ?? [],
-        error: null,
-        status: "ready",
-      });
+      const [categoriesResult, productsResult] = await Promise.all([getAdminProductCategories(supabase), getAdminProducts(supabase)]);
+      if (!isMounted) return;
+      const error = categoriesResult.error ?? productsResult.error;
+      if (error) return setLoadState({ status: "error", message: error.message, categories: null, products: null });
+      setLoadState({ status: "ready", message: null, categories: categoriesResult.data ?? [], products: productsResult.data ?? [] });
     }
 
     void loadCategories();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void loadCategories();
-    });
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => { void loadCategories(); });
     return () => {
       isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
 
-  const filteredCategories = useMemo(() => {
-    if (loadState.status !== "ready") {
-      return [];
+  const categories = useMemo(() => (loadState.status === "ready" ? loadState.categories : []), [loadState]);
+  const productCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const product of loadState.status === "ready" ? loadState.products : []) {
+      map.set(product.product_category_id, (map.get(product.product_category_id) ?? 0) + 1);
     }
+    return map;
+  }, [loadState]);
 
-    const normalizedSearch = searchInput.trim().toLowerCase();
-
-    return loadState.categories.filter((category) => {
-      const matchesStatus =
-        statusFilter === "all" || category.status === statusFilter;
-      const matchesSearch =
-        !normalizedSearch ||
-        category.name.toLowerCase().includes(normalizedSearch) ||
-        (category.description ?? "").toLowerCase().includes(normalizedSearch);
-
-      return matchesStatus && matchesSearch;
-    });
-  }, [loadState, searchInput, statusFilter]);
-
-  async function handleCreateCategory(input: AdminProductCategoryCreateInput) {
-    if (loadState.status !== "ready") {
-      return;
-    }
-
-    const validationError = validateCategoryInput(input);
-
-    if (validationError) {
-      setCreateState({
-        error: validationError,
-        message: null,
-        status: "error",
-      });
-      return;
-    }
-
-    const duplicateCategory = loadState.categories.find(
-      (category) => category.name.toLowerCase() === input.name.toLowerCase(),
-    );
-
-    if (duplicateCategory) {
-      setCreateState({
-        error: "มีชื่อหมวดสินค้านี้อยู่แล้ว",
-        message: null,
-        status: "error",
-      });
-      return;
-    }
-
-    setCreateState({
-      error: null,
-      message: null,
-      status: "creating",
-    });
-
-    const supabase = createClient();
-    const { data, error } = await createAdminProductCategory(supabase, input);
-
-    if (error) {
-      setCreateState({
-        error: error.message,
-        message: null,
-        status: "error",
-      });
-      return;
-    }
-
-    setLoadState({
-      ...loadState,
-      categories: [...loadState.categories, data].sort((a, b) =>
-        a.name.localeCompare(b.name, "th"),
-      ),
-    });
-    setCreateState({
-      error: null,
-      message: "เพิ่มหมวดสินค้าเรียบร้อยแล้ว",
-      status: "created",
-    });
+  function replaceCategories(next: AdminProductCategory[]) {
+    if (loadState.status === "ready") setLoadState({ ...loadState, categories: next });
   }
 
-  async function handleSaveCategory(
-    category: AdminProductCategory,
-    input: AdminProductCategoryUpdateInput,
-  ) {
-    if (loadState.status !== "ready") {
-      return;
-    }
-
-    const validationError = validateCategoryInput(input);
-
-    if (validationError) {
-      setActionState({
-        categoryId: category.id,
-        error: validationError,
-        message: null,
-        status: "error",
-      });
-      return;
-    }
-
-    const duplicateCategory = loadState.categories.find(
-      (currentCategory) =>
-        currentCategory.id !== category.id &&
-        currentCategory.name.toLowerCase() === input.name.toLowerCase(),
-    );
-
-    if (duplicateCategory) {
-      setActionState({
-        categoryId: category.id,
-        error: "มีชื่อหมวดสินค้านี้อยู่แล้ว",
-        message: null,
-        status: "error",
-      });
-      return;
-    }
-
-    setActionState({
-      categoryId: category.id,
-      error: null,
-      message: null,
-      status: "saving",
-    });
-
-    const supabase = createClient();
-    const { data, error } = await updateAdminProductCategory(
-      supabase,
-      category.id,
-      input,
-    );
-
-    if (error) {
-      setActionState({
-        categoryId: category.id,
-        error: error.message,
-        message: null,
-        status: "error",
-      });
-      return;
-    }
-
-    setLoadState({
-      ...loadState,
-      categories: loadState.categories.map((currentCategory) =>
-        currentCategory.id === category.id ? data : currentCategory,
-      ),
-    });
-    setActionState({
-      categoryId: category.id,
-      error: null,
-      message: "บันทึกหมวดสินค้าเรียบร้อยแล้ว",
-      status: "saved",
-    });
+  function startEdit(category: AdminProductCategory | null) {
+    setFormError("");
+    setEditing(category);
+    setFormKey((value) => value + 1);
   }
 
-  async function handleDeleteCategory(category: AdminProductCategory) {
-    if (loadState.status !== "ready") {
-      return;
+  async function handleSubmit(input: { name: string; description: string | null; status: string }) {
+    if (!input.name) return setFormError("กรุณากรอกชื่อหมวดสินค้า");
+    if (categories.some((category) => category.id !== editing?.id && category.name.toLowerCase() === input.name.toLowerCase())) {
+      return setFormError("มีชื่อหมวดสินค้านี้อยู่แล้ว");
     }
 
-    setActionState({
-      error: null,
-      message: null,
-      categoryId: category.id,
-      status: "deleting",
-    });
-
+    setSaving(true);
+    setFormError("");
     const supabase = createClient();
-    const { error } = await deleteAdminProductCategory(supabase, category.id);
+    const { data, error } = editing
+      ? await updateAdminProductCategory(supabase, editing.id, input)
+      : await createAdminProductCategory(supabase, input);
+    setSaving(false);
+    if (error || !data) return setFormError(error?.message ?? "บันทึกไม่สำเร็จ");
 
-    if (error) {
-      setActionState({
-        error: getAdminDeleteErrorMessage(error, "หมวดหมู่สินค้า"),
-        message: null,
-        categoryId: category.id,
-        status: "error",
-      });
-      return;
-    }
+    replaceCategories(
+      editing
+        ? categories.map((category) => (category.id === data.id ? data : category))
+        : [...categories, data].sort((a, b) => a.name.localeCompare(b.name, "th")),
+    );
+    setToast({ message: editing ? `บันทึก "${data.name}" แล้ว` : `เพิ่มหมวด "${data.name}" แล้ว`, tone: "success" });
+    startEdit(null);
+  }
 
-    setLoadState({
-      ...loadState,
-      categories: loadState.categories.filter(
-        (current) => current.id !== category.id,
-      ),
-    });
-    setActionState({
-      error: null,
-      message: null,
-      categoryId: null,
-      status: "idle",
-    });
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await deleteAdminProductCategory(createClient(), deleteTarget.id);
+    setDeleting(false);
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    if (error) return setToast({ message: getAdminDeleteErrorMessage(error, "หมวดหมู่สินค้า"), tone: "error" });
+    replaceCategories(categories.filter((category) => category.id !== target.id));
+    if (editing?.id === target.id) startEdit(null);
+    setToast({ message: `ลบหมวด "${target.name}" แล้ว`, tone: "success" });
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8">
-      <header className="border-b border-[var(--line)] pb-5">
-        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <AppNav />
-        </div>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              หมวดสินค้า
-            </h1>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Link
-              className="min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/admin/products"
-            >
-              จัดการสินค้า
-            </Link>
-            <Link
-              className="min-h-10 rounded-md border border-[var(--line)] bg-white px-4 py-2 text-center text-sm font-semibold text-[var(--muted)]"
-              href="/admin"
-            >
-              กลับแดชบอร์ด
-            </Link>
-          </div>
-        </div>
-      </header>
+    <main className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
+      {loadState.status !== "ready" ? (
+        <AdminLoadMessage loadingLabel="กำลังโหลดหมวดสินค้า..." message={loadState.message} status={loadState.status} />
+      ) : (
+        <>
+          <AdminPageIntro description="จัดการชื่อหมวด รายละเอียด และสถานะการใช้งานของหมวดสินค้า" />
 
-      {loadState.status === "loading" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="rounded-lg border border-[var(--line)] bg-white px-5 py-4 text-sm text-[var(--muted)] shadow-sm">
-            กำลังโหลดหมวดสินค้า...
-          </div>
-        </section>
-      ) : null}
+          <div className="grid items-start gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
+            <CategoryForm
+              category={editing}
+              error={formError}
+              key={formKey}
+              onCancel={() => startEdit(null)}
+              onDelete={setDeleteTarget}
+              onSubmit={(input) => void handleSubmit(input)}
+              saving={saving}
+            />
 
-      {loadState.status === "signed-out" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-800">
-            <p className="font-semibold">กรุณาเข้าสู่ระบบ</p>
-            <p className="mt-1">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลระบบ</p>
-            <Link
-              className="mt-4 block min-h-10 rounded-md bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-              href="/auth"
-            >
-              ไปหน้าเข้าสู่ระบบ
-            </Link>
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "access-denied" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-5 text-sm leading-6 text-red-700">
-            <p className="text-lg font-bold">ไม่มีสิทธิ์เข้าถึง</p>
-            <p className="mt-2">{loadState.access.reason}</p>
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "error" ? (
-        <section className="grid flex-1 place-items-center py-16">
-          <div className="max-w-xl rounded-lg border border-red-200 bg-white px-5 py-4 text-sm text-red-700 shadow-sm">
-            {loadState.error}
-          </div>
-        </section>
-      ) : null}
-
-      {loadState.status === "ready" ? (
-        <section className="py-6">
-          <AddProductCategoryForm
-            createState={createState}
-            key={loadState.categories.length}
-            onCreate={handleCreateCategory}
-          />
-
-          <div className="mt-5 flex flex-col gap-4 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-[var(--foreground)]">
-                {filteredCategories.length} จาก {loadState.categories.length}{" "}
-                หมวดสินค้า
-              </p>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                หมวดที่ปิดใช้งานยังดูได้ในหน้าแอดมิน แต่จะไม่แสดงในหน้าขายสินค้า
-              </p>
-            </div>
-
-            <div className="flex w-full flex-col gap-2 sm:flex-row lg:max-w-2xl">
-              <input
-                className="min-h-10 flex-1 rounded-md border border-[var(--line)] bg-white px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--brand)]"
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="ค้นหาหมวดสินค้า"
-                type="search"
-                value={searchInput}
-              />
-              <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
-                {statusFilters.map((status) => (
-                  <button
-                    className={
-                      statusFilter === status
-                        ? "min-h-10 shrink-0 rounded-md bg-[var(--brand)] px-4 text-sm font-semibold text-white"
-                        : "min-h-10 shrink-0 rounded-md border border-[var(--line)] bg-white px-4 text-sm font-semibold text-[var(--muted)]"
-                    }
-                    key={status}
-                    onClick={() => setStatusFilter(status)}
-                    type="button"
-                  >
-                    {status}
-                  </button>
-                ))}
+            {categories.length === 0 ? (
+              <AdminEmptyState description="เพิ่มหมวดแรกจากฟอร์มด้านซ้าย" title="ยังไม่มีหมวดสินค้า" />
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-white shadow-sm">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead className="bg-[var(--color-asphalt)] text-xs font-semibold text-white">
+                    <tr>
+                      <th className="px-5 py-3.5 font-semibold" scope="col">ชื่อหมวดสินค้า</th>
+                      <th className="px-3 py-3.5 text-right font-semibold" scope="col">จำนวนสินค้า</th>
+                      <th className="px-3 py-3.5 font-semibold" scope="col">สถานะ</th>
+                      <th className="px-5 py-3.5" scope="col"><span className="sr-only">แก้ไข</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categories.map((category) => {
+                      const count = productCounts.get(category.id) ?? 0;
+                      const isEditing = editing?.id === category.id;
+                      return (
+                        <tr className={`border-t border-[var(--line)] transition ${isEditing ? "bg-red-50/50" : "hover:bg-[var(--color-concrete)]"}`} key={category.id}>
+                          <td className="px-5 py-4">
+                            <p className="font-semibold text-[var(--foreground)]">{category.name}</p>
+                            <p className="mt-0.5 line-clamp-1 text-xs text-[var(--muted)]">{category.description || "ไม่มีรายละเอียด"}</p>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4 text-right">
+                            <span className="font-bold text-[var(--foreground)]">{count}</span> <span className="text-[var(--muted)]">สินค้า</span>
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-4">
+                            {category.status === "active" ? <AdminPill tone="done">เปิดใช้งาน</AdminPill> : <AdminPill tone="danger">ปิดใช้งาน</AdminPill>}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <button className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-[var(--color-asphalt)] px-4 text-sm font-semibold text-white hover:bg-[var(--color-asphalt-2)]" onClick={() => startEdit(category)} type="button">
+                              <AdminIcon name="edit" className="h-3.5 w-3.5" /> แก้ไข
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            )}
           </div>
+        </>
+      )}
 
-          {filteredCategories.length > 0 ? (
-            <div className="mt-5 space-y-4">
-              {filteredCategories.map((category) => (
-                <AdminProductCategoryRow
-                  actionState={actionState}
-                  category={category}
-                  key={category.id}
-                  onDelete={handleDeleteCategory}
-                  onSave={handleSaveCategory}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="mt-5 rounded-lg border border-dashed border-[var(--line)] bg-white p-6 text-sm leading-6 text-[var(--muted)]">
-              ไม่พบหมวดสินค้าที่ตรงกับตัวกรอง
-            </div>
-          )}
-        </section>
-      ) : null}
+      <ConfirmDialog
+        description={
+          deleteTarget
+            ? (productCounts.get(deleteTarget.id) ?? 0) > 0
+              ? `"${deleteTarget.name}" ยังมีสินค้า ${productCounts.get(deleteTarget.id)} รายการ ถ้าลบอาจไม่สำเร็จหรือกระทบสินค้าเหล่านั้น แนะนำให้ปิดใช้งานแทน`
+              : `"${deleteTarget.name}" จะถูกลบถาวรและไม่สามารถกู้คืนได้ คุณแน่ใจหรือไม่?`
+            : ""
+        }
+        isLoading={deleting}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => void handleDelete()}
+        open={deleteTarget !== null}
+        title="ลบหมวดสินค้านี้?"
+      />
+
+      <AdminToast message={toast?.message ?? null} onDone={clearToast} tone={toast?.tone} />
     </main>
   );
 }
