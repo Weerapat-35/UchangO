@@ -1184,8 +1184,8 @@ export function ServicesListing({
       ) : null}
 
       {loadState.status === "ready" ? (
-        <section className="grid gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <div>
+        <section className="grid grid-cols-[minmax(0,1fr)] gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="min-w-0">
             <div className="flex gap-2 overflow-x-auto pb-2">
               <button
                 className={
