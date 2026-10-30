@@ -510,3 +510,70 @@ export async function createAuthenticatedBooking(
     error: null,
   };
 }
+
+// ---------- ชำระค่าซ่อม (booking_payments) ----------
+// ทุกการเขียนผ่านฟังก์ชันฐานข้อมูล ส่วน client อ่านได้อย่างเดียว
+
+export type BookingPayment = Database["public"]["Tables"]["booking_payments"]["Row"];
+
+const allowedSlipTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const maxSlipBytes = 5 * 1024 * 1024;
+
+export async function getLatestBookingPayment(
+  supabase: BCareSupabaseClient,
+  bookingId: string,
+) {
+  const result = await supabase
+    .from("booking_payments")
+    .select("*")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return { data: result.data, error: result.error };
+}
+
+export async function submitBookingPaymentSlip(
+  supabase: BCareSupabaseClient,
+  customerId: string,
+  bookingId: string,
+  file: File,
+) {
+  if (!allowedSlipTypes.includes(file.type)) {
+    return { data: null, error: new Error("รองรับเฉพาะไฟล์ JPG, PNG และ WebP") };
+  }
+
+  if (file.size > maxSlipBytes) {
+    return { data: null, error: new Error("ไฟล์สลิปต้องมีขนาดไม่เกิน 5 MB") };
+  }
+
+  const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  const path = `${customerId}/bookings/${bookingId}-${Date.now()}.${extension}`;
+  const upload = await supabase.storage.from("payment-slips").upload(path, file, {
+    cacheControl: "3600",
+    contentType: file.type,
+    upsert: false,
+  });
+
+  if (upload.error) {
+    return { data: null, error: upload.error };
+  }
+
+  const result = await supabase.rpc("submit_booking_payment_slip", {
+    slip_payment_method: "promptpay",
+    slip_url: upload.data.path,
+    target_booking_id: bookingId,
+  });
+
+  if (result.error) {
+    await supabase.storage.from("payment-slips").remove([upload.data.path]);
+  }
+
+  return { data: result.data, error: result.error };
+}
+
+export async function confirmBookingPickup(supabase: BCareSupabaseClient, bookingId: string) {
+  const result = await supabase.rpc("confirm_booking_pickup", { target_booking_id: bookingId });
+  return { data: result.data, error: result.error };
+}

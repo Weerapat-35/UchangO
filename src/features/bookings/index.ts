@@ -1,12 +1,16 @@
 export {
   cancelCurrentUserBooking,
+  confirmBookingPickup,
   createAuthenticatedBooking,
   createGuestBooking,
   getBookingOperatingStatus,
   getBookingSlotAvailabilities,
   getCurrentUserBookingById,
   getCurrentUserBookings,
+  getLatestBookingPayment,
+  submitBookingPaymentSlip,
 } from "./queries";
+export type { BookingPayment } from "./queries";
 export type {
   AuthenticatedBookingInput,
   AuthenticatedBookingResult,

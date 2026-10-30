@@ -435,6 +435,30 @@ export async function getTechnicianWorkOrderById(
   };
 }
 
+// ปิดงานผ่านฟังก์ชันฐานข้อมูล เพื่อให้ระบบตั้งยอดค่าซ่อมและเปิดให้ลูกค้าชำระเงิน
+export async function completeTechnicianWorkOrder(
+  supabase: BCareSupabaseClient,
+  input: Pick<TechnicianWorkOrderUpdateInput, "diagnosis" | "repairNotes" | "workOrderId">,
+) {
+  const completeResult = await supabase.rpc("complete_repair_job_and_request_payment", {
+    diagnosis_text: input.diagnosis ?? "",
+    repair_notes_text: input.repairNotes ?? "",
+    target_work_order_id: input.workOrderId,
+  });
+
+  if (completeResult.error) {
+    return { data: null, error: completeResult.error };
+  }
+
+  const detailsResult = await attachTechnicianWorkOrderDetails(supabase, [completeResult.data]);
+
+  if (detailsResult.error) {
+    return { data: null, error: detailsResult.error };
+  }
+
+  return { data: detailsResult.data?.[0] ?? null, error: null };
+}
+
 export async function updateTechnicianWorkOrder(
   supabase: BCareSupabaseClient,
   input: TechnicianWorkOrderUpdateInput,

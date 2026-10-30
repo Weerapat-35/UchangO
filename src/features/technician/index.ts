@@ -3,6 +3,7 @@ export {
   getTechnicianWorkOrderById,
   getTechnicianWorkOrders,
   updateTechnicianProfile,
+  completeTechnicianWorkOrder,
   updateTechnicianWorkOrder,
 } from "./queries";
 export type {

@@ -17,6 +17,7 @@ import {
 } from "@/features/admin";
 import { createClient } from "@/lib/supabase/browser";
 import { bookingStatusLabel } from "@/lib/status-labels";
+import { AdminRepairPaymentSection } from "./admin-repair-payment-section";
 
 type LoadState =
   | { status: "loading"; access: null; booking: null; repairJob: null; error: null }
@@ -164,6 +165,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
     status: "idle",
   });
   const [isEditingStatus, setIsEditingStatus] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [selectedStatus, setSelectedStatus] =
     useState<AdminBookingStatusAction>("pending");
   const [workOrderActionState, setWorkOrderActionState] =
@@ -303,7 +305,7 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [bookingId]);
+  }, [bookingId, reloadKey]);
 
   async function handleStatusChange(nextStatus: AdminBookingStatusAction) {
     if (loadState.status !== "ready") {
@@ -564,6 +566,13 @@ export function AdminBookingDetailPanel({ bookingId }: { bookingId: string }) {
           </article>
 
           <aside className="h-fit space-y-4">
+            <AdminRepairPaymentSection
+              bookingId={loadState.booking.id}
+              onChanged={() => setReloadKey((value) => value + 1)}
+              paymentAmount={loadState.booking.payment_amount}
+              paymentStatus={loadState.booking.payment_status}
+              pickedUpAt={loadState.booking.picked_up_at}
+            />
             <section className="rounded-lg border border-[var(--line)] bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-[var(--brand)]">
                 ลูกค้า

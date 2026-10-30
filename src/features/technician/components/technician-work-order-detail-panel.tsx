@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  completeTechnicianWorkOrder,
   getTechnicianWorkOrderById,
   updateTechnicianWorkOrder,
   type TechnicianRepairJobStatus,
@@ -277,13 +278,17 @@ export function TechnicianWorkOrderDetailPanel({
     });
 
     const supabase = createClient();
-    const { data, error } = await updateTechnicianWorkOrder(supabase, {
+    const input = {
       diagnosis: normalizeText(formState.diagnosis),
       repairNotes: normalizeText(formState.repairNotes),
       status: nextStatus,
       userId: loadState.result.profile.id,
       workOrderId,
-    });
+    };
+    const { data, error } =
+      nextStatus === "completed"
+        ? await completeTechnicianWorkOrder(supabase, input)
+        : await updateTechnicianWorkOrder(supabase, input);
 
     if (error) {
       setSaveState({

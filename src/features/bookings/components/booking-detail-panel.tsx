@@ -25,6 +25,7 @@ import {
   ProgressTracker,
   StatusBadge,
 } from "./booking-ui";
+import { RepairPaymentSection } from "./repair-payment-section";
 
 type LoadState =
   | { status: "loading"; booking: null; error: null; userId: null }
@@ -458,6 +459,15 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
                 </>
               ) : null}
             </SectionCard>
+          ) : null}
+
+          {/* ชำระค่าซ่อม + ยืนยันรับรถ */}
+          {loadState.status === "ready" && booking.status !== "cancelled" ? (
+            <RepairPaymentSection
+              booking={booking}
+              onChanged={() => setReloadKey((value) => value + 1)}
+              userId={loadState.userId}
+            />
           ) : null}
 
           {/* ข้อมูลการจอง */}
