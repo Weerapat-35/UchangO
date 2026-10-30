@@ -25,6 +25,7 @@ import {
   ProgressTracker,
   StatusBadge,
 } from "./booking-ui";
+import { CheckinQr } from "./checkin-qr";
 import { RepairPaymentSection } from "./repair-payment-section";
 
 type LoadState =
@@ -458,6 +459,13 @@ export function BookingDetailPanel({ bookingId }: { bookingId: string }) {
                   ) : null}
                 </>
               ) : null}
+            </SectionCard>
+          ) : null}
+
+          {/* QR เช็กอินที่อู่ */}
+          {booking.status === "confirmed" || booking.checked_in_at ? (
+            <SectionCard title="เช็กอินที่อู่">
+              <CheckinQr bookingId={booking.id} checkedInAt={booking.checked_in_at} />
             </SectionCard>
           ) : null}
 
