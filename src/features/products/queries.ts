@@ -583,6 +583,10 @@ export async function createProductOrderFromCart(
       customer_id: customerId,
       delivery_address:
         input.deliveryMethod === "delivery" ? input.deliveryAddress : null,
+      delivery_latitude:
+        input.deliveryMethod === "delivery" ? (input.deliveryCoordinates?.latitude ?? null) : null,
+      delivery_longitude:
+        input.deliveryMethod === "delivery" ? (input.deliveryCoordinates?.longitude ?? null) : null,
       delivery_fee: deliveryFee,
       delivery_method: input.deliveryMethod,
       note: input.note,

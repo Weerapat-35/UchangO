@@ -54,6 +54,7 @@ export type CheckoutDeliveryMethod = ProductOrder["delivery_method"];
 export type CheckoutInput = {
   deliveryMethod: CheckoutDeliveryMethod;
   deliveryAddress: string | null;
+  deliveryCoordinates: { latitude: number; longitude: number } | null;
   deliveryFee: number;
   note: string | null;
 };

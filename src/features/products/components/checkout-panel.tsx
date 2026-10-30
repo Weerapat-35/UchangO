@@ -65,6 +65,8 @@ type SavedAddress = {
   created_at: string;
   id: string;
   is_default: boolean;
+  latitude: number | null;
+  longitude: number | null;
   phone_number: string;
   recipient_name: string;
 };
@@ -296,7 +298,7 @@ export function CheckoutPanel() {
     async function loadAddresses() {
       const { data } = await createClient()
         .from("delivery_addresses")
-        .select("id, recipient_name, phone_number, address_line, is_default, created_at")
+        .select("id, recipient_name, phone_number, address_line, is_default, created_at, latitude, longitude")
         .eq("customer_id", customerId as string)
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: false });
@@ -380,6 +382,7 @@ export function CheckoutPanel() {
     const supabase = createClient();
 
     let orderAddress: string | null = null;
+    let orderCoordinates: { latitude: number; longitude: number } | null = null;
 
     if (deliveryMethod === "delivery") {
       const savedAddress =
@@ -389,6 +392,9 @@ export function CheckoutPanel() {
 
       if (savedAddress) {
         orderAddress = `${savedAddress.recipient_name} ${savedAddress.phone_number} ${savedAddress.address_line}`;
+        if (savedAddress.latitude !== null && savedAddress.longitude !== null) {
+          orderCoordinates = { latitude: savedAddress.latitude, longitude: savedAddress.longitude };
+        }
         // จำที่อยู่ที่ใช้ครั้งนี้ไว้เป็นค่าเริ่มต้นของครั้งต่อไป
         await markDefaultAddress(supabase, authState.user.id, savedAddress.id);
       } else {
@@ -436,6 +442,7 @@ export function CheckoutPanel() {
         ].filter(Boolean).join(" ");
 
         orderAddress = `${recipientName.trim()} ${phoneNumber.trim()} ${formattedAddress}`;
+        orderCoordinates = { latitude: location.latitude, longitude: location.longitude };
 
         // บันทึกที่อยู่ไว้ใช้ครั้งต่อไป (เฉพาะเมื่อลูกค้าติ๊กเลือกไว้)
         if (saveNewAddress) {
@@ -482,6 +489,7 @@ export function CheckoutPanel() {
       authState.user.id,
       {
         deliveryAddress: deliveryMethod === "delivery" ? orderAddress : null,
+        deliveryCoordinates: deliveryMethod === "delivery" ? orderCoordinates : null,
         deliveryFee: resolvedDeliveryFee,
         deliveryMethod,
         note: note.trim() || null,
