@@ -1525,6 +1525,7 @@ export async function approveAdminProductPayment(
       paid_at: now,
       payment_status: "paid",
       rejected_reason: null,
+      verification_provider: "manual",
       verification_status: "verified",
       verified_at: now,
     })
@@ -1573,6 +1574,7 @@ export async function rejectAdminProductPayment(
       paid_at: null,
       payment_status: "failed",
       rejected_reason: rejectedReason,
+      verification_provider: "manual",
       verification_status: "rejected",
       verified_at: null,
     })
