@@ -171,6 +171,7 @@ export function TechnicianWorkOrderDetailPanel({
 
   useEffect(() => {
     let isMounted = true;
+    let loadedUserId: string | null = null;
     const supabase = createClient();
 
     async function loadWorkOrder() {
@@ -211,6 +212,7 @@ export function TechnicianWorkOrderDetailPanel({
         return;
       }
 
+      loadedUserId = session.user.id;
       const { data, error } = await getTechnicianWorkOrderById(
         supabase,
         session.user.id,
@@ -245,7 +247,12 @@ export function TechnicianWorkOrderDetailPanel({
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // Token refreshes and focus re-checks fire for the same user; reloading
+      // then would wipe the diagnosis and notes the technician is typing.
+      if ((session?.user.id ?? null) === loadedUserId && event !== "SIGNED_OUT") {
+        return;
+      }
       void loadWorkOrder();
     });
 
