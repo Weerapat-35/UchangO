@@ -102,6 +102,17 @@ function getSlipOkFailureKind(
     return "provider_unavailable";
   }
 
+  // แพ็กเกจ/โควต้า SlipOK ของร้านหมดอายุ — เป็นปัญหาฝั่งร้าน ไม่ใช่สลิปเสีย ให้แอดมินตรวจเอง
+  if (
+    normalizedText.includes("package") ||
+    normalizedText.includes("quota") ||
+    normalizedText.includes("expired") ||
+    normalizedText.includes("หมดอายุ") ||
+    normalizedText.includes("โควต้า")
+  ) {
+    return "provider_unavailable";
+  }
+
   // ธนาคารยังส่งข้อมูลรายการโอนให้ SlipOK ไม่ทัน (เพิ่งโอน) — ไม่ใช่สลิปเสีย ให้รอแล้วตรวจใหม่
   if (
     String(response.code) === "1010" ||
